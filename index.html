@@ -11,7 +11,9 @@
     Select a text file:
     <input type="file" id="fileInput">
 </div>
+<!--<canvas class="canvas" style="background-size: 140%; background-image: url('img/indoors-office.png')">
 
+</canvas>-->
 <script src="js/papaparse.js"></script>
 <script src="js/three.js"></script>
 <script>
@@ -33,21 +35,44 @@
         scene = new THREE.Scene();
         camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, -500, 1000);
 
+        var bgMaterial = new THREE.MeshBasicMaterial();
+
+        var loader = new THREE.TextureLoader();
+        loader.load(
+            'img/indoors-office.png',
+            function ( texture ) {
+                bgMaterial = new THREE.MeshBasicMaterial({
+                    map: texture
+                });
+
+                var backgroundMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(window.innerWidth, window.innerHeight, 0),
+                    bgMaterial
+                );
+                scene.add(backgroundMesh);
+                render();
+            },
+            function () {},
+            function () {
+                console.log('bg-loading failed');
+            }
+        );
+
         //Coordinate system
         var coordGeometry = new THREE.Geometry();
         //x-axis
-        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 0));
-        coordGeometry.vertices.push( new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR, 0));
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 1));
+        coordGeometry.vertices.push( new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR, 1));
         //y-axis
-        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 0));
-        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_BOTTOM_CORR, 0));
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 1));
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_BOTTOM_CORR, 1));
 
-        var coordMaterial = new THREE.LineBasicMaterial( { color: 0x000000, opacity: 1 } );
+        var coordMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
         var coordLines = new THREE.Line( coordGeometry, coordMaterial );
         scene.add( coordLines );
 
-        renderer = new THREE.WebGLRenderer();
-        renderer.setClearColor( 0xffffff );
+        renderer = new THREE.WebGLRenderer( {antialias: true, alpha: true} );
+        renderer.setClearColor( 0xffffff, 0);
         renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( renderer.domElement );
     }
@@ -214,7 +239,6 @@
     function render() {
         renderer.render( scene, camera );
     }
-
 
 </script>
 </body>
