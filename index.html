@@ -7,6 +7,7 @@
     </style>
 </head>
 <body>
+<script src="js/papaparse.js"></script>
 <script src="js/three.js"></script>
 <script>
 
@@ -40,7 +41,8 @@
 
         //Trajectories
         var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
-        var trajectoryList = makeTrajectories(groupPointList(importCSV()));
+        //var trajectoryList = makeTrajectoryLines(groupPointList(importCSV()));
+        var trajectoryList = makeTrajectorySplines(groupPointList(importCSV()));
         trajectoryList.forEach(
             function ( trajectory ) {
 
@@ -63,7 +65,7 @@
         var pointList = [
             {x: 0, y: 500, t: 0, f: 1, id: "10"},
             {x: 10, y: 490, t: 10, f: 1, id: "10"},
-            {x: 20, y: 480, t: 20, f: 1, id: "10"},
+            {x: 20, y: 500, t: 20, f: 1, id: "10"},
             {x: 30, y: 470, t: 30, f: 1, id: "10"},
             {x: 40, y: 460, t: 40, f: 1, id: "20"},
             {x: 50, y: 450, t: 50, f: 1, id: "20"},
@@ -119,11 +121,12 @@
         return pointListByID;
     }
 
-    function makeTrajectories ( sortedPointArray ) {
+    //straight lines instead of curves -- deprecated
+    function makeTrajectoryLines ( sortedPointList ) {
         //var point = { x: 0, y: 0, t: 0, f: 0, id: "0" };
         var tempTrajectoryList = [];
 
-        sortedPointArray.forEach(
+        sortedPointList.forEach(
             function ( pointGroup ) {
                 var geometry = new THREE.Geometry();
                 pointGroup.forEach(
@@ -134,7 +137,25 @@
                 tempTrajectoryList.push(geometry);
             }
         );
+        return tempTrajectoryList;
+    }
 
+    //makes SplineCurve3s from pointList
+    function makeTrajectorySplines ( sortedPointList ) {
+        var tempTrajectoryList = [];
+
+        sortedPointList.forEach(
+            function ( pointGroup ) {
+                var points = [];
+                pointGroup.forEach(
+                    function ( point ){
+                        points.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                var curve = new THREE.SplineCurve3( points );
+                tempTrajectoryList.push( new THREE.Path(curve.getPoints( 50 )).createPointsGeometry( 50 ));
+            }
+        );
         return tempTrajectoryList;
     }
 
