@@ -7,6 +7,11 @@
     </style>
 </head>
 <body>
+<div>
+    Select a text file:
+    <input type="file" id="fileInput">
+</div>
+
 <script src="js/papaparse.js"></script>
 <script src="js/three.js"></script>
 <script>
@@ -18,10 +23,12 @@
     var V_RIGHT_CORR = (window.innerWidth / 2) - FRAME_COORDSYS;
     var V_BOTTOM_CORR = - ((window.innerHeight / 2) - FRAME_COORDSYS);
 
+
+    initTextReader();
     init();
     render();
 
-    //readTextFile("file:///data/points.csv");
+    //initTextReader("file:///data/points.csv");
 
     function init() {
 
@@ -41,75 +48,83 @@
         var coordLines = new THREE.Line( coordGeometry, coordMaterial );
         scene.add( coordLines );
 
-        //Trajectories
-        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
-        //var trajectoryList = makeTrajectoryLines(groupPointList(importCSV()));
-        var trajectoryList = makeTrajectorySplines(groupPointList(importCSV()));
-        trajectoryList.forEach(
-            function ( trajectory ) {
-
-                scene.add( new THREE.Line( trajectory, trajectoryMaterial));
-            }
-        );
-
         renderer = new THREE.WebGLRenderer();
         renderer.setClearColor( 0xffffff );
         renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( renderer.domElement );
     }
 
-/*    function readTextFile( filePath ) {
-        var rawFile = new XMLHttpRequest();
-        rawFile.open("GET", filePath, false);
-        rawFile.onreadystatechange = function ()
-        {
-            if(rawFile.readyState === 4)
-            {
-                if(rawFile.status === 200 || rawFile.status == 0)
-                {
-                    var allText = rawFile.responseText;
-                    alert(allText);
-                }
+    function initTextReader () {
+
+        var fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener( 'change', function( e ) {
+
+            var file = fileInput.files[0];
+            var textType = /text.*/;
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+                reader.onload = function ( e ) {
+                    //alert(reader.result);
+                    drawTrajectories(reader.result);
+                };
+                reader.readAsText(file);
+            } else {
+                alert("File not supported");
             }
-        };
-        rawFile.send(null);
-    }*/
+        });
+    }
 
-    function importCSV () {
-        //papa parse
+    function drawTrajectories ( readerResult ){
 
-        //not implemented yet
-
-        var iW = window.innerWidth;
-        var iH = window.innerHeight;
-
-        var pointList = [
-            {x: 0, y: 500, t: 0, f: 1, id: "10"},
-            {x: 10, y: 490, t: 10, f: 1, id: "10"},
-            {x: 20, y: 500, t: 20, f: 1, id: "10"},
-            {x: 30, y: 470, t: 30, f: 1, id: "10"},
-            {x: 40, y: 460, t: 40, f: 1, id: "20"},
-            {x: 50, y: 450, t: 50, f: 1, id: "20"},
-            {x: 60, y: 440, t: 60, f: 1, id: "30"},
-            {x: 70, y: 430, t: 70, f: 1, id: "30"},
-            {x: 80, y: 420, t: 80, f: 1, id: "30"},
-            {x: 90, y: 410, t: 90, f: 1, id: "30"},
-            {x: 100, y: 400, t: 100, f: 1, id: "40"},
-            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "40"},
-            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
-            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
-            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
-            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
-        ];
-
-        pointList.forEach(
-            function ( point ) {
-                point.x = point.x + V_LEFT_CORR;
-                point.y = point.y * ( - 1 ) + V_TOP_CORR;
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
+        var trajectoryList = makeTrajectoryCurves(groupPointList(importCSV(readerResult)));
+        trajectoryList.forEach(
+            function ( trajectory ) {
+                scene.add( new THREE.Line( trajectory, trajectoryMaterial));
             }
         );
+        render();
+    }
 
-        return pointList;
+    //straight lines instead of curves -- not in use
+    function makeTrajectoryLines ( sortedPointList ) {
+        //var point = { x: 0, y: 0, t: 0, f: 0, id: "0" };
+        var tempTrajectoryList = [];
+
+        sortedPointList.forEach(
+            function ( pointGroup ) {
+                var geometry = new THREE.Geometry();
+                pointGroup.forEach(
+                    function ( point ){
+                        geometry.vertices.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                tempTrajectoryList.push(geometry);
+            }
+        );
+        return tempTrajectoryList;
+    }
+
+    //makes SplineCurve3s from pointList
+    function makeTrajectoryCurves ( sortedPointList ) {
+        var tempTrajectoryList = [];
+
+        sortedPointList.forEach(
+            function ( pointGroup ) {
+                var points = [];
+                pointGroup.forEach(
+                    function ( point ){
+                        points.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                var curve = new THREE.CatmullRomCurve3( points );
+                var geometry = new THREE.Geometry();
+                geometry.vertices = curve.getPoints( 50 );
+                tempTrajectoryList.push( geometry );
+            }
+        );
+        return tempTrajectoryList;
     }
 
     function groupBy( array , f ) {
@@ -134,7 +149,7 @@
         var pointListByID = groupBy(
             pointList,
             function(item) { //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
-                return [item.id]; //, item.t
+                return [item.did]; //, item.t
             }
         );
 
@@ -142,43 +157,50 @@
         return pointListByID;
     }
 
-    //straight lines instead of curves -- deprecated
-    function makeTrajectoryLines ( sortedPointList ) {
-        //var point = { x: 0, y: 0, t: 0, f: 0, id: "0" };
-        var tempTrajectoryList = [];
+    function importCSV ( csvString ) {
 
-        sortedPointList.forEach(
-            function ( pointGroup ) {
-                var geometry = new THREE.Geometry();
-                pointGroup.forEach(
-                    function ( point ){
-                        geometry.vertices.push( new THREE.Vector3(point.x, point.y, 0));
-                    }
-                );
-                tempTrajectoryList.push(geometry);
+        var results = Papa.parse(csvString , {
+            header: true,
+            dynamicTyping: true
+        });
+        console.log(results);
+
+        /*var pointList = [];
+            results.data.forEach(function ( o ){
+                pointList.push( o );
+            })*/
+
+        //not implemented yet
+
+        /*    var iW = window.innerWidth;
+        var iH = window.innerHeight;*/
+
+        /*var pointList = [
+            {x: 0, y: 500, t: 0, f: 1, id: "10"},
+            {x: 10, y: 490, t: 10, f: 1, id: "10"},
+            {x: 20, y: 500, t: 20, f: 1, id: "10"},
+            {x: 30, y: 470, t: 30, f: 1, id: "10"},
+            {x: 40, y: 460, t: 40, f: 1, id: "20"},
+            {x: 50, y: 450, t: 50, f: 1, id: "20"},
+            {x: 60, y: 440, t: 60, f: 1, id: "30"},
+            {x: 70, y: 430, t: 70, f: 1, id: "30"},
+            {x: 80, y: 420, t: 80, f: 1, id: "30"},
+            {x: 90, y: 410, t: 90, f: 1, id: "30"},
+            {x: 100, y: 400, t: 100, f: 1, id: "40"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "40"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
+        ];*/
+
+        results.data.forEach(
+            function ( point ) {
+                point.x = point.x + V_LEFT_CORR;
+                point.y = point.y * ( - 1 ) + V_TOP_CORR;
             }
         );
-        return tempTrajectoryList;
-    }
-
-    //makes SplineCurve3s from pointList
-    function makeTrajectorySplines ( sortedPointList ) {
-        var tempTrajectoryList = [];
-
-        sortedPointList.forEach(
-            function ( pointGroup ) {
-                var points = [];
-                pointGroup.forEach(
-                    function ( point ){
-                        points.push( new THREE.Vector3(point.x, point.y, 0));
-                    }
-                );
-                //SplineCurve3 is deprecated -> Use CatmullRomCurve
-                var curve = new THREE.SplineCurve3( points );
-                tempTrajectoryList.push( new THREE.Path(curve.getPoints( 50 )).createPointsGeometry( 50 ));
-            }
-        );
-        return tempTrajectoryList;
+        return results.data;
     }
 
     function render() {
