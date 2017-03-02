@@ -28,8 +28,6 @@
     init();
     render();
 
-    //initTextReader("file:///data/points.csv");
-
     function init() {
 
         scene = new THREE.Scene();
@@ -137,6 +135,17 @@
                 groups[group].push( object );
             }
         );
+
+        //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+
+        //filter DIDs with only one point -- not working, groups is an object, not list
+        /*var filteredGroups = [];
+        groups.forEach(function ( group ) {
+            if (group.size > 1) {
+                filteredGroups.push(group);
+            }
+        });*/
+
         return Object.keys(groups).map(
             function( group ) {
                 return groups[group];
@@ -148,12 +157,11 @@
 
         var pointListByID = groupBy(
             pointList,
-            function(item) { //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+            function(item) {
                 return [item.did]; //, item.t
             }
         );
-        //missing: abfangen wenn eine DID nur einen Punkt beinhaltet
-        console.log(pointListByID);
+        //console.log(pointListByID);
         return pointListByID;
     }
 
@@ -163,7 +171,7 @@
             header: true,
             dynamicTyping: true
         });
-        console.log(results);
+        //console.log(results);
 
         /*var pointList = [];
             results.data.forEach(function ( o ){
