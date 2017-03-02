@@ -1,6 +1,6 @@
 <html>
 <head>
-    <title>My first three.js app</title>
+    <title>draw_lines</title>
     <style>
         body { margin: 0; }
         canvas { width: 100%; height: 100% }
@@ -11,6 +11,11 @@
 <script>
 
     var camera, scene, renderer;
+    var FRAME_COORDSYS = 50;
+    var V_LEFT_CORR = - ((window.innerWidth / 2) - FRAME_COORDSYS);
+    var V_TOP_CORR = (window.innerHeight / 2) - FRAME_COORDSYS;
+    var V_RIGHT_CORR = (window.innerWidth / 2) - FRAME_COORDSYS;
+    var V_BOTTOM_CORR = - ((window.innerHeight / 2) - FRAME_COORDSYS);
 
     init();
     render();
@@ -18,83 +23,124 @@
     function init() {
 
         scene = new THREE.Scene();
-        camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, -500, 1000)
-        /*camera.position.x = 200;
-        camera.position.y = 100;
-        camera.position.z = 200;*/
+        camera = new THREE.OrthographicCamera(window.innerWidth / -2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / -2, -500, 1000);
 
+        //Coordinate system
+        var coordGeometry = new THREE.Geometry();
+        //x-axis
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 0));
+        coordGeometry.vertices.push( new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR, 0));
+        //y-axis
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 0));
+        coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_BOTTOM_CORR, 0));
 
-        //Grid
+        var coordMaterial = new THREE.LineBasicMaterial( { color: 0x000000, opacity: 1 } );
+        var coordLines = new THREE.Line( coordGeometry, coordMaterial );
+        scene.add( coordLines );
 
-        var gridSize = 500, gridStep = 50;
+        //Trajectories
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
+        var trajectoryList = makeTrajectories(groupPointList(importCSV()));
+        trajectoryList.forEach(
+            function ( trajectory ) {
 
-        var geometry = new THREE.Geometry();
-
-        geometry.vertices.push( new THREE.Vector3(100, 0, 0));
-        geometry.vertices.push( new THREE.Vector3(0, 100, 0));
-        geometry.vertices.push( new THREE.Vector3(0, 0, 100));
-
-
-        /* for ( var i = - gridSize; i <= gridSize; i += gridStep ) {
-             geometry.vertices.push( new THREE.Vector3( - gridSize, 0, i ) );
-             geometry.vertices.push( new THREE.Vector3(   gridSize, 0, i ) );
-             geometry.vertices.push( new THREE.Vector3( i, 0, - gridSize ) );
-             geometry.vertices.push( new THREE.Vector3( i, 0,   gridSize ) );
-         }*/
-
-        var material = new THREE.LineBasicMaterial( { color: 0x000000, opacity: 0.2 } );
-        var line = new THREE.LineSegments( geometry, material );
-        scene.add( line );
-
-       /* var geometry = new THREE.BoxGeometry( 50, 50, 50 );
-        var material = new THREE.MeshLambertMaterial( { color: 0xffffff, overdraw: 0.5 } );
-        for ( var i = 0; i < 100; i ++ ) {
-            var cube = new THREE.Mesh( geometry, material );
-            cube.scale.y = Math.floor( Math.random() * 2 + 1 );
-            cube.position.x = Math.floor( ( Math.random() * 1000 - 500 ) / 50 ) * 50 + 25;
-            cube.position.y = ( cube.scale.y * 50 ) / 2;
-            cube.position.z = Math.floor( ( Math.random() * 1000 - 500 ) / 50 ) * 50 + 25;
-            scene.add( cube );
-        }*/
+                scene.add( new THREE.Line( trajectory, trajectoryMaterial));
+            }
+        );
 
         renderer = new THREE.WebGLRenderer();
-        renderer.setClearColor( 0xf0f0f0 );
-        //renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setClearColor( 0xffffff );
         renderer.setSize( window.innerWidth, window.innerHeight );
         document.body.appendChild( renderer.domElement );
+    }
+
+    function importCSV () {
+        //not implemented yet
+
+        var iW = window.innerWidth;
+        var iH = window.innerHeight;
+
+        var pointList = [
+            {x: 0, y: 500, t: 0, f: 1, id: "10"},
+            {x: 10, y: 490, t: 10, f: 1, id: "10"},
+            {x: 20, y: 480, t: 20, f: 1, id: "10"},
+            {x: 30, y: 470, t: 30, f: 1, id: "10"},
+            {x: 40, y: 460, t: 40, f: 1, id: "20"},
+            {x: 50, y: 450, t: 50, f: 1, id: "20"},
+            {x: 60, y: 440, t: 60, f: 1, id: "30"},
+            {x: 70, y: 430, t: 70, f: 1, id: "30"},
+            {x: 80, y: 420, t: 80, f: 1, id: "30"},
+            {x: 90, y: 410, t: 90, f: 1, id: "30"},
+            {x: 100, y: 400, t: 100, f: 1, id: "40"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "40"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+            {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
+        ];
+
+        pointList.forEach(
+            function ( point ) {
+                point.x = point.x + V_LEFT_CORR;
+                point.y = point.y * ( - 1 ) + V_TOP_CORR;
+            }
+        );
+
+        return pointList;
+    }
+
+    function groupBy( array , f ) {
+
+        var groups = {};
+        array.forEach(
+            function( object ) {
+                var group = JSON.stringify( f( object ) );
+                groups[group] = groups[group] || [];
+                groups[group].push( object );
+            }
+        );
+        return Object.keys(groups).map(
+            function( group ) {
+                return groups[group];
+            }
+        )
+    }
+
+    function groupPointList ( pointList ) {
+
+        var pointListByID = groupBy(
+            pointList,
+            function(item) { //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+                return [item.id]; //, item.t
+            }
+        );
+
+        console.log(pointListByID);
+        return pointListByID;
+    }
+
+    function makeTrajectories ( sortedPointArray ) {
+        //var point = { x: 0, y: 0, t: 0, f: 0, id: "0" };
+        var tempTrajectoryList = [];
+
+        sortedPointArray.forEach(
+            function ( pointGroup ) {
+                var geometry = new THREE.Geometry();
+                pointGroup.forEach(
+                    function ( point ){
+                        geometry.vertices.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                tempTrajectoryList.push(geometry);
+            }
+        );
+
+        return tempTrajectoryList;
     }
 
     function render() {
-//        var timer = Date.now() * 0.0001;
-//        camera.position.x = Math.cos( timer ) * 200;
-//        camera.position.z = Math.sin( timer ) * 200;
-        //camera.lookAt( scene.position );
         renderer.render( scene, camera );
     }
-
-
-        //var scene = new THREE.Scene();
-        //var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
-        //var camera = new THREE.OrthographicCamera( window.innerWidth, window.innerWidth, window.innerHeight, window.innerHeight, 0, 2000 );
-
-       /* var renderer = new THREE.WebGLRenderer();
-        renderer.setSize( window.innerWidth, window.innerHeight );
-        document.body.appendChild( renderer.domElement );
-
-        var geometry = new THREE.BoxGeometry( 1, 1, 1 );
-        var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
-        var cube = new THREE.Mesh( geometry, material );
-        scene.add( cube );
-
-        camera.position.z = 0;
-
-        var render = function () {
-            requestAnimationFrame( render );
-
-            renderer.render(scene, camera);
-        };
-
-        render();*/
 
 
 </script>
