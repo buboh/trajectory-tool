@@ -25,3 +25,10 @@ coordSys.vertices.push(xAxis1, xAxis2, yAxis1, yAxis2);
  coordSys.vertices.push( new THREE.Vector3( i, 0, - gridSize ) );
  coordSys.vertices.push( new THREE.Vector3( i, 0,   gridSize ) );
  }*/
+
+/* var csvFile = new File();
+ csvFile.
+ //var url = new URL("as");
+
+ //Papa.parse()
+ */

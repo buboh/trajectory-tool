@@ -21,6 +21,8 @@
     init();
     render();
 
+    //readTextFile("file:///data/points.csv");
+
     function init() {
 
         scene = new THREE.Scene();
@@ -56,7 +58,26 @@
         document.body.appendChild( renderer.domElement );
     }
 
+/*    function readTextFile( filePath ) {
+        var rawFile = new XMLHttpRequest();
+        rawFile.open("GET", filePath, false);
+        rawFile.onreadystatechange = function ()
+        {
+            if(rawFile.readyState === 4)
+            {
+                if(rawFile.status === 200 || rawFile.status == 0)
+                {
+                    var allText = rawFile.responseText;
+                    alert(allText);
+                }
+            }
+        };
+        rawFile.send(null);
+    }*/
+
     function importCSV () {
+        //papa parse
+
         //not implemented yet
 
         var iW = window.innerWidth;
@@ -152,6 +173,7 @@
                         points.push( new THREE.Vector3(point.x, point.y, 0));
                     }
                 );
+                //SplineCurve3 is deprecated -> Use CatmullRomCurve
                 var curve = new THREE.SplineCurve3( points );
                 tempTrajectoryList.push( new THREE.Path(curve.getPoints( 50 )).createPointsGeometry( 50 ));
             }
