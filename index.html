@@ -24,7 +24,10 @@
     var V_TOP_CORR = (window.innerHeight / 2) - FRAME_COORDSYS;
     var V_RIGHT_CORR = (window.innerWidth / 2) - FRAME_COORDSYS;
     var V_BOTTOM_CORR = - ((window.innerHeight / 2) - FRAME_COORDSYS);
-
+    var IW = window.innerWidth;
+    var IH = window.innerHeight;
+    var SCALE_STROKE_L = 10; //length of scale strokes
+    var SCALE_STROKE_D = 50; //space between two scale strokes
 
     initTextReader();
     init();
@@ -63,13 +66,32 @@
         //x-axis
         coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 1));
         coordGeometry.vertices.push( new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR, 1));
+
         //y-axis
         coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 1));
         coordGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_BOTTOM_CORR, 1));
 
         var coordMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
         var coordLines = new THREE.Line( coordGeometry, coordMaterial );
-        scene.add( coordLines );
+        scene.add(coordLines);
+
+        var scaleGeometry = new THREE.Geometry();
+
+        // "*2" in for-Schleife, weil oben UND unten bzw. rechts UND links ein Rahmen ist
+        //scale strokes for x-axis
+        for ( i = 0; i < (IW - FRAME_COORDSYS * 2); i += SCALE_STROKE_D ){
+            scaleGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR + i * 1, V_TOP_CORR + SCALE_STROKE_L, 1 ));
+            scaleGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR + i * 1, V_TOP_CORR, 1 ));
+        }
+        //scale strokes for y-axis
+        for ( i = 0; i < IH - FRAME_COORDSYS * 2; i += SCALE_STROKE_D ){
+            scaleGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR - SCALE_STROKE_L, V_TOP_CORR + i * - 1, 1 ));
+            scaleGeometry.vertices.push( new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR + i * - 1, 1 ));
+        }
+
+
+        var scaleLines = new THREE.LineSegments( scaleGeometry, coordMaterial );
+        scene.add(scaleLines);
 
         renderer = new THREE.WebGLRenderer( {antialias: true, alpha: true} );
         renderer.setClearColor( 0xffffff, 0);
