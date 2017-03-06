@@ -10,12 +10,10 @@
 <div>
     Select a text file:
     <input type="file" id="fileInput">
-</div>
-<!--<canvas class="canvas" style="background-size: 140%; background-image: url('img/indoors-office.png')">
 
-</canvas>-->
+</div>
 <script src="js/three.js"></script>
-<script src="js/stats.js"></script>
+<!--<script src="js/stats.js"></script>-->
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
 <script>
@@ -32,6 +30,9 @@
     var NEAR = -500;
     var FAR = 1000;
 
+    //Background image
+    var bgRatio = 0;
+
     //Coordinate system
     var FRAME_COORDSYS = 50;
     var V_LEFT_CORR = - ((WIDTH / 2) - FRAME_COORDSYS);
@@ -39,9 +40,9 @@
     var V_RIGHT_CORR = (WIDTH / 2) - FRAME_COORDSYS;
     var V_BOTTOM_CORR = - ((HEIGHT / 2) - FRAME_COORDSYS);
     var SCALE_STROKE_L = 10; //length of scale strokes
-    var SCALE_STROKE_D = 50; //space between two scale strokes
+    var SCALE_STROKE_D = WIDTH / 10; //space between two scale strokes
 
-    var container, stats;
+    var container, background, stats;
     var camera, scene, raycaster, renderer;
 
     initTextReader();
@@ -55,31 +56,73 @@
         container = document.createElement( 'div' );
         document.body.appendChild( container );
 
+        /*background = document.getElementById( 'background' );
+        background.setAttribute( 'width', '100%' );
+        background.setAttribute( 'height', '100%' );*/
+
+      /*  var cont = document.createElement( 'div' );
+        cont.background = 'img/indoors-office.png';
+        bgRatio = cont.background.naturalWidth / cont.background.naturalHeight;
+        cont.background.width = WIDTH;
+        cont.background.height = WIDTH / bgRatio;
+        container.appendChild( cont );*/
+
+        var bgImg = new Image();
+        bgImg.src = 'img/indoors-office.png';
+        bgRatio = bgImg.naturalWidth / bgImg.naturalHeight;
+        bgImg.width = WIDTH;
+        bgImg.height = WIDTH / bgRatio;
+        container.appendChild( bgImg );
+
+        //background.drawImage(bgImg, 0, 0);
+
+        /*img.onload = function () {
+          //bgImg.src = this.src;
+        };*/
+
         camera = new THREE.OrthographicCamera(LEFT, RIGHT, TOP, BOTTOM, NEAR, FAR);
 
         scene = new THREE.Scene();
 
-        var bgMaterial = new THREE.MeshBasicMaterial();
+        initRest();
 
-        var loader = new THREE.TextureLoader();
-        loader.load(
-            'img/indoors-office.png',
-            function ( texture ) {
-                bgMaterial = new THREE.MeshBasicMaterial({
-                    map: texture
-                });
+        renderer = new THREE.WebGLRenderer( {antialias: true, alpha: true} );
+        renderer.setClearColor( 0xffffff, 0 );
+        renderer.setPixelRatio( window.devicePixelRatio );
+        renderer.setSize( WIDTH, HEIGHT );
+        container.appendChild( renderer.domElement );
 
-                var backgroundMesh = new THREE.Mesh(
-                    new THREE.PlaneGeometry(WIDTH, HEIGHT, 0),
-                    bgMaterial
-                );
-                scene.add(backgroundMesh);
-            },
-            function () {},
-            function () {
-                console.log('bg-loading failed');
-            }
-        );
+        window.addEventListener( 'resize', onWindowResize, false );
+
+
+
+
+        var gui = new dat.GUI();
+
+        gui.add(bgImg, 'height');
+        gui.add(bgImg, 'width');
+
+    }
+
+    function update () {
+        requestAnimationFrame(update);
+
+        renderer.render(scene, camera);
+    }
+
+    function onWindowResize () {
+
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+
+        camera.aspect = WIDTH / HEIGHT;
+        camera.updateProjectionMatrix();
+
+        renderer.setSize( WIDTH, HEIGHT );
+
+    }
+
+    function initRest(){
 
         //Coordinate system
         var coordGeometry = new THREE.Geometry();
@@ -111,43 +154,8 @@
 
         var scaleLines = new THREE.LineSegments( scaleGeometry, coordMaterial );
         scene.add(scaleLines);
-
-        renderer = new THREE.WebGLRenderer( {antialias: true, alpha: true} );
-        renderer.setClearColor( 0xffffff, 0 );
-        renderer.setPixelRatio( window.devicePixelRatio );
-        renderer.setSize( WIDTH, HEIGHT );
-        container.appendChild( renderer.domElement );
-
-        stats = new Stats();
-        container.appendChild( stats.dom );
-
-        //window.addEventListener( 'resize', onWindowResize, false );
-
     }
 
-    function update () {
-        requestAnimationFrame(update);
-
-        if(( window.innerHeight != HEIGHT ) || ( window.innerWidth != WIDTH )) {
-            HEIGHT = window.innerHeight;
-            WIDTH = window.innerWidth;
-
-            camera.aspect = WIDTH / HEIGHT;
-            camera.updateProjectionMatrix();
-
-            renderer.setSize( WIDTH, HEIGHT );
-        }
-
-        //scene.setSize( WIDTH, HEIGHT );
-
-        renderer.render(scene, camera);
-    }
-
-/*    function onWindowResize () {
-
-        camera.
-
-    }*/
 
     function initTextReader () {
 
