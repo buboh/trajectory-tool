@@ -5,7 +5,7 @@
     <title>draw</title>
     <style>
         body { margin: 0; }
-        canvas { width: 100%; height: 100% }
+        canvas { width: 100%!important; }
     </style>
 </head>
 <body>
@@ -29,43 +29,43 @@
     var container;
 
     //Background image
-    var background;
-    var bgImg;
-    var bgRatio = WIDTH / HEIGHT;
+    var backgroundMesh;
+    var bgImgWidth;
+    var bgImgHeight;
+    var bgImgRatio = WIDTH / HEIGHT;
+
+    //CoordSys
+    var FRAME_COORDSYS = 10;
+    var V_LEFT_CORR = - ((WIDTH / 2) - FRAME_COORDSYS);
+    var V_TOP_CORR = (HEIGHT / 2) - FRAME_COORDSYS;
+    var V_RIGHT_CORR = (WIDTH / 2) - FRAME_COORDSYS;
+    var V_BOTTOM_CORR = - ((HEIGHT / 2) - FRAME_COORDSYS);
+    var SCALE_STROKE_D = WIDTH / 40; //space between two scale strokes
+    var coordSys;
 
     //three.js
     var camera, scene, renderer;
-
-    //renderer
-    var rendererDiv;
 
     //dat.gui
     var gui;
 
     initialize();
+    update();
 
     function initialize(){
 
         container = document.createElement('div');
         document.body.appendChild(container);
 
-        background = document.createElement('div');
-        background.setAttribute('style', 'position: absolute; top: 0px;');
-        container.appendChild(background);
+        scene = new THREE.Scene();
 
-        rendererDiv = document.createElement('div');
-        rendererDiv.setAttribute('style', 'position: absolute; top: 0px;');
-        container.appendChild(rendererDiv);
+        initBgImg();
 
-        loadBgImg();
+        initCoordSys();
 
         initCamera();
 
-        scene = new THREE.Scene();
-
         initRenderer();
-
-
 
         initDatGUI();
 
@@ -74,24 +74,65 @@
         addWindowListeners();
     }
 
-    function loadBgImg(){
-        bgImg = new Image();
-        bgImg.src = 'img/indoors-office.png';
-        bgRatio = bgImg.naturalWidth / bgImg.naturalHeight;
-        bgImg.width = WIDTH;
-        bgImg.height = WIDTH / bgRatio;
-        background.appendChild(bgImg);
+    function initBgImg(){
+        var bgMaterial = new THREE.MeshBasicMaterial();
+
+        var bgLoader = new THREE.TextureLoader();
+        bgLoader.load(
+            'img/indoors-office.png',
+            function ( texture ) {
+                bgMaterial = new THREE.MeshBasicMaterial({
+                    map: texture
+                });
+                bgImgWidth = texture.image.naturalWidth;
+                bgImgHeight = texture.image.naturalHeight;
+                bgImgRatio = bgImgWidth / bgImgHeight;
+
+                backgroundMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(WIDTH, WIDTH / bgImgRatio),
+                    bgMaterial
+                );
+
+                //backgroundMesh.translateY((HEIGHT/2) - );
+                scene.add(backgroundMesh);
+            },
+            function () {},
+            function () {
+                console.log('bg-loading failed');
+            }
+        );
     }
-    function updateBgImg(){
-        bgImg.style.width = WIDTH;
-        bgImg.style.height = WIDTH / bgRatio;
+    function updateBg(){
+
+    }
+
+    function initCoordSys(){
+
+        var coordGeometry = new THREE.Geometry();
+
+        //x-axis
+        for (i = 0; i < (WIDTH - FRAME_COORDSYS * 2); i += SCALE_STROKE_D) {
+            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR - i, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR - i, 1));
+        }
+        //y-axis
+        for (i = 0; i < (HEIGHT - FRAME_COORDSYS * 2); i += SCALE_STROKE_D) {
+            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_TOP_CORR, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_BOTTOM_CORR, 1));
+        }
+
+        var coordMaterial = new THREE.LineBasicMaterial({color: 0xff0000, opacity: 1, linewidth: 1});
+        var coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
+
+        scene.add(coordLines);
     }
 
     function initCamera(){
         camera = new THREE.OrthographicCamera(LEFT, RIGHT, TOP, BOTTOM, NEAR, FAR);
-        camera.aspect = bgRatio;
+        camera.aspect = WIDTH / HEIGHT;
     }
     function updateCamera(){
+        camera.aspect = WIDTH / HEIGHT;
         camera.updateProjectionMatrix();
     }
 
@@ -99,16 +140,16 @@
         renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         renderer.setClearColor(0xffffff, 0);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(WIDTH, WIDTH / bgRatio);
-        rendererDiv.appendChild(renderer.domElement);
+        renderer.setSize(WIDTH, HEIGHT);
+        container.appendChild(renderer.domElement);
     }
     function updateRenderer(){
-        renderer.setSize(WIDTH, WIDTH / bgRatio);
+        renderer.setSize(WIDTH, HEIGHT);
     }
-
 
     function initDatGUI(){
         gui = new dat.GUI();
+        //gui.add(coordSys, )
     }
     function addWindowListeners(){
         window.addEventListener('resize', onWindowResize, false);
@@ -118,14 +159,13 @@
         HEIGHT = window.innerHeight;
         WIDTH = window.innerWidth;
 
-        updateBgImg()
+        updateBg();
         updateCamera();
         updateRenderer();
     }
 
     function update () {
         requestAnimationFrame(update);
-
         renderer.render(scene, camera);
     }
 

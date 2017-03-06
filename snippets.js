@@ -32,3 +32,11 @@ coordSys.vertices.push(xAxis1, xAxis2, yAxis1, yAxis2);
 
  //Papa.parse()
  */
+
+
+bgImg = new Image();
+bgImg.src = 'img/indoors-office.png';
+bgRatio = bgImg.naturalWidth / bgImg.naturalHeight;
+bgImg.width = WIDTH;
+bgImg.height = WIDTH / bgRatio;
+background.appendChild(bgImg);
