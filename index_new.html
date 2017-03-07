@@ -5,7 +5,7 @@
     <title>draw</title>
     <style>
         body { margin: 0; }
-        canvas { width: 100%!important; }
+        canvas { width: 100%!important; height: auto!important; }
     </style>
 </head>
 <body>
@@ -14,14 +14,25 @@
 <script src="js/papaparse.js"></script>
 <script>
     //Set scene size
-    var WIDTH = window.innerWidth;
-    var HEIGHT = window.innerHeight;
+    var WINDOW_WIDTH = window.innerWidth;
+    var WINDOW_HEIGHT = window.innerHeight;
+
+    // 1 Meter in Realität ist <10> Pixel auf einem Bild
+    //meter/pixel
+    var scale = 1/100;
+
+    var bgImgWidth;
+    var bgImgHeight;
+    var bgImgRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
+
+
+
 
     //Set camera attributes
-    var LEFT = WIDTH / -2;
-    var RIGHT = WIDTH / 2;
-    var TOP = HEIGHT / 2;
-    var BOTTOM = HEIGHT / -2;
+    var LEFT = WINDOW_WIDTH / -2;
+    var RIGHT = WINDOW_WIDTH / 2;
+    var TOP = WINDOW_HEIGHT / 2;
+    var BOTTOM = WINDOW_HEIGHT / -2;
     var NEAR = -500;
     var FAR = 1000;
 
@@ -30,17 +41,16 @@
 
     //Background image
     var backgroundMesh;
-    var bgImgWidth;
-    var bgImgHeight;
-    var bgImgRatio = WIDTH / HEIGHT;
+
+
 
     //CoordSys
-    var FRAME_COORDSYS = 10;
-    var V_LEFT_CORR = - ((WIDTH / 2) - FRAME_COORDSYS);
-    var V_TOP_CORR = (HEIGHT / 2) - FRAME_COORDSYS;
-    var V_RIGHT_CORR = (WIDTH / 2) - FRAME_COORDSYS;
-    var V_BOTTOM_CORR = - ((HEIGHT / 2) - FRAME_COORDSYS);
-    var SCALE_STROKE_D = WIDTH / 40; //space between two scale strokes
+    var FRAME_COORDSYS = 0;
+    var V_LEFT_CORR = - ((WINDOW_WIDTH / 2) - FRAME_COORDSYS);
+    var V_TOP_CORR = (WINDOW_HEIGHT / 2) - FRAME_COORDSYS;
+    var V_RIGHT_CORR = (WINDOW_WIDTH / 2) - FRAME_COORDSYS;
+    var V_BOTTOM_CORR = - ((WINDOW_HEIGHT / 2) - FRAME_COORDSYS);
+    var SCALE_STROKE_D = WINDOW_WIDTH / 40; //space between two scale strokes
     var coordSys;
 
     //three.js
@@ -54,14 +64,14 @@
 
     function initialize(){
 
-        container = document.createElement('div');
-        document.body.appendChild(container);
+//        container = document.createElement('div');
+//        document.body.appendChild(container);
 
         scene = new THREE.Scene();
 
         initBgImg();
 
-        initCoordSys();
+        initGrid();
 
         initCamera();
 
@@ -82,18 +92,32 @@
             'img/indoors-office.png',
             function ( texture ) {
                 bgMaterial = new THREE.MeshBasicMaterial({
-                    map: texture
+                    //map: texture
+                    //wireframe: true
+                    color: 0x550011
                 });
                 bgImgWidth = texture.image.naturalWidth;
                 bgImgHeight = texture.image.naturalHeight;
                 bgImgRatio = bgImgWidth / bgImgHeight;
 
+                var backgroundPlane = new THREE.Geometry();
+                backgroundPlane.vertices.push(new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR, 0.5));
+                backgroundPlane.vertices.push(new THREE.Vector3(V_LEFT_CORR, V_BOTTOM_CORR, 0.5));
+                backgroundPlane.vertices.push(new THREE.Vector3(V_RIGHT_CORR, V_BOTTOM_CORR, 0.5));
+                backgroundPlane.vertices.push(new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR, 0.5));
+                backgroundPlane.faces.push(new THREE.Face3(0,1,3));
+                backgroundPlane.faces.push(new THREE.Face3(1,2,3));
+                backgroundPlane.computeFaceNormals();
+
                 backgroundMesh = new THREE.Mesh(
-                    new THREE.PlaneGeometry(WIDTH, WIDTH / bgImgRatio),
+                    //new THREE.PlaneGeometry(WINDOW_WIDTH, WINDOW_WIDTH / bgImgRatio),
+
+                    backgroundPlane,
                     bgMaterial
+
                 );
 
-                //backgroundMesh.translateY((HEIGHT/2) - );
+                //backgroundMesh.translateY((WINDOW_HEIGHT/2) - );
                 scene.add(backgroundMesh);
             },
             function () {},
@@ -101,22 +125,19 @@
                 console.log('bg-loading failed');
             }
         );
-    }
-    function updateBg(){
+     }
 
-    }
-
-    function initCoordSys(){
+    function initGrid(){
 
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for (i = 0; i < (WIDTH - FRAME_COORDSYS * 2); i += SCALE_STROKE_D) {
+        for (i = 0; i < (WINDOW_WIDTH - FRAME_COORDSYS); i += (WINDOW_WIDTH / 40)) {
             coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR - i, 1));
             coordGeometry.vertices.push(new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR - i, 1));
         }
         //y-axis
-        for (i = 0; i < (HEIGHT - FRAME_COORDSYS * 2); i += SCALE_STROKE_D) {
+        for (i = 0; i < (WINDOW_HEIGHT - FRAME_COORDSYS); i += (WINDOW_WIDTH / 40)) {
             coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_TOP_CORR, 1));
             coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_BOTTOM_CORR, 1));
         }
@@ -129,10 +150,10 @@
 
     function initCamera(){
         camera = new THREE.OrthographicCamera(LEFT, RIGHT, TOP, BOTTOM, NEAR, FAR);
-        camera.aspect = WIDTH / HEIGHT;
+        camera.aspect = WINDOW_WIDTH / WINDOW_HEIGHT;
     }
     function updateCamera(){
-        camera.aspect = WIDTH / HEIGHT;
+        camera.aspect = WINDOW_WIDTH / WINDOW_HEIGHT;
         camera.updateProjectionMatrix();
     }
 
@@ -140,11 +161,12 @@
         renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         renderer.setClearColor(0xffffff, 0);
         renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(WIDTH, HEIGHT);
-        container.appendChild(renderer.domElement);
+        renderer.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+//        container.appendChild(renderer.domElement);
+        document.body.appendChild(renderer.domElement);
     }
     function updateRenderer(){
-        renderer.setSize(WIDTH, HEIGHT);
+        renderer.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
     }
 
     function initDatGUI(){
@@ -156,10 +178,11 @@
     }
 
     function onWindowResize () {
-        HEIGHT = window.innerHeight;
-        WIDTH = window.innerWidth;
+        WINDOW_HEIGHT = window.innerHeight;
+        WINDOW_WIDTH = window.innerWidth;
 
-        updateBg();
+        //document.getElementsByTagName('canvas').style.width = '100%!important';
+
         updateCamera();
         updateRenderer();
     }
