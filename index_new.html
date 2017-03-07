@@ -49,6 +49,7 @@
 
     //three.js
     var camera, scene, renderer;
+    var camerahelper;
 
     //dat.gui
     var gui;
@@ -73,7 +74,7 @@
         initDatGUI();
 
         //help
-        var camerahelper = new THREE.CameraHelper( camera );
+        camerahelper = new THREE.CameraHelper( camera );
         scene.add(camerahelper);
 
         addWindowListeners();
@@ -175,59 +176,45 @@
 
     function initCamera(){
 
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(WINDOW_WIDTH / -2, WINDOW_WIDTH / 2,
-                (WINDOW_WIDTH * buildingRatio) / 2, (WINDOW_WIDTH * buildingRatio) / -2);
-        } else {
-            camera = new THREE.OrthographicCamera((WINDOW_HEIGHT / buildingRatio) / -2, (WINDOW_HEIGHT / buildingRatio) / 2,
-                WINDOW_HEIGHT / 2, WINDOW_HEIGHT / -2, NEAR, FAR);
-        }*/
-
-/*        camera = new THREE.OrthographicCamera(WINDOW_WIDTH / -2, WINDOW_WIDTH / 2,
-            WINDOW_HEIGHT / 2, WINDOW_HEIGHT / -2, -500, 1000);*/
-
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            buildingHeight / 2, buildingHeight / -2, -500, 1000);
-
         var ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
 
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / ratio) / 2, (buildingWidth / ratio) / -2, -500, 1000);
 
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
+        if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
+        } else {
+            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
+                (buildingHeight / 2), (buildingHeight / -2), -500, 1000);
+        }
+
+/*        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);*/
 
         camera.updateProjectionMatrix();
 
     }
     function updateCamera(){
 
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(WINDOW_WIDTH / -2, WINDOW_WIDTH / 2,
-                (WINDOW_WIDTH * buildingRatio) / 2, (WINDOW_WIDTH * buildingRatio) / -2, NEAR, FAR);
-        } else {
-            camera = new THREE.OrthographicCamera((WINDOW_HEIGHT / buildingRatio) / -2, (WINDOW_HEIGHT / buildingRatio) / 2,
-                WINDOW_HEIGHT / 2, WINDOW_HEIGHT / -2, NEAR, FAR);
-        }*/
-
-/*        camera = new THREE.OrthographicCamera(WINDOW_WIDTH / -2, WINDOW_WIDTH / 2,
-            WINDOW_HEIGHT / 2, WINDOW_HEIGHT / -2, -500, 1000);*/
-
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            buildingHeight / 2, buildingHeight / -2, -500, 1000);
-
         var ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
 
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / ratio) / 2, (buildingWidth / ratio) / -2, -500, 1000);
+        if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
+        } else {
+            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
+                (buildingHeight / 2), (buildingHeight / -2), -500, 1000);
+        }
 
-        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
-
-
-        camera.position
+/*        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);*/
 
         camera.updateProjectionMatrix();
+
+        if(camerahelper != null){
+            camerahelper.update();
+        }
+
+
     }
 
     function initRenderer(){
