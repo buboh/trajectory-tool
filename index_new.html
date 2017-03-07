@@ -9,6 +9,10 @@
     </style>
 </head>
 <body>
+
+<!--<input id="myInput" type="file" style="visibility:hidden" />-->
+
+
 <script src="js/three.js"></script>
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
@@ -33,20 +37,6 @@
     //Background image
     var backgroundMesh;
 
-/*    //CoordSys meters
-    var FRAME_COORDSYS = 0;
-    var V_LEFT_CORR;
-    var V_TOP_CORR;
-    var V_RIGHT_CORR;
-    var V_BOTTOM_CORR;
-
-    function updateCorrValues(){
-        V_LEFT_CORR = - (buildingWidth / 2);
-        V_TOP_CORR = (buildingHeight / 2);
-        V_RIGHT_CORR = (buildingWidth / 2);
-        V_BOTTOM_CORR = - (buildingHeight / 2);
-    }*/
-
     //three.js
     var camera, scene, renderer;
     var camerahelper;
@@ -57,9 +47,13 @@
 
     scene = new THREE.Scene();
 
+    initRenderer();
+
     initBgImg();
 
-    initRenderer();
+    initDatGUI();
+
+    fileIn();
 
     update();
 
@@ -69,8 +63,6 @@
         initCamera();
 
         initGrid();
-
-        initDatGUI();
 
         //help
         //camerahelper = new THREE.CameraHelper( camera );
@@ -194,9 +186,6 @@
                 0, -buildingHeight, -500, 1000);
         }
 
-/*        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);*/
-
         camera.updateProjectionMatrix();
 
     }
@@ -220,16 +209,11 @@
                 0, -buildingHeight, -500, 1000);
         }
 
-/*        camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-            (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);*/
-
         camera.updateProjectionMatrix();
 
-        if(camerahelper != null){
+        /*if(camerahelper != null){
             camerahelper.update();
-        }
-
-
+        }*/
     }
 
     function initRenderer(){
@@ -262,7 +246,191 @@
     function initDatGUI(){
         gui = new dat.GUI();
         //gui.add(coordSys, )
+
+
+
+
     }
+
+    function initTextReader () {
+
+        var fileInput = document.getElementById('fileInput');
+        fileInput.addEventListener( 'change', function( e ) {
+
+            var file = fileInput.files[0];
+            var textType = /text.*/;
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+                reader.onload = function ( e ) {
+                    //alert(reader.result);
+                    drawTrajectories(reader.result);
+                };
+                reader.readAsText(file);
+            } else {
+                alert("File not supported");
+            }
+        });
+    }
+
+    function fileIn(){
+        var fileInput = document.createElement( 'input' );
+        fileInput.id = "fileInput";
+        fileInput.type = "file";
+        fileInput.style.position = "absolute";
+        fileInput.style.visibility = "hidden";
+        fileInput.style.top = "0px";
+        fileInput.style.width = "0px";
+        fileInput.style.height = "0px";
+        document.body.appendChild(fileInput);
+
+        fileInput.addEventListener( 'change', function( e ) {
+
+            var file = fileInput.files[0];
+            var textType = /text.*/;
+
+            if (file.type.match(textType)) {
+                var reader = new FileReader();
+                reader.onload = function ( e ) {
+                    alert(reader.result);
+                    drawTrajectories(reader.result);
+                };
+                reader.readAsText(file);
+            } else {
+                alert("File not supported");
+            }
+        });
+
+        var trajectoryFile = {
+            loadFile : function() {
+                document.getElementById("fileInput").click()
+            }
+        };
+        gui.add(trajectoryFile, 'loadFile').name('Load Trajectory file');
+    }
+
+    //traj  --  adjust trajectory coordinates !!!
+    function drawTrajectories ( readerResult ){
+
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
+        var csv = importCSV(readerResult);
+        var groupedPoints = groupPointList(csv);
+        //var trajectoryList = makeTrajectoryCurves(groupedPoints);
+
+       /* trajectoryList.forEach(
+            function ( trajectory ) {
+                scene.add( new THREE.Line( trajectory, trajectoryMaterial));
+            }
+        );*/
+    }
+
+    function makeTrajectoryCurves ( sortedPointList ) {
+        var tempTrajectoryList = [];
+
+        sortedPointList.forEach(
+            function ( pointGroup ) {
+                var points = [];
+                pointGroup.forEach(
+                    function ( point ){
+                        points.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                var curve = new THREE.CatmullRomCurve3( points );
+                var geometry = new THREE.Geometry();
+                geometry.vertices = curve.getPoints( 50 );
+                tempTrajectoryList.push( geometry );
+            }
+        );
+        return tempTrajectoryList;
+    }
+
+    function groupBy( array , f ) {
+
+        var groups = {};
+        array.forEach(
+            function( object ) {
+                var group = JSON.stringify( f( object ) );
+                groups[group] = groups[group] || [];
+                groups[group].push( object );
+            }
+        );
+
+        //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+
+        //filter DIDs with only one point -- not working, groups is an object, not list
+        /*var filteredGroups = [];
+         groups.forEach(function ( group ) {
+         if (group.size > 1) {
+         filteredGroups.push(group);
+         }
+         });*/
+
+        return Object.keys(groups).map(
+            function( group ) {
+                return groups[group];
+            }
+        )
+    }
+
+    function groupPointList ( pointList ) {
+
+        var pointListByID = groupBy(
+            pointList,
+            function(item) {
+                return [item.did]; //, item.t
+            }
+        );
+        //console.log(pointListByID);
+        return pointListByID;
+    }
+
+    function importCSV ( csvString ) {
+
+        var results = Papa.parse(csvString , {
+            header: true,
+            dynamicTyping: true
+        });
+        //console.log(results);
+
+        /*var pointList = [];
+         results.data.forEach(function ( o ){
+         pointList.push( o );
+         })*/
+
+        //not implemented yet
+
+        /*    var iW = window.innerWidth;
+         var iH = window.innerHeight;*/
+
+        /*var pointList = [
+         {x: 0, y: 500, t: 0, f: 1, id: "10"},
+         {x: 10, y: 490, t: 10, f: 1, id: "10"},
+         {x: 20, y: 500, t: 20, f: 1, id: "10"},
+         {x: 30, y: 470, t: 30, f: 1, id: "10"},
+         {x: 40, y: 460, t: 40, f: 1, id: "20"},
+         {x: 50, y: 450, t: 50, f: 1, id: "20"},
+         {x: 60, y: 440, t: 60, f: 1, id: "30"},
+         {x: 70, y: 430, t: 70, f: 1, id: "30"},
+         {x: 80, y: 420, t: 80, f: 1, id: "30"},
+         {x: 90, y: 410, t: 90, f: 1, id: "30"},
+         {x: 100, y: 400, t: 100, f: 1, id: "40"},
+         {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "40"},
+         {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+         {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+         {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+         {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
+         ];*/
+
+        results.data.forEach(
+            function ( point ) {
+                point.x = point.x + V_LEFT_CORR;
+                point.y = point.y * ( - 1 ) + V_TOP_CORR;
+            }
+        );
+        return results.data;
+    }
+    //
+
     function addWindowListeners(){
         window.addEventListener('resize', onWindowResize, false);
     }
@@ -282,12 +450,10 @@
         }
 
         requestAnimationFrame(update);
+
         renderer.render(scene, camera);
     }
 
 </script>
-
-
-
 </body>
 </html>
