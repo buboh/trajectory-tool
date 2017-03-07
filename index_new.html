@@ -92,9 +92,7 @@
             'img/indoors-office.png',
             function ( texture ) {
                 bgMaterial = new THREE.MeshBasicMaterial({
-                    //map: texture
-                    //wireframe: true
-                    color: 0x550011
+                    map: texture
                 });
                 bgImgWidth = texture.image.naturalWidth;
                 bgImgHeight = texture.image.naturalHeight;
@@ -108,6 +106,21 @@
                 backgroundPlane.faces.push(new THREE.Face3(0,1,3));
                 backgroundPlane.faces.push(new THREE.Face3(1,2,3));
                 backgroundPlane.computeFaceNormals();
+
+                backgroundPlane.faceVertexUvs[0] = [];
+
+                backgroundPlane.faceVertexUvs[0].push([
+                    new THREE.Vector2(0,1),
+                    new THREE.Vector2(0,0),
+                    new THREE.Vector2(1,1)
+                ]);
+                backgroundPlane.faceVertexUvs[0].push([
+                    new THREE.Vector2(0,0),
+                    new THREE.Vector2(1,0),
+                    new THREE.Vector2(1,1)
+                ]);
+
+                backgroundPlane.uvsNeedUpdate = true;
 
                 backgroundMesh = new THREE.Mesh(
                     //new THREE.PlaneGeometry(WINDOW_WIDTH, WINDOW_WIDTH / bgImgRatio),
@@ -153,7 +166,8 @@
         camera.aspect = WINDOW_WIDTH / WINDOW_HEIGHT;
     }
     function updateCamera(){
-        camera.aspect = WINDOW_WIDTH / WINDOW_HEIGHT;
+        //camera.aspect = WINDOW_WIDTH / WINDOW_HEIGHT;
+        camera.aspect = bgImgRatio;
         camera.updateProjectionMatrix();
     }
 
