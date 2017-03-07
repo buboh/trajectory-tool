@@ -66,16 +66,15 @@
 
     function initialize(){
 
-        //initGrid();
-
         initCamera();
 
+        initGrid();
 
         initDatGUI();
 
         //help
-        camerahelper = new THREE.CameraHelper( camera );
-        scene.add(camerahelper);
+        //camerahelper = new THREE.CameraHelper( camera );
+        //scene.add(camerahelper);
 
         addWindowListeners();
 
@@ -159,14 +158,14 @@
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for (i = 0; i < (WINDOW_WIDTH - FRAME_COORDSYS); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR, V_TOP_CORR - i, 1));
-            coordGeometry.vertices.push(new THREE.Vector3(V_RIGHT_CORR, V_TOP_CORR - i, 1));
+        for (i = 0; i < (buildingHeight); i++) {
+            coordGeometry.vertices.push(new THREE.Vector3(0, -i, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, 1));
         }
         //y-axis
-        for (i = 0; i < (WINDOW_HEIGHT - FRAME_COORDSYS); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_TOP_CORR, 1));
-            coordGeometry.vertices.push(new THREE.Vector3(V_LEFT_CORR + i, V_BOTTOM_CORR, 1));
+        for (i = 0; i < (buildingWidth); i++) {
+            coordGeometry.vertices.push(new THREE.Vector3(i, 0, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, 1));
         }
 
         var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
