@@ -29,6 +29,9 @@
     //meter/pixel
     var scale = 1/100;
 
+    //traj-ebene
+    var TRAJ_Z = 0;
+
     //in metern  // WINDOW_ nur zum Testen
     var buildingWidth;
     var buildingHeight;
@@ -48,10 +51,12 @@
 
     var Trajectory = function(){
         this.color = 0xff0000;
+        this.did = '';
         this.points = [];
         this.type = 'Line';
         this.typeController;
 
+        this.line;
     };
 
     //dat.gui
@@ -60,6 +65,7 @@
     var trajectoryGroups = [];
 
     scene = new THREE.Scene();
+    camera = new THREE.OrthographicCamera(0,0,0,0,0,0,0);
 
     initRenderer();
 
@@ -235,7 +241,6 @@
         }*/
 
         renderer.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-
         document.body.appendChild(renderer.domElement);
     }
     function updateRenderer(){
@@ -301,11 +306,30 @@
 
         var pointList = importCSV(readerResult);
         var corredPointsList = corrPoints(pointList);
+        var groupedPoints = groupPointList(corredPointsList); //object containing arrays of points
+        var trajectoryGroup = [];
 
-        traj.pointListById = groupPointList(corredPointsList);
+        //Punkte nach DID in eigene Trajectories speichern
+        for(var key in groupedPoints){
+            var trajectory = new Trajectory();
+            trajectory.did = key;
+            trajectory.points = groupedPoints[key];
+            trajectoryGroup.push(trajectory);
+        }
 
-        drawTrajectories(traj);
+        trajectoryGroups.push(trajectoryGroup);
 
+        //traj.pointListById = groupPointList(corredPointsList);
+        trajectoryGroup.forEach(function(traj){
+            drawTrajectory(traj);
+
+            traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
+
+            traj.typeController.onChange( function(){
+                scene.remove(traj.line);
+                drawTrajectory(traj);
+            });
+        });
     }
 
     function importCSV ( csvString ) {
@@ -376,77 +400,68 @@
                 groups[group].push( object );
             }
         );
+        return groups;
 
-        return Object.keys(groups).map(
+        /*return Object.keys(groups).map(
             function( group ) {
                 return groups[group];
             }
-        )
+        )*/
     }
 
-    function makeTrajectoryLines ( pointListById ){
-        var tempTrajectoryList = [];
+    function makeTrajectoryLines ( points ){
 
-        pointListById.forEach(
-            function ( pointGroup ) {
-                var points = [];
-                pointGroup.forEach(
-                    function ( point ){
-                        points.push( new THREE.Vector3(point.x, point.y, 0));
-                    }
-                );
-
-                var geometry = new THREE.Geometry();
-                geometry.name = pointGroup[0].did;
-                geometry.vertices = points;
-                tempTrajectoryList.push( geometry );
+        var vertices = [];
+        points.forEach(
+            function ( point ){
+                vertices.push( new THREE.Vector3(point.x, point.y, TRAJ_Z));
             }
         );
-        return tempTrajectoryList;
+
+        var trajGeom = new THREE.Geometry();
+        trajGeom.name = points[0].did;
+        trajGeom.vertices = vertices;
+
+        return trajGeom;
     }
 
-    function makeTrajectoryCurves ( pointListById ){
-        var tempTrajectoryList = [];
+    function makeTrajectoryCurves ( points ){
 
-        pointListById.forEach(
-            function ( pointGroup ) {
-                var points = [];
-                pointGroup.forEach(
-                    function ( point ){
-                        points.push( new THREE.Vector3(point.x, point.y, 0));
-                    }
-                );
-                var curve = new THREE.CatmullRomCurve3( points );
-                var geometry = new THREE.Geometry();
-                geometry.name = pointGroup[0].did;
-                geometry.vertices = curve.getPoints( 50 );
-                tempTrajectoryList.push( geometry );
+        var vertices = [];
+        points.forEach(
+            function ( point ){
+                vertices.push( new THREE.Vector3(point.x, point.y, TRAJ_Z));
             }
         );
-        return tempTrajectoryList;
+        var curve = new THREE.CatmullRomCurve3( vertices );
+        var trajGeom = new THREE.Geometry();
+        trajGeom.name = points[0].did;
+        trajGeom.vertices = curve.getPoints( 50 );
+
+        return trajGeom;
     }
 
-    function drawTrajectories(traj){
+    function drawTrajectory(traj){
 
         if(traj.type == 'Line'){
-            var trajectoryList = makeTrajectoryLines(traj.pointListById);
+            var tempTraj = makeTrajectoryLines(traj.points);
         } else if (traj.type == 'Curve'){
-            var trajectoryList = makeTrajectoryCurves(traj.pointListById);
+            var tempTraj = makeTrajectoryCurves(traj.points);
         }
 
-        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
-        trajectoryList.forEach(
-            function (trajectory){
-                scene.add( new THREE.Line(trajectory, trajectoryMaterial));
-            }
-        );
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: traj.color, opacity: 1 } );
+        traj.line = new THREE.Line(tempTraj, trajectoryMaterial);
 
-        traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name('Type (T' + trajectoryGroups.indexOf(traj) + ')');
+        scene.add(traj.line);
 
-        traj.typeController.onChange( function(type){
-            //scene.remove()
-            drawTrajectories(traj);
-        });
+
+       /* traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
+
+        traj.typeController.onChange( function(){
+            scene.remove(traj.line);
+            traj.line = null;
+            drawTrajectory(traj);
+        });*/
 
         // da könnte man die farbe / den dateinamen / etc. verwenden ---
     }
