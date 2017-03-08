@@ -91,22 +91,15 @@
                 buildingHeight = bgImgHeight * scale;
                 buildingRatio = buildingWidth / buildingHeight;
 
-                //updateCorrValues();
-
                 IMG_LOADED = true;
 
                 //create bgPlane
                 var backgroundPlane = new THREE.Geometry();
 
-               /* backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth / -2, buildingHeight / 2, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth / -2, buildingHeight / -2, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth / 2, buildingHeight / -2, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth / 2, buildingHeight / 2, 0.5));*/
-
-                backgroundPlane.vertices.push(new THREE.Vector3(0, 0, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(0, -buildingHeight, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, -buildingHeight, 0.5));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, 0, 0.5));
+                backgroundPlane.vertices.push(new THREE.Vector3(0, 0, -2));
+                backgroundPlane.vertices.push(new THREE.Vector3(0, -buildingHeight, -2));
+                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, -buildingHeight, -2));
+                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, 0, -2));
 
                 backgroundPlane.faces.push(new THREE.Face3(0,1,3));
                 backgroundPlane.faces.push(new THREE.Face3(1,2,3));
@@ -151,13 +144,13 @@
 
         //x-axis
         for (i = 0; i < (buildingHeight); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(0, -i, 1));
-            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(0, -i, -1));
+            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, -1));
         }
         //y-axis
         for (i = 0; i < (buildingWidth); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(i, 0, 1));
-            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, 1));
+            coordGeometry.vertices.push(new THREE.Vector3(i, 0, -1));
+            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, -1));
         }
 
         var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
@@ -252,27 +245,6 @@
 
     }
 
-    function initTextReader () {
-
-        var fileInput = document.getElementById('fileInput');
-        fileInput.addEventListener( 'change', function( e ) {
-
-            var file = fileInput.files[0];
-            var textType = /text.*/;
-
-            if (file.type.match(textType)) {
-                var reader = new FileReader();
-                reader.onload = function ( e ) {
-                    //alert(reader.result);
-                    drawTrajectories(reader.result);
-                };
-                reader.readAsText(file);
-            } else {
-                alert("File not supported");
-            }
-        });
-    }
-
     function fileIn(){
         var fileInput = document.createElement( 'input' );
         fileInput.id = "fileInput";
@@ -303,90 +275,31 @@
 
         var trajectoryFile = {
             loadFile : function() {
-                document.getElementById("fileInput").click()
+                document.getElementById("fileInput").click();
             }
         };
         gui.add(trajectoryFile, 'loadFile').name('Load Trajectory file');
     }
 
-    //traj  --  adjust trajectory coordinates !!!
+    //traj
     function drawTrajectories ( readerResult ){
 
         var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
-        var csv = importCSV(readerResult);
-        var groupedPoints = groupPointList(csv);
-        //var trajectoryList = makeTrajectoryCurves(groupedPoints);
+        var pointList = importCSV(readerResult);
+        var corredPointsList = corrPoints(pointList);
+        var pointListById = groupPointList(corredPointsList);
+        var trajectoryList = makeTrajectoryCurves(pointListById);
 
-       /* trajectoryList.forEach(
+       trajectoryList.forEach(
             function ( trajectory ) {
                 scene.add( new THREE.Line( trajectory, trajectoryMaterial));
             }
-        );*/
-    }
-
-    function makeTrajectoryCurves ( sortedPointList ) {
-        var tempTrajectoryList = [];
-
-        sortedPointList.forEach(
-            function ( pointGroup ) {
-                var points = [];
-                pointGroup.forEach(
-                    function ( point ){
-                        points.push( new THREE.Vector3(point.x, point.y, 0));
-                    }
-                );
-                var curve = new THREE.CatmullRomCurve3( points );
-                var geometry = new THREE.Geometry();
-                geometry.vertices = curve.getPoints( 50 );
-                tempTrajectoryList.push( geometry );
-            }
         );
-        return tempTrajectoryList;
-    }
-
-    function groupBy( array , f ) {
-
-        var groups = {};
-        array.forEach(
-            function( object ) {
-                var group = JSON.stringify( f( object ) );
-                groups[group] = groups[group] || [];
-                groups[group].push( object );
-            }
-        );
-
-        //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
-
-        //filter DIDs with only one point -- not working, groups is an object, not list
-        /*var filteredGroups = [];
-         groups.forEach(function ( group ) {
-         if (group.size > 1) {
-         filteredGroups.push(group);
-         }
-         });*/
-
-        return Object.keys(groups).map(
-            function( group ) {
-                return groups[group];
-            }
-        )
-    }
-
-    function groupPointList ( pointList ) {
-
-        var pointListByID = groupBy(
-            pointList,
-            function(item) {
-                return [item.did]; //, item.t
-            }
-        );
-        //console.log(pointListByID);
-        return pointListByID;
     }
 
     function importCSV ( csvString ) {
 
-        var results = Papa.parse(csvString , {
+        var pointsList = Papa.parse(csvString , {
             header: true,
             dynamicTyping: true
         });
@@ -398,9 +311,6 @@
          })*/
 
         //not implemented yet
-
-        /*    var iW = window.innerWidth;
-         var iH = window.innerHeight;*/
 
         /*var pointList = [
          {x: 0, y: 500, t: 0, f: 1, id: "10"},
@@ -421,14 +331,77 @@
          {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
          ];*/
 
-        results.data.forEach(
+        return pointsList.data; // = array of objects
+    }
+
+    function corrPoints( pointsList ){
+        pointsList.forEach(
             function ( point ) {
-                point.x = point.x + V_LEFT_CORR;
-                point.y = point.y * ( - 1 ) + V_TOP_CORR;
+                point.x = point.x * scale;
+                point.y = point.y * -scale;
             }
         );
-        return results.data;
+        return pointsList;
     }
+
+    function groupPointList ( pointList ) {
+
+        var pointListByID = groupBy(
+            pointList,
+            function(item) {
+                return [item.did]; //, item.t
+            }
+        );
+        return pointListByID;
+    }
+
+    function groupBy( array , f ) {
+
+        var groups = {};
+        array.forEach(
+            function( object ) {
+                var group = JSON.stringify( f( object ) );
+                groups[group] = groups[group] || [];
+                groups[group].push( object );
+            }
+        );
+
+        return Object.keys(groups).map(
+            function( group ) {
+                return groups[group];
+            }
+        )
+    }
+
+    function makeTrajectoryCurves ( pointListById ) {
+        var tempTrajectoryList = [];
+
+        pointListById.forEach(
+            function ( pointGroup ) {
+                var points = [];
+                pointGroup.forEach(
+                    function ( point ){
+                        points.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+                var curve = new THREE.CatmullRomCurve3( points );
+                var geometry = new THREE.Geometry();
+                geometry.name = pointGroup[0].did;
+                geometry.vertices = curve.getPoints( 50 );
+                tempTrajectoryList.push( geometry );
+            }
+        );
+        return tempTrajectoryList;
+    }
+
+    //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+    //filter DIDs with only one point -- not working, groups is an object, not list
+    /*var filteredGroups = [];
+     groups.forEach(function ( group ) {
+     if (group.size > 1) {
+     filteredGroups.push(group);
+     }
+     });*/
     //
 
     function addWindowListeners(){
