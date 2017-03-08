@@ -305,8 +305,8 @@
     //traj
     function loadTrajectories ( readerResult ){
 
-        var traj = new Trajectory();
-        trajectoryGroups.push(traj);
+        /*var traj = new Trajectory();
+        trajectoryGroups.push(traj);*/
 
         var pointList = importCSV(readerResult);
         var corredPointsList = corrPoints(pointList);
@@ -376,8 +376,8 @@
     function corrPoints( pointsList ){
         pointsList.forEach(
             function ( point ) {
-                point.x = point.x * scale;
-                point.y = point.y * -scale;
+                point.x = point.x; //scale;
+                point.y = point.y * -1; //scale;
             }
         );
         return pointsList;
