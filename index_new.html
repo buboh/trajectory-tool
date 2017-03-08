@@ -37,13 +37,27 @@
     //Background image
     var backgroundMesh;
 
+
+
     //three.js
     var camera, scene, renderer;
     var camerahelper;
 
+    //loadedPoints
+    //var pointListById;
+
+    var Trajectory = function(){
+        this.color = 0xff0000;
+        this.points = [];
+        this.type = 'Line';
+        this.typeController;
+
+    };
+
     //dat.gui
     var gui;
 
+    var trajectoryGroups = [];
 
     scene = new THREE.Scene();
 
@@ -239,10 +253,8 @@
     function initDatGUI(){
         gui = new dat.GUI();
         //gui.add(coordSys, )
-
-
-
-
+        //remove all trajectoryGroups
+        //change line type on the fly
     }
 
     function fileIn(){
@@ -264,8 +276,8 @@
             if (file.type.match(textType)) {
                 var reader = new FileReader();
                 reader.onload = function ( e ) {
-                    alert(reader.result);
-                    drawTrajectories(reader.result);
+                    //alert(reader.result);
+                    loadTrajectories(reader.result);
                 };
                 reader.readAsText(file);
             } else {
@@ -282,19 +294,18 @@
     }
 
     //traj
-    function drawTrajectories ( readerResult ){
+    function loadTrajectories ( readerResult ){
 
-        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
+        var traj = new Trajectory();
+        trajectoryGroups.push(traj);
+
         var pointList = importCSV(readerResult);
         var corredPointsList = corrPoints(pointList);
-        var pointListById = groupPointList(corredPointsList);
-        var trajectoryList = makeTrajectoryCurves(pointListById);
 
-       trajectoryList.forEach(
-            function ( trajectory ) {
-                scene.add( new THREE.Line( trajectory, trajectoryMaterial));
-            }
-        );
+        traj.pointListById = groupPointList(corredPointsList);
+
+        drawTrajectories(traj);
+
     }
 
     function importCSV ( csvString ) {
@@ -373,7 +384,28 @@
         )
     }
 
-    function makeTrajectoryCurves ( pointListById ) {
+    function makeTrajectoryLines ( pointListById ){
+        var tempTrajectoryList = [];
+
+        pointListById.forEach(
+            function ( pointGroup ) {
+                var points = [];
+                pointGroup.forEach(
+                    function ( point ){
+                        points.push( new THREE.Vector3(point.x, point.y, 0));
+                    }
+                );
+
+                var geometry = new THREE.Geometry();
+                geometry.name = pointGroup[0].did;
+                geometry.vertices = points;
+                tempTrajectoryList.push( geometry );
+            }
+        );
+        return tempTrajectoryList;
+    }
+
+    function makeTrajectoryCurves ( pointListById ){
         var tempTrajectoryList = [];
 
         pointListById.forEach(
@@ -394,7 +426,32 @@
         return tempTrajectoryList;
     }
 
-    //erweitern um zwischen einzelnen trajectories nach der Zeit zu unterscheiden
+    function drawTrajectories(traj){
+
+        if(traj.type == 'Line'){
+            var trajectoryList = makeTrajectoryLines(traj.pointListById);
+        } else if (traj.type == 'Curve'){
+            var trajectoryList = makeTrajectoryCurves(traj.pointListById);
+        }
+
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: 0xff0000, opacity: 1 } );
+        trajectoryList.forEach(
+            function (trajectory){
+                scene.add( new THREE.Line(trajectory, trajectoryMaterial));
+            }
+        );
+
+        traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name('Type (T' + trajectoryGroups.indexOf(traj) + ')');
+
+        traj.typeController.onChange( function(type){
+            //scene.remove()
+            drawTrajectories(traj);
+        });
+
+        // da könnte man die farbe / den dateinamen / etc. verwenden ---
+    }
+
+    //erweitern um zwischen einzelnen trajectoryGroups nach der Zeit zu unterscheiden
     //filter DIDs with only one point -- not working, groups is an object, not list
     /*var filteredGroups = [];
      groups.forEach(function ( group ) {
