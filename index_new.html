@@ -27,15 +27,11 @@
     const SCALE_LUCI = 1/200;
     var scale = SCALE_INDOORS;
 
-    var buildingFilePath = 'indoors-office.png';
-
     var CAM_NEAR = -500;
     var CAM_FAR = 1000;
     var BG_Z = 0;
     var COORD_Z = 1;
     var TRAJ_Z = 2;
-
-    //in metern  // WINDOW_ nur zum Testen
 
     /*var buildingWidth = {
         widthValue: 1,
@@ -107,7 +103,7 @@
             this.wListener = listener;
         },
 
-        f: 0,
+        f: 2,
         fListener: function(f){},
         get floor(){
             return this.f;
@@ -118,6 +114,12 @@
         },
         registerFListener: function(listener){
             this.fListener = listener;
+        },
+
+        filePath: 'indoors-office-',
+        fileExt: '.png',
+        get path(){
+            return this.filePath + this.floor + this.fileExt;
         }
     };
     building.registerWListener( function(val){
@@ -164,18 +166,16 @@
 
     initRenderer();
 
-    initRaycaster();
+    //initRaycaster();
 
-    loadBgImg(buildingFilePath);
+    loadBgImg(building.path);
 
     initDatGUI();
 
+    initBackgroundFileInput();
     initDataFileInput();
 
-    initBackgroundFileInput();
-
     update();
-
 
     function initialize(){
 
@@ -363,9 +363,45 @@
     function initDatGUI(){
         gui = new dat.GUI();
         //gui.add(coordSys, )
-        gui.add(building, 'floor',-5,10).name('Floor').step(1);
+        gui.add(building, 'floor',-3,3).name('Floor').step(1);
     }
 
+    function initBackgroundFileInput(){
+        var buildingFileInput = document.createElement('input');
+        buildingFileInput.id = "buildingFileInput";
+        buildingFileInput.type = "file";
+        buildingFileInput.style.position = "absolute";
+        buildingFileInput.style.visibility = "hidden";
+        buildingFileInput.style.top = "0px";
+        buildingFileInput.style.width = "0px";
+        buildingFileInput.style.height = "0px";
+        document.body.appendChild(buildingFileInput);
+
+        buildingFileInput.addEventListener( 'change', function( e ) {
+
+            var file = buildingFileInput.files[0];
+            var fileName = buildingFileInput.files[0].name;
+            var fileType = /image.*/;
+
+            if (file.type.match(fileType)) {
+
+                building.filePath = fileName.slice(0,-5);
+                building.fileExt = fileName.slice(-4,fileName.length);
+                loadBgImg(building.path);
+
+            } else {
+                alert("File not supported");
+            }
+            this.value = null; //remove filename from input
+        });
+
+        var buildingFile = {
+            loadBuildingFile : function() {
+                document.getElementById("buildingFileInput").click();
+            }
+        };
+        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
+    }
     function initDataFileInput(){
         var dataFileInput = document.createElement('input');
         dataFileInput.id = "dataFileInput";
@@ -401,40 +437,6 @@
             }
         };
         gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
-    }
-    function initBackgroundFileInput(){
-        var buildingFileInput = document.createElement('input');
-        buildingFileInput.id = "buildingFileInput";
-        buildingFileInput.type = "file";
-        buildingFileInput.style.position = "absolute";
-        buildingFileInput.style.visibility = "hidden";
-        buildingFileInput.style.top = "0px";
-        buildingFileInput.style.width = "0px";
-        buildingFileInput.style.height = "0px";
-        document.body.appendChild(buildingFileInput);
-
-        buildingFileInput.addEventListener( 'change', function( e ) {
-
-            var file = buildingFileInput.files[0];
-            var fileName = buildingFileInput.files[0].name;
-            var fileType = /image.*/;
-
-            if (file.type.match(fileType)) {
-
-                loadBgImg(fileName);
-
-            } else {
-                alert("File not supported");
-            }
-            this.value = null; //remove filename from input
-        });
-
-        var buildingFile = {
-            loadBuildingFile : function() {
-                document.getElementById("buildingFileInput").click();
-            }
-        };
-        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
     }
 
     function loadTrajectories ( readerResult ){
@@ -480,6 +482,7 @@
 
     function changeFloors(){
         console.log(building.floor);
+        loadBgImg(building.path);
     }
 
     function importCSV ( csvString ) {
@@ -624,6 +627,8 @@
         raycaster.near = -500;
         raycaster.far = 1000;
         mouse = new THREE.Vector2();
+
+        window.addEventListener('click', onMouseClick, false);
     }
 
     function onMouseClick( event ){
@@ -646,7 +651,6 @@
 
     function addWindowListeners(){
         window.addEventListener('resize', onWindowResize, false);
-        window.addEventListener('click', onMouseClick, false);
     }
 
     function onWindowResize (){
