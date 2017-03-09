@@ -103,7 +103,7 @@
             this.wListener = listener;
         },
 
-        f: 2,
+        f: 0,
         fListener: function(f){},
         get floor(){
             return this.f;
@@ -154,12 +154,13 @@
         this.type = 'Line';
         this.typeController;
         this.line;
+        this.visible = false;
     };
 
     //dat.gui
     var gui;
 
-    var trajectoryGroups = [];
+    var trajectoryFloorGroups = {};
 
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(0,0,0,0,0,0,0);
@@ -326,7 +327,6 @@
                 scene.add(backgroundMesh);
 
                 loadGrid();
-
             },
             function () {},
             function () {
@@ -388,6 +388,7 @@
                 building.filePath = fileName.slice(0,-5);
                 building.fileExt = fileName.slice(-4,fileName.length);
                 loadBgImg(building.path);
+                trajectoryFloorGroups = {};
 
             } else {
                 alert("File not supported");
@@ -439,50 +440,48 @@
         gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
     }
 
-    function loadTrajectories ( readerResult ){
+    function loadTrajectories ( readerResult ) {
 
         var pointList = importCSV(readerResult);
-        var corredPointsList = corrPoints(pointList);
-        var groupedPoints = groupPointList(corredPointsList); //object containing arrays of points
-        var trajectoryGroup = [];
+        var corredPointList = corrPoints(pointList);
+        var corredPointListByFloor = groupPointsByFloor(corredPointList);
+        var corredPointListByFloorByDid = {};
 
-        //Punkte nach DID in eigene Trajectories speichern
-        for(var key in groupedPoints){
-            var trajectory = new Trajectory();
-            trajectory.did = key;
-            trajectory.points = groupedPoints[key];
-            trajectoryGroup.push(trajectory);
+        for (var key in corredPointListByFloor) {
+            if (corredPointListByFloor.hasOwnProperty(key)) {
+                corredPointListByFloorByDid[key] = groupPointListByDid(corredPointListByFloor[key]);
+            }
         }
 
-        trajectoryGroups.push(trajectoryGroup);
+        for (var floor in corredPointListByFloorByDid) {
+            if (corredPointListByFloorByDid.hasOwnProperty(floor)) {
+                var trajectoryFloorGroup = [];
 
-        trajectoryGroup.forEach(function(traj){
-            drawTrajectory(traj);
+                for (var pointGroup in corredPointListByFloorByDid[floor]) {
+                    if (corredPointListByFloorByDid[floor].hasOwnProperty(pointGroup)) {
+                        var tempTrajectory = new Trajectory();
+                        tempTrajectory.did = pointGroup;
+                        tempTrajectory.floor = corredPointListByFloorByDid[floor][pointGroup][0].f;
+                        tempTrajectory.points = corredPointListByFloorByDid[floor][pointGroup];
+                        trajectoryFloorGroup.push(tempTrajectory);
+                    }
+                }
+                trajectoryFloorGroups[tempTrajectory.floor] = trajectoryFloorGroup;
+            }
+        }
 
-            traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
+        for(var f in trajectoryFloorGroups) {
+            trajectoryFloorGroups[f].forEach(function (trajectory) {
 
-            traj.typeController.onChange( function(){
-                scene.remove(traj.line);
-                drawTrajectory(traj);
+                drawTrajectory(makeTrajectory(trajectory));
             });
-        });
-    }
-    function removeAllTrajectories(){
-        trajectoryGroups.forEach( function(trajGroup){
-            trajGroup.forEach( function (traj) {
-                removeTrajectory(traj);
-            });
-        });
-        trajectoryGroups = [];
-    }
-    function removeTrajectory(traj) {
-        scene.remove(traj.line);
-        gui.remove(traj.typeController);
+        }
     }
 
     function changeFloors(){
         console.log(building.floor);
         loadBgImg(building.path);
+        drawAllTrajectories();
     }
 
     function importCSV ( csvString ) {
@@ -522,17 +521,27 @@
         return pointsList.data; // = array of objects
     }
 
-    function corrPoints( pointsList ){
-        pointsList.forEach(
+    function corrPoints( pointList ){
+        pointList.forEach(
             function ( point ) {
                 //point.x = point.x; //scale;
                 point.y = point.y * -1; //scale;
             }
         );
-        return pointsList;
+        return pointList;
     }
 
-    function groupPointList ( pointList ) {
+    function groupPointsByFloor( pointList ){
+        var pointListByFloor = groupBy(
+            pointList,
+            function(item) {
+                return [item.f]; //, item.t
+            }
+        );
+        return pointListByFloor;
+    }
+
+    function groupPointListByDid ( pointList ) {
 
         var pointListByID = groupBy(
             pointList,
@@ -562,7 +571,7 @@
         )*/
     }
 
-    function makeTrajectoryLines ( points ){
+    function makeLineGeom ( points ){
 
         var vertices = [];
         points.forEach(
@@ -571,14 +580,14 @@
             }
         );
 
-        var trajGeom = new THREE.Geometry();
-        trajGeom.name = points[0].did;
-        trajGeom.vertices = vertices;
+        var lineGeom = new THREE.Geometry();
+        lineGeom.name = points[0].did;
+        lineGeom.vertices = vertices;
 
-        return trajGeom;
+        return lineGeom;
     }
 
-    function makeTrajectoryCurves ( points ){
+    function makeCurveGeom ( points ){
 
         var vertices = [];
         points.forEach(
@@ -587,29 +596,67 @@
             }
         );
         var curve = new THREE.CatmullRomCurve3( vertices );
-        var trajGeom = new THREE.Geometry();
-        trajGeom.name = points[0].did;
-        trajGeom.vertices = curve.getPoints( 50 );
+        var curveGeom = new THREE.Geometry();
+        curveGeom.name = points[0].did;
+        curveGeom.vertices = curve.getPoints( 50 );
 
-        return trajGeom;
+        return curveGeom;
     }
 
-    function drawTrajectory(traj){
-
+    function makeTrajectory(traj){
         var tempTraj;
 
         if(traj.type == 'Line'){
-            tempTraj = makeTrajectoryLines(traj.points);
+            tempTraj = makeLineGeom(traj.points);
         } else if (traj.type == 'Curve'){
-            tempTraj = makeTrajectoryCurves(traj.points);
+            tempTraj = makeCurveGeom(traj.points);
         }
 
         var trajectoryMaterial = new THREE.LineBasicMaterial( { color: traj.color, opacity: 1 } );
         traj.line = new THREE.Line(tempTraj, trajectoryMaterial);
 
-        scene.add(traj.line);
+        return traj;
+    }
 
+    function drawAllTrajectories(){
+        for(var floor in trajectoryFloorGroups) {
+            trajectoryFloorGroups[floor].forEach(function (traj) {
+
+                drawTrajectory(traj);
+            });
+        }
+    }
+    function drawTrajectory(traj){
+
+        if(traj.floor == building.f){
+
+            traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
+
+            traj.typeController.onChange(function () {
+                removeTrajectory(traj);
+                drawTrajectory(makeTrajectory(traj));
+            });
+
+            scene.add(traj.line);
+            traj.visible = true;
+        }
         // da könnte man die farbe / den dateinamen / etc. verwenden ---
+    }
+
+    function removeAllTrajectories(){
+        for(var floor in trajectoryFloorGroups){
+            trajectoryFloorGroups[floor].forEach( function (traj) {
+
+                removeTrajectory(traj);
+            });
+        }
+    }
+    function removeTrajectory(traj) {
+        if(traj.visible) {
+            scene.remove(traj.line);
+            gui.remove(traj.typeController);
+            traj.visible = false;
+        }
     }
 
     //erweitern um zwischen einzelnen trajectoryGroups nach der Zeit zu unterscheiden
