@@ -24,10 +24,15 @@
     //Set scene size
     var WINDOW_WIDTH = window.innerWidth;
     var WINDOW_HEIGHT = window.innerHeight;
+    var ratio;
 
     // 1 Meter in Realität ist <10> Pixel auf einem Bild
     //meter/pixel
-    var scale = 1/100;
+    const SCALE_INDOORS = 1/100;
+    const SCALE_LUCI = 1/200;
+    var scale = SCALE_INDOORS;
+
+    var buildingFile = 'img/indoors-office.png';
 
     var CAM_NEAR = -500;
     var CAM_FAR = 1000;
@@ -48,8 +53,15 @@
     var camerahelper;
     var mouse, raycaster;
 
+    var coordLines;
+
     //loadedPoints
     //var pointListById;
+
+    /*var Background = function(){
+        this.filePath = '';
+        this.
+    };*/
 
     var Trajectory = function(){
         this.color = 0xff0000;
@@ -72,11 +84,13 @@
 
     initRaycaster();
 
-    initBgImg();
+    loadBgImg('indoors-office.png');
 
     initDatGUI();
 
-    fileIn();
+    initDataFileInput();
+
+    initBackgroundFileInput();
 
     update();
 
@@ -85,7 +99,6 @@
 
         initCamera();
 
-        initGrid();
 
         //help
         //camerahelper = new THREE.CameraHelper( camera );
@@ -96,22 +109,25 @@
         INITIALIZED = true;
     }
 
-    function initBgImg(){
+    function loadBgImg( buildingName ){
+
+        var buildingPath = 'img/' + buildingName;
+
+        scene.remove(backgroundMesh);
+
         var bgMaterial = new THREE.MeshBasicMaterial();
 
         var bgLoader = new THREE.TextureLoader();
         bgLoader.load(
-            'img/indoors-office.png',
+            buildingPath,
             function ( texture ) {
                 bgMaterial = new THREE.MeshBasicMaterial({
                     map: texture
                 });
 
-                var bgImgWidth = texture.image.naturalWidth;
-                var bgImgHeight = texture.image.naturalHeight;
-
-                buildingWidth = bgImgWidth * scale;
-                buildingHeight = bgImgHeight * scale;
+                //pixel in meter umrechnen
+                buildingWidth = texture.image.naturalWidth * scale;
+                buildingHeight = texture.image.naturalHeight * scale;
                 buildingRatio = buildingWidth / buildingHeight;
 
                 IMG_LOADED = true;
@@ -126,7 +142,7 @@
 
                 backgroundPlane.faces.push(new THREE.Face3(0,1,3));
                 backgroundPlane.faces.push(new THREE.Face3(1,2,3));
-                backgroundPlane.computeFaceNormals();
+                //backgroundPlane.computeFaceNormals();
 
                 backgroundPlane.faceVertexUvs[0] = [];
 
@@ -144,48 +160,25 @@
                 backgroundPlane.uvsNeedUpdate = true;
 
                 backgroundMesh = new THREE.Mesh(
-                    //new THREE.PlaneGeometry(WINDOW_WIDTH, WINDOW_WIDTH / buildingRatio),
-
                     backgroundPlane,
                     bgMaterial
-
                 );
                 backgroundMesh.name = 'backgroundMesh';
-
-                //backgroundMesh.translateY((WINDOW_HEIGHT/2) - );
                 scene.add(backgroundMesh);
+
+                loadGrid();
+
             },
             function () {},
             function () {
-                console.log('bg-loading failed');
+                console.log('BG-loading failed');
             }
         );
      }
 
-    function initGrid(){
-
-        var coordGeometry = new THREE.Geometry();
-
-        //x-axis
-        for (i = 0; i < (buildingHeight); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(0, -i, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, COORD_Z));
-        }
-        //y-axis
-        for (i = 0; i < (buildingWidth); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(i, 0, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, COORD_Z));
-        }
-
-        var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
-        var coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
-
-        scene.add(coordLines);
-    }
-
     function initCamera(){
 
-        var ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
+        ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
 
         /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
             camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
@@ -204,7 +197,6 @@
         }
 
         camera.updateProjectionMatrix();
-
     }
     function updateCamera(){
 
@@ -266,23 +258,46 @@
         //change line type on the fly
     }
 
-    function fileIn(){
-        var fileInput = document.createElement( 'input' );
-        fileInput.id = "fileInput";
-        fileInput.type = "file";
-        fileInput.style.position = "absolute";
-        fileInput.style.visibility = "hidden";
-        fileInput.style.top = "0px";
-        fileInput.style.width = "0px";
-        fileInput.style.height = "0px";
-        document.body.appendChild(fileInput);
+    function loadGrid(){
 
-        fileInput.addEventListener( 'change', function( e ) {
+        scene.remove(coordLines);
 
-            var file = fileInput.files[0];
-            var textType = /text.*/;
+        var coordGeometry = new THREE.Geometry();
 
-            if (file.type.match(textType)) {
+        //x-axis
+        for (i = 0; i < (buildingHeight); i++) {
+            coordGeometry.vertices.push(new THREE.Vector3(0, -i, COORD_Z));
+            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, COORD_Z));
+        }
+        //y-axis
+        for (i = 0; i < (buildingWidth); i++) {
+            coordGeometry.vertices.push(new THREE.Vector3(i, 0, COORD_Z));
+            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, COORD_Z));
+        }
+
+        var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
+        coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
+
+        scene.add(coordLines);
+    }
+
+    function initDataFileInput(){
+        var dataFileInput = document.createElement( 'input' );
+        dataFileInput.id = "dataFileInput";
+        dataFileInput.type = "file";
+        dataFileInput.style.position = "absolute";
+        dataFileInput.style.visibility = "hidden";
+        dataFileInput.style.top = "0px";
+        dataFileInput.style.width = "0px";
+        dataFileInput.style.height = "0px";
+        document.body.appendChild(dataFileInput);
+
+        dataFileInput.addEventListener( 'change', function( e ) {
+
+            var file = dataFileInput.files[0];
+            var fileType = /text.*/;
+
+            if (file.type.match(fileType)) {
                 var reader = new FileReader();
                 reader.onload = function ( e ) {
                     //alert(reader.result);
@@ -295,11 +310,44 @@
         });
 
         var trajectoryFile = {
-            loadFile : function() {
-                document.getElementById("fileInput").click();
+            loadDataFile : function() {
+                document.getElementById("dataFileInput").click();
             }
         };
-        gui.add(trajectoryFile, 'loadFile').name('Load Trajectory file');
+        gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
+    }
+    function initBackgroundFileInput(){
+        var buildingFileInput = document.createElement( 'input' );
+        buildingFileInput.id = "buildingFileInput";
+        buildingFileInput.type = "file";
+        buildingFileInput.style.position = "absolute";
+        buildingFileInput.style.visibility = "hidden";
+        buildingFileInput.style.top = "0px";
+        buildingFileInput.style.width = "0px";
+        buildingFileInput.style.height = "0px";
+        document.body.appendChild(buildingFileInput);
+
+        buildingFileInput.addEventListener( 'change', function( e ) {
+
+            var file = buildingFileInput.files[0];
+            var fileName = buildingFileInput.files[0].name;
+            var fileType = /image.*/;
+
+            if (file.type.match(fileType)) {
+
+                loadBgImg(fileName);
+
+            } else {
+                alert("File not supported");
+            }
+        });
+
+        var buildingFile = {
+            loadBuildingFile : function() {
+                document.getElementById("buildingFileInput").click();
+            }
+        };
+        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
     }
 
     //traj
@@ -447,10 +495,12 @@
 
     function drawTrajectory(traj){
 
+        var tempTraj;
+
         if(traj.type == 'Line'){
-            var tempTraj = makeTrajectoryLines(traj.points);
+            tempTraj = makeTrajectoryLines(traj.points);
         } else if (traj.type == 'Curve'){
-            var tempTraj = makeTrajectoryCurves(traj.points);
+            tempTraj = makeTrajectoryCurves(traj.points);
         }
 
         var trajectoryMaterial = new THREE.LineBasicMaterial( { color: traj.color, opacity: 1 } );
