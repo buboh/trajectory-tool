@@ -21,18 +21,13 @@
     var INITIALIZED = false;
     var IMG_LOADED = false;
 
-    //Set scene size
-    var WINDOW_WIDTH = window.innerWidth;
-    var WINDOW_HEIGHT = window.innerHeight;
-    var ratio;
-
     // 1 Meter in Realität ist <10> Pixel auf einem Bild
     //meter/pixel
     const SCALE_INDOORS = 1/100;
     const SCALE_LUCI = 1/200;
     var scale = SCALE_INDOORS;
 
-    var buildingFile = 'img/indoors-office.png';
+    var buildingFilePath = 'indoors-office.png';
 
     var CAM_NEAR = -500;
     var CAM_FAR = 1000;
@@ -41,9 +36,103 @@
     var TRAJ_Z = 2;
 
     //in metern  // WINDOW_ nur zum Testen
-    var buildingWidth;
-    var buildingHeight;
-    var buildingRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
+
+    /*var buildingWidth = {
+        widthValue: 1,
+        widthListener: function(w){},
+
+        set value(w){
+            this.widthValue = w;
+            this.widthListener(w)
+        },
+        get value(){
+            return this.widthValue;
+        },
+        registerWidthListener: function(listener){
+            this.widthListener = listener;
+        }
+    };
+
+    var buildingHeight = {
+        heightValue: 1,
+        heightListener: function(w){},
+
+        set value(w){
+            this.heightValue = w;
+            this.heightListener(w)
+        },
+        get value(){
+            return this.heightValue;
+        },
+        registerHeightListener: function(listener){
+            this.heightListener = listener;
+        }
+    };
+
+    buildingWidth.registerWidthListener( function(w) {
+        updateCamera();
+        updateRenderer();
+    });
+    buildingHeight.registerHeightListener( function(w) {
+        updateCamera();
+        updateRenderer();
+    });*/
+
+    //daten des dargestellten gebäudes
+    var building = {
+        w: window.innerWidth,
+        h: window.innerHeight,
+        ratio: this.w / this.h,
+        wListener: function(w){},
+        hListener:function(h){},
+
+        get width(){
+            return this.w;
+        },
+        get height(){
+            return this.h;
+        },
+        set width(val){
+            this.w = val;
+            this.wListener(val)
+        },
+        set height(val){
+            this.h = val;
+            this.hListener(val);
+        },
+        registerWListener: function(listener){
+            this.hListener = listener;
+        },
+        registerHListener: function(listener){
+            this.wListener = listener;
+        },
+
+        f: 0,
+        fListener: function(f){},
+        get floor(){
+            return this.f;
+        },
+        set floor(val){
+            this.f = val;
+            this.fListener(val)
+        },
+        registerFListener: function(listener){
+            this.fListener = listener;
+        }
+    };
+    building.registerWListener( function(val){
+        this.ratio = this.w / this.h;
+        updateCamera();
+        updateRenderer();
+    });
+    building.registerHListener( function(val){
+        this.ratio = this.w / this.h;
+        updateCamera();
+        updateRenderer();
+    });
+    building.registerFListener( function(val){
+        changeFloors();
+    });
 
     //Background image
     var backgroundMesh;
@@ -55,17 +144,10 @@
 
     var coordLines;
 
-    //loadedPoints
-    //var pointListById;
-
-    /*var Background = function(){
-        this.filePath = '';
-        this.
-    };*/
-
     var Trajectory = function(){
         this.color = 0xff0000;
         this.did = '';
+        this.floor = 0;
         this.points = [];
         this.type = 'Line';
         this.typeController;
@@ -84,7 +166,7 @@
 
     initRaycaster();
 
-    loadBgImg('indoors-office.png');
+    loadBgImg(buildingFilePath);
 
     initDatGUI();
 
@@ -99,7 +181,6 @@
 
         initCamera();
 
-
         //help
         //camerahelper = new THREE.CameraHelper( camera );
         //scene.add(camerahelper);
@@ -109,11 +190,90 @@
         INITIALIZED = true;
     }
 
+    //filter points for floor | groups for files needed? --> folders in gui. show/hide group, remove group.
+    //searching through all the groups for floors is gschissen
+
+    function initCamera(){
+
+        var windowRatio = window.innerWidth / window.innerHeight;
+
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, 0, 1000);
+        } else {
+            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
+                (buildingHeight / 2), (buildingHeight / -2), 0, 1000);
+        }*/
+
+        if((window.innerWidth / window.innerHeight) < building.ratio){
+            camera = new THREE.OrthographicCamera(0, building.width,
+                 0, -building.width / windowRatio, CAM_NEAR, CAM_FAR);
+        } else {
+            camera = new THREE.OrthographicCamera(0, building.height * windowRatio,
+                0, -building.height, CAM_NEAR, CAM_FAR);
+        }
+
+        camera.updateProjectionMatrix();
+    }
+    function updateCamera(){
+
+        var windowRatio = window.innerWidth / window.innerHeight;
+
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
+                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
+        } else {
+            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
+                (buildingHeight / 2), (buildingHeight / -2), -500, 1000);
+        }*/
+
+        if((window.innerWidth / window.innerHeight) < building.ratio){
+            camera = new THREE.OrthographicCamera(0, building.width,
+                0, -building.width / windowRatio, CAM_NEAR, CAM_FAR);
+        } else {
+            camera = new THREE.OrthographicCamera(0, building.height * windowRatio,
+                0, -building.height, CAM_NEAR, CAM_FAR);
+        }
+
+        camera.updateProjectionMatrix();
+
+        /*if(camerahelper != null){
+            camerahelper.update();
+        }*/
+    }
+
+    function initRenderer(){
+        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+        renderer.setClearColor(0xffffff, 0);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
+        } else {
+            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
+        }*/
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+    }
+    function updateRenderer(){
+
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
+            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
+        } else {
+            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
+        }*/
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
     function loadBgImg( buildingName ){
 
         var buildingPath = 'img/' + buildingName;
 
         scene.remove(backgroundMesh);
+        removeAllTrajectories();
 
         var bgMaterial = new THREE.MeshBasicMaterial();
 
@@ -126,9 +286,8 @@
                 });
 
                 //pixel in meter umrechnen
-                buildingWidth = texture.image.naturalWidth * scale;
-                buildingHeight = texture.image.naturalHeight * scale;
-                buildingRatio = buildingWidth / buildingHeight;
+                building.width = texture.image.naturalWidth * scale;
+                building.height = texture.image.naturalHeight * scale;
 
                 IMG_LOADED = true;
 
@@ -136,9 +295,9 @@
                 var backgroundPlane = new THREE.Geometry();
 
                 backgroundPlane.vertices.push(new THREE.Vector3(0, 0, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(0, -buildingHeight, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, -buildingHeight, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(buildingWidth, 0, BG_Z));
+                backgroundPlane.vertices.push(new THREE.Vector3(0, -building.height, BG_Z));
+                backgroundPlane.vertices.push(new THREE.Vector3(building.width, -building.height, BG_Z));
+                backgroundPlane.vertices.push(new THREE.Vector3(building.width, 0, BG_Z));
 
                 backgroundPlane.faces.push(new THREE.Face3(0,1,3));
                 backgroundPlane.faces.push(new THREE.Face3(1,2,3));
@@ -174,90 +333,7 @@
                 console.log('BG-loading failed');
             }
         );
-     }
-
-    function initCamera(){
-
-        ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
-
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, 0, 1000);
-        } else {
-            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
-                (buildingHeight / 2), (buildingHeight / -2), 0, 1000);
-        }*/
-
-        if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(0, buildingWidth,
-                 0, -buildingWidth / ratio, CAM_NEAR, CAM_FAR);
-        } else {
-            camera = new THREE.OrthographicCamera(0, buildingHeight * ratio,
-                0, -buildingHeight, CAM_NEAR, CAM_FAR);
-        }
-
-        camera.updateProjectionMatrix();
     }
-    function updateCamera(){
-
-        var ratio = WINDOW_WIDTH / WINDOW_HEIGHT;
-
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
-        } else {
-            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
-                (buildingHeight / 2), (buildingHeight / -2), -500, 1000);
-        }*/
-
-        if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(0, buildingWidth,
-                0, -buildingWidth / ratio, CAM_NEAR, CAM_FAR);
-        } else {
-            camera = new THREE.OrthographicCamera(0, buildingHeight * ratio,
-                0, -buildingHeight, CAM_NEAR, CAM_FAR);
-        }
-
-        camera.updateProjectionMatrix();
-
-        /*if(camerahelper != null){
-            camerahelper.update();
-        }*/
-    }
-
-    function initRenderer(){
-        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
-        renderer.setClearColor(0xffffff, 0);
-        renderer.setPixelRatio(window.devicePixelRatio);
-
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
-        } else {
-            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
-        }*/
-
-        renderer.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-        document.body.appendChild(renderer.domElement);
-    }
-    function updateRenderer(){
-
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
-        } else {
-            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
-        }*/
-
-        renderer.setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-
-    }
-
-    function initDatGUI(){
-        gui = new dat.GUI();
-        //gui.add(coordSys, )
-        //remove all trajectoryGroups
-        //change line type on the fly
-    }
-
     function loadGrid(){
 
         scene.remove(coordLines);
@@ -265,24 +341,33 @@
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for (i = 0; i < (buildingHeight); i++) {
+        for (i = 0; i < (building.height); i++) {
             coordGeometry.vertices.push(new THREE.Vector3(0, -i, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(buildingWidth, -i, COORD_Z));
+            coordGeometry.vertices.push(new THREE.Vector3(building.width, -i, COORD_Z));
         }
         //y-axis
-        for (i = 0; i < (buildingWidth); i++) {
+        for (i = 0; i < (building.width); i++) {
             coordGeometry.vertices.push(new THREE.Vector3(i, 0, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(i, -buildingHeight, COORD_Z));
+            coordGeometry.vertices.push(new THREE.Vector3(i, -building.height, COORD_Z));
         }
 
         var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
         coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
 
+        /*  updateCamera();
+         updateRenderer();*/
+
         scene.add(coordLines);
     }
 
+    function initDatGUI(){
+        gui = new dat.GUI();
+        //gui.add(coordSys, )
+        gui.add(building, 'floor',-5,10).name('Floor').step(1);
+    }
+
     function initDataFileInput(){
-        var dataFileInput = document.createElement( 'input' );
+        var dataFileInput = document.createElement('input');
         dataFileInput.id = "dataFileInput";
         dataFileInput.type = "file";
         dataFileInput.style.position = "absolute";
@@ -307,6 +392,7 @@
             } else {
                 alert("File not supported");
             }
+            this.value = null; //remove filename from input
         });
 
         var trajectoryFile = {
@@ -317,7 +403,7 @@
         gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
     }
     function initBackgroundFileInput(){
-        var buildingFileInput = document.createElement( 'input' );
+        var buildingFileInput = document.createElement('input');
         buildingFileInput.id = "buildingFileInput";
         buildingFileInput.type = "file";
         buildingFileInput.style.position = "absolute";
@@ -340,6 +426,7 @@
             } else {
                 alert("File not supported");
             }
+            this.value = null; //remove filename from input
         });
 
         var buildingFile = {
@@ -350,11 +437,7 @@
         gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
     }
 
-    //traj
     function loadTrajectories ( readerResult ){
-
-        /*var traj = new Trajectory();
-        trajectoryGroups.push(traj);*/
 
         var pointList = importCSV(readerResult);
         var corredPointsList = corrPoints(pointList);
@@ -371,7 +454,6 @@
 
         trajectoryGroups.push(trajectoryGroup);
 
-        //traj.pointListById = groupPointList(corredPointsList);
         trajectoryGroup.forEach(function(traj){
             drawTrajectory(traj);
 
@@ -382,6 +464,22 @@
                 drawTrajectory(traj);
             });
         });
+    }
+    function removeAllTrajectories(){
+        trajectoryGroups.forEach( function(trajGroup){
+            trajGroup.forEach( function (traj) {
+                removeTrajectory(traj);
+            });
+        });
+        trajectoryGroups = [];
+    }
+    function removeTrajectory(traj) {
+        scene.remove(traj.line);
+        gui.remove(traj.typeController);
+    }
+
+    function changeFloors(){
+        console.log(building.floor);
     }
 
     function importCSV ( csvString ) {
@@ -508,15 +606,6 @@
 
         scene.add(traj.line);
 
-
-       /* traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
-
-        traj.typeController.onChange( function(){
-            scene.remove(traj.line);
-            traj.line = null;
-            drawTrajectory(traj);
-        });*/
-
         // da könnte man die farbe / den dateinamen / etc. verwenden ---
     }
 
@@ -560,15 +649,12 @@
         window.addEventListener('click', onMouseClick, false);
     }
 
-    function onWindowResize () {
-        WINDOW_HEIGHT = window.innerHeight;
-        WINDOW_WIDTH = window.innerWidth;
-
+    function onWindowResize (){
         updateCamera();
         updateRenderer();
     }
 
-    function update () {
+    function update (){
 
         if((!INITIALIZED) && IMG_LOADED){
             initialize();
