@@ -25,7 +25,7 @@
     //meter/pixel
     const SCALE_INDOORS = 1/100;
     const SCALE_LUCI = 1/200;
-    var scale = SCALE_INDOORS;
+    //var scale = SCALE_INDOORS;
 
     var CAM_NEAR = -500;
     var CAM_FAR = 1000;
@@ -109,11 +109,31 @@
             return this.f;
         },
         set floor(val){
-            this.f = val;
-            this.fListener(val)
+            if(val != this.f) {
+                this.f = val;
+                this.fListener(val);
+            }
         },
         registerFListener: function(listener){
             this.fListener = listener;
+        },
+
+        s: 100,
+        sListener: function(f){},
+        get scale(){
+            return this.s;
+        },
+        get scaleFraction(){
+            return (1/this.s);
+        },
+        set scale(val){
+            if(val != this.s){
+                this.s = val;
+                this.sListener(val);
+            }
+        },
+        registerSListener: function(listener){
+            this.sListener = listener;
         },
 
         filePath: 'indoors-office-',
@@ -134,6 +154,9 @@
     });
     building.registerFListener( function(val){
         changeFloors();
+    });
+    building.registerSListener( function(val){
+        changeScale();
     });
 
     //Background image
@@ -180,7 +203,7 @@
 
     function initialize(){
 
-        initCamera();
+        configCamera();
 
         //help
         //camerahelper = new THREE.CameraHelper( camera );
@@ -194,7 +217,7 @@
     //filter points for floor | groups for files needed? --> folders in gui. show/hide group, remove group.
     //searching through all the groups for floors is gschissen
 
-    function initCamera(){
+    function configCamera(){
 
         var windowRatio = window.innerWidth / window.innerHeight;
 
@@ -273,6 +296,10 @@
 
         var buildingPath = 'img/' + buildingName;
 
+        /*if(buildingPath.search('LUCI') != (-1)){
+
+        }*/
+
         scene.remove(backgroundMesh);
         removeAllTrajectories();
 
@@ -287,8 +314,8 @@
                 });
 
                 //pixel in meter umrechnen
-                building.width = texture.image.naturalWidth * scale;
-                building.height = texture.image.naturalHeight * scale;
+                building.width = texture.image.naturalWidth * building.scaleFraction;
+                building.height = texture.image.naturalHeight * building.scaleFraction;
 
                 IMG_LOADED = true;
 
@@ -363,7 +390,8 @@
     function initDatGUI(){
         gui = new dat.GUI();
         //gui.add(coordSys, )
-        gui.add(building, 'floor',-3,3).name('Floor').step(1);
+        gui.add(building, 'floor',-3,3).step(1).name('Floor');
+        gui.add(building, 'scale',100,400).step(100).name('Scale (1/X)');
     }
 
     function initBackgroundFileInput(){
@@ -377,7 +405,7 @@
         buildingFileInput.style.height = "0px";
         document.body.appendChild(buildingFileInput);
 
-        buildingFileInput.addEventListener( 'change', function( e ) {
+        buildingFileInput.addEventListener( 'click', function( e ) {
 
             var file = buildingFileInput.files[0];
             var fileName = buildingFileInput.files[0].name;
@@ -393,7 +421,7 @@
             } else {
                 alert("File not supported");
             }
-            this.value = null; //remove filename from input
+            //this.value = null; //remove filename from input
         });
 
         var buildingFile = {
@@ -480,6 +508,11 @@
 
     function changeFloors(){
         console.log(building.floor);
+        loadBgImg(building.path);
+        drawAllTrajectories();
+    }
+    function changeScale(){
+        console.log(building.s);
         loadBgImg(building.path);
         drawAllTrajectories();
     }
@@ -701,7 +734,7 @@
     }
 
     function onWindowResize (){
-        updateCamera();
+        configCamera();
         updateRenderer();
     }
 
