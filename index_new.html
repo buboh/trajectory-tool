@@ -16,22 +16,17 @@
 <script src="js/three.js"></script>
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
+<script src="js/thenBy.js"></script>
 <script>
     //FLAG
     var INITIALIZED = false;
     var IMG_LOADED = false;
 
-    // 1 Meter in Realität ist <10> Pixel auf einem Bild
-    //meter/pixel
-    const SCALE_INDOORS = 1/100;
-    const SCALE_LUCI = 1/200;
-    //var scale = SCALE_INDOORS;
-
-    var CAM_NEAR = -500;
-    var CAM_FAR = 1000;
-    var BG_Z = 0;
-    var COORD_Z = 1;
-    var TRAJ_Z = 2;
+    const CAM_NEAR = -500;
+    const CAM_FAR = 1000;
+    const BG_Z = 0;
+    const COORD_Z = 1;
+    const TRAJ_Z = 2;
 
     /*var buildingWidth = {
         widthValue: 1,
@@ -73,6 +68,17 @@
         updateCamera();
         updateRenderer();
     });*/
+
+    //three.js
+    var camera, scene, renderer;
+    var camerahelper;
+    var mouse, raycaster;
+
+    var coordLines;
+    var trajectoryFloorGroups = {};
+
+    //dat.gui
+    var gui;
 
     //daten des dargestellten gebäudes
     var building = {
@@ -139,7 +145,7 @@
         filePath: 'indoors-office-',
         fileExt: '.png',
         get path(){
-            return this.filePath + this.floor + this.fileExt;
+            return this.filePath + this.f + this.fileExt;
         }
     };
     building.registerWListener( function(val){
@@ -159,16 +165,6 @@
         changeScale();
     });
 
-    //Background image
-    var backgroundMesh;
-
-    //three.js
-    var camera, scene, renderer;
-    var camerahelper;
-    var mouse, raycaster;
-
-    var coordLines;
-
     var Trajectory = function(){
         this.color = 0xff0000;
         this.did = '';
@@ -180,42 +176,32 @@
         this.visible = false;
     };
 
-    //dat.gui
-    var gui;
-
-    var trajectoryFloorGroups = {};
-
     scene = new THREE.Scene();
     camera = new THREE.OrthographicCamera(0,0,0,0,0,0,0);
 
     initRenderer();
-
+    configCamera();
     //initRaycaster();
-
-    loadBgImg(building.path);
 
     initDatGUI();
 
     initBackgroundFileInput();
     initDataFileInput();
 
+    addWindowListeners();
+
     update();
 
-    function initialize(){
-
-        configCamera();
-
-        //help
-        //camerahelper = new THREE.CameraHelper( camera );
-        //scene.add(camerahelper);
-
-        addWindowListeners();
-
-        INITIALIZED = true;
+    function initRenderer(){
+        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+        renderer.setClearColor(0xffffff, 0);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        updateRenderer();
     }
-
-    //filter points for floor | groups for files needed? --> folders in gui. show/hide group, remove group.
-    //searching through all the groups for floors is gschissen
+    function updateRenderer(){
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 
     function configCamera(){
 
@@ -266,42 +252,101 @@
         }*/
     }
 
-    function initRenderer(){
-        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
-        renderer.setClearColor(0xffffff, 0);
-        renderer.setPixelRatio(window.devicePixelRatio);
-
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
-        } else {
-            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
-        }*/
-
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+    function initDatGUI(){
+        gui = new dat.GUI();
+        gui.add(building, 'floor',-3,3).step(1).name('Floor');
+        gui.add(building, 'scale',100,400).step(100).name('Scale (1/X)');
     }
-    function updateRenderer(){
 
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            renderer.setSize(WINDOW_WIDTH, WINDOW_WIDTH * buildingRatio);
-        } else {
-            renderer.setSize(WINDOW_HEIGHT / buildingRatio, WINDOW_HEIGHT);
-        }*/
+    function initBackgroundFileInput(){
+        var buildingFileInput = document.createElement('input');
+        buildingFileInput.id = "buildingFileInput";
+        buildingFileInput.type = "file";
+        buildingFileInput.style.position = "absolute";
+        buildingFileInput.style.visibility = "hidden";
+        buildingFileInput.style.top = "0px";
+        buildingFileInput.style.width = "0px";
+        buildingFileInput.style.height = "0px";
+        document.body.appendChild(buildingFileInput);
 
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        buildingFileInput.addEventListener( 'change', function( e ) {
 
+            var file = buildingFileInput.files[0];
+            var fileName = buildingFileInput.files[0].name;
+            var fileType = /image.*/;
+
+            if (file.type.match(fileType)) {
+
+                building.filePath = fileName.slice(0,-5);
+                building.fileExt = fileName.slice(-4,fileName.length);
+                loadBgImg(building.path);
+                trajectoryFloorGroups = {};
+
+            } else {
+                alert("File not supported");
+            }
+        });
+
+        var buildingFile = {
+            loadBuildingFile: function() {
+                document.getElementById("buildingFileInput").click();
+            }
+        };
+        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
+    }
+    function initDataFileInput(){
+        var dataFileInput = document.createElement('input');
+        dataFileInput.id = "dataFileInput";
+        dataFileInput.type = "file";
+        dataFileInput.style.position = "absolute";
+        dataFileInput.style.visibility = "hidden";
+        dataFileInput.style.top = "0px";
+        dataFileInput.style.width = "0px";
+        dataFileInput.style.height = "0px";
+        document.body.appendChild(dataFileInput);
+
+        dataFileInput.addEventListener( 'change', function( e ) {
+
+            var file = dataFileInput.files[0];
+            var fileType = /text.*/;
+
+            if (file.type.match(fileType)) {
+                var reader = new FileReader();
+                reader.onload = function ( e ) {
+                    //alert(reader.result);
+                    loadTrajectories(reader.result);
+                };
+                reader.readAsText(file);
+            } else {
+                alert("File not supported");
+            }
+            this.value = null; //remove filename from input
+        });
+
+        var trajectoryFile = {
+            loadDataFile : function() {
+                document.getElementById("dataFileInput").click();
+            }
+        };
+        gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
     }
 
     function loadBgImg( buildingName ){
 
         var buildingPath = 'img/' + buildingName;
 
-        /*if(buildingPath.search('LUCI') != (-1)){
+        scene.remove(scene.getObjectByName('backgroundMesh'));
 
+        //DISPOSING OF REMOVED MESH OBJECTS
+       /* var hi = scene.getObjectByName('backgroundMesh');
+        if(scene.getObjectByName('backgroundMesh') instanceof THREE.Mesh){
+            deleteObject(scene.getObjectByName('backgroundMesh'));
         }*/
+        //----------------------------------
 
-        scene.remove(backgroundMesh);
         removeAllTrajectories();
+
+        var backgroundMesh;
 
         var bgMaterial = new THREE.MeshBasicMaterial();
 
@@ -316,8 +361,6 @@
                 //pixel in meter umrechnen
                 building.width = texture.image.naturalWidth * building.scaleFraction;
                 building.height = texture.image.naturalHeight * building.scaleFraction;
-
-                IMG_LOADED = true;
 
                 //create bgPlane
                 var backgroundPlane = new THREE.Geometry();
@@ -387,92 +430,25 @@
         scene.add(coordLines);
     }
 
-    function initDatGUI(){
-        gui = new dat.GUI();
-        //gui.add(coordSys, )
-        gui.add(building, 'floor',-3,3).step(1).name('Floor');
-        gui.add(building, 'scale',100,400).step(100).name('Scale (1/X)');
+    //SHOULD remove mesh objects, geoms, mats and textures
+    function deleteObject(sceneObject){
+
+        scene.remove(sceneObject);
+
+        sceneObject.geometry.dispose();
+        sceneObject.material.map.dispose();
+        sceneObject.material.dispose();
     }
 
-    function initBackgroundFileInput(){
-        var buildingFileInput = document.createElement('input');
-        buildingFileInput.id = "buildingFileInput";
-        buildingFileInput.type = "file";
-        buildingFileInput.style.position = "absolute";
-        buildingFileInput.style.visibility = "hidden";
-        buildingFileInput.style.top = "0px";
-        buildingFileInput.style.width = "0px";
-        buildingFileInput.style.height = "0px";
-        document.body.appendChild(buildingFileInput);
-
-        buildingFileInput.addEventListener( 'click', function( e ) {
-
-            var file = buildingFileInput.files[0];
-            var fileName = buildingFileInput.files[0].name;
-            var fileType = /image.*/;
-
-            if (file.type.match(fileType)) {
-
-                building.filePath = fileName.slice(0,-5);
-                building.fileExt = fileName.slice(-4,fileName.length);
-                loadBgImg(building.path);
-                trajectoryFloorGroups = {};
-
-            } else {
-                alert("File not supported");
-            }
-            //this.value = null; //remove filename from input
-        });
-
-        var buildingFile = {
-            loadBuildingFile : function() {
-                document.getElementById("buildingFileInput").click();
-            }
-        };
-        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
-    }
-    function initDataFileInput(){
-        var dataFileInput = document.createElement('input');
-        dataFileInput.id = "dataFileInput";
-        dataFileInput.type = "file";
-        dataFileInput.style.position = "absolute";
-        dataFileInput.style.visibility = "hidden";
-        dataFileInput.style.top = "0px";
-        dataFileInput.style.width = "0px";
-        dataFileInput.style.height = "0px";
-        document.body.appendChild(dataFileInput);
-
-        dataFileInput.addEventListener( 'change', function( e ) {
-
-            var file = dataFileInput.files[0];
-            var fileType = /text.*/;
-
-            if (file.type.match(fileType)) {
-                var reader = new FileReader();
-                reader.onload = function ( e ) {
-                    //alert(reader.result);
-                    loadTrajectories(reader.result);
-                };
-                reader.readAsText(file);
-            } else {
-                alert("File not supported");
-            }
-            this.value = null; //remove filename from input
-        });
-
-        var trajectoryFile = {
-            loadDataFile : function() {
-                document.getElementById("dataFileInput").click();
-            }
-        };
-        gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
-    }
+//
 
     function loadTrajectories ( readerResult ) {
 
-        var pointList = importCSV(readerResult);
+        /*var pointList = importCSV(readerResult);
         var corredPointList = corrPoints(pointList);
-        var corredPointListByFloor = groupPointsByFloor(corredPointList);
+        var corredPointListByFloor = groupPointsByFloor(corredPointList);*/
+
+        var corredPointListByFloor = groupPointsByFloor(corrPoints(importCSV(readerResult)));
         var corredPointListByFloorByDid = {};
 
         for (var key in corredPointListByFloor) {
@@ -506,7 +482,7 @@
         }
     }
 
-    function changeFloors(){
+    function changeFloors() {
         console.log(building.floor);
         loadBgImg(building.path);
         drawAllTrajectories();
@@ -740,9 +716,9 @@
 
     function update (){
 
-        if((!INITIALIZED) && IMG_LOADED){
+        /*if((!INITIALIZED) && IMG_LOADED){
             initialize();
-        }
+        }*/
 
         requestAnimationFrame(update);
 
