@@ -28,43 +28,45 @@
     const COORD_Z = 1;
     const TRAJ_Z = 2;
 
+    const CUT_TIME = 0.08;
+
     /*var buildingWidth = {
         widthValue: 1,
-        widthListener: function(w){},
+        widthListener: function( w ) {},
 
-        set value(w){
+        set value( w ) {
             this.widthValue = w;
-            this.widthListener(w)
+            this.widthListener( w ) 
         },
         get value(){
             return this.widthValue;
         },
-        registerWidthListener: function(listener){
+        registerWidthListener: function( listener ) {
             this.widthListener = listener;
         }
     };
 
     var buildingHeight = {
         heightValue: 1,
-        heightListener: function(w){},
+        heightListener: function( w ) {},
 
-        set value(w){
+        set value( w ) {
             this.heightValue = w;
-            this.heightListener(w)
+            this.heightListener( w ) 
         },
         get value(){
             return this.heightValue;
         },
-        registerHeightListener: function(listener){
+        registerHeightListener: function( listener ) {
             this.heightListener = listener;
         }
     };
 
-    buildingWidth.registerWidthListener( function(w) {
+    buildingWidth.registerWidthListener( function( w )  {
         updateCamera();
         updateRenderer();
     });
-    buildingHeight.registerHeightListener( function(w) {
+    buildingHeight.registerHeightListener( function( w )  {
         updateCamera();
         updateRenderer();
     });*/
@@ -85,8 +87,8 @@
         w: window.innerWidth,
         h: window.innerHeight,
         ratio: this.w / this.h,
-        wListener: function(w){},
-        hListener:function(h){},
+        wListener: function( w ) {},
+        hListener:function( h ) {},
 
         get width(){
             return this.w;
@@ -94,51 +96,51 @@
         get height(){
             return this.h;
         },
-        set width(val){
+        set width( val ) {
             this.w = val;
-            this.wListener(val)
+            this.wListener( val ) 
         },
-        set height(val){
+        set height( val ) {
             this.h = val;
-            this.hListener(val);
+            this.hListener( val ) ;
         },
-        registerWListener: function(listener){
+        registerWListener: function( listener ) {
             this.hListener = listener;
         },
-        registerHListener: function(listener){
+        registerHListener: function( listener ) {
             this.wListener = listener;
         },
 
         f: 0,
-        fListener: function(f){},
+        fListener: function( f ) {},
         get floor(){
             return this.f;
         },
-        set floor(val){
-            if(val != this.f) {
+        set floor( val ) {
+            if( val != this.f )  {
                 this.f = val;
-                this.fListener(val);
+                this.fListener( val ) ;
             }
         },
-        registerFListener: function(listener){
+        registerFListener: function( listener ) {
             this.fListener = listener;
         },
 
         s: 100,
-        sListener: function(f){},
+        sListener: function( f ) {},
         get scale(){
             return this.s;
         },
         get scaleFraction(){
-            return (1/this.s);
+            return (1/this.s ) ;
         },
-        set scale(val){
-            if(val != this.s){
+        set scale( val ) {
+            if( val != this.s ) {
                 this.s = val;
-                this.sListener(val);
+                this.sListener( val ) ;
             }
         },
-        registerSListener: function(listener){
+        registerSListener: function( listener ) {
             this.sListener = listener;
         },
 
@@ -146,23 +148,41 @@
         fileExt: '.png',
         get path(){
             return this.filePath + this.f + this.fileExt;
+        },
+
+        lt: 'Line',
+        ltListener: function( f ) {},
+        get lineType(){
+            return this.lt;
+        },
+        set lineType( val ) {
+            if( val != this.lt )  {
+                this.lt = val;
+                this.ltListener( val ) ;
+            }
+        },
+        registerLtListener: function( listener ) {
+            this.ltListener = listener;
         }
     };
-    building.registerWListener( function(val){
+    building.registerWListener( function( val ) {
         this.ratio = this.w / this.h;
         updateCamera();
         updateRenderer();
     });
-    building.registerHListener( function(val){
+    building.registerHListener( function( val ){
         this.ratio = this.w / this.h;
         updateCamera();
         updateRenderer();
     });
-    building.registerFListener( function(val){
+    building.registerFListener( function( val ){
         changeFloors();
     });
-    building.registerSListener( function(val){
+    building.registerSListener( function( val ){
         changeScale();
+    });
+    building.registerLtListener( function( val ){
+        changeLineType();
     });
 
     var Trajectory = function(){
@@ -170,9 +190,6 @@
         this.did = '';
         this.floor = 0;
         this.points = [];
-        this.type = 'Line';
-        this.typeController;
-        this.line;
         this.visible = false;
     };
 
@@ -195,27 +212,27 @@
     function initRenderer(){
         renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
         renderer.setClearColor(0xffffff, 0);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
+        renderer.setPixelRatio( window.devicePixelRatio ) ;
+        document.body.appendChild( renderer.domElement ) ;
         updateRenderer();
     }
     function updateRenderer(){
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize( window.innerWidth, window.innerHeight ) ;
     }
 
     function configCamera(){
 
         var windowRatio = window.innerWidth / window.innerHeight;
 
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, 0, 1000);
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio ) {
+            camera = new THREE.OrthographicCamera( buildingWidth / -2, buildingWidth / 2,
+                ( buildingWidth / 2) / ratio, ( buildingWidth / -2) / ratio, 0, 1000);
         } else {
-            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
-                (buildingHeight / 2), (buildingHeight / -2), 0, 1000);
+            camera = new THREE.OrthographicCamera(( buildingHeight / -2) * ratio, ( buildingHeight / 2) * ratio,
+                ( buildingHeight / 2), ( buildingHeight / -2), 0, 1000);
         }*/
 
-        if((window.innerWidth / window.innerHeight) < building.ratio){
+        if(( window.innerWidth / window.innerHeight )  < building.ratio ) {
             camera = new THREE.OrthographicCamera(0, building.width,
                  0, -building.width / windowRatio, CAM_NEAR, CAM_FAR);
         } else {
@@ -229,15 +246,15 @@
 
         var windowRatio = window.innerWidth / window.innerHeight;
 
-        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio){
-            camera = new THREE.OrthographicCamera(buildingWidth / -2, buildingWidth / 2,
-                (buildingWidth / 2) / ratio, (buildingWidth / -2) / ratio, -500, 1000);
+        /*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio ) {
+            camera = new THREE.OrthographicCamera( buildingWidth / -2, buildingWidth / 2,
+                ( buildingWidth / 2) / ratio, ( buildingWidth / -2) / ratio, -500, 1000);
         } else {
-            camera = new THREE.OrthographicCamera((buildingHeight / -2) * ratio, (buildingHeight / 2) * ratio,
-                (buildingHeight / 2), (buildingHeight / -2), -500, 1000);
+            camera = new THREE.OrthographicCamera(( buildingHeight / -2) * ratio, ( buildingHeight / 2) * ratio,
+                ( buildingHeight / 2), ( buildingHeight / -2), -500, 1000);
         }*/
 
-        if((window.innerWidth / window.innerHeight) < building.ratio){
+        if(( window.innerWidth / window.innerHeight )  < building.ratio ) {
             camera = new THREE.OrthographicCamera(0, building.width,
                 0, -building.width / windowRatio, CAM_NEAR, CAM_FAR);
         } else {
@@ -247,15 +264,16 @@
 
         camera.updateProjectionMatrix();
 
-        /*if(camerahelper != null){
+        /*if( camerahelper != null ) {
             camerahelper.update();
         }*/
     }
 
     function initDatGUI(){
         gui = new dat.GUI();
-        gui.add(building, 'floor',-3,3).step(1).name('Floor');
-        gui.add(building, 'scale',100,400).step(100).name('Scale (1/X)');
+        gui.add( building, 'floor',-3,3).step(1).name('Floor');
+        gui.add( building, 'scale',100,400).step(100).name('Scale (1/X)');
+        gui.add( building, 'lineType', ['Line', 'Curve']).name( 'Line type' );
     }
 
     function initBackgroundFileInput(){
@@ -267,7 +285,7 @@
         buildingFileInput.style.top = "0px";
         buildingFileInput.style.width = "0px";
         buildingFileInput.style.height = "0px";
-        document.body.appendChild(buildingFileInput);
+        document.body.appendChild( buildingFileInput ) ;
 
         buildingFileInput.addEventListener( 'change', function( e ) {
 
@@ -275,11 +293,11 @@
             var fileName = buildingFileInput.files[0].name;
             var fileType = /image.*/;
 
-            if (file.type.match(fileType)) {
+            if ( file.type.match( fileType ) ) {
 
                 building.filePath = fileName.slice(0,-5);
-                building.fileExt = fileName.slice(-4,fileName.length);
-                loadBgImg(building.path);
+                building.fileExt = fileName.slice(-4,fileName.length ) ;
+                loadBgImg( building.path ) ;
                 trajectoryFloorGroups = {};
 
             } else {
@@ -292,7 +310,7 @@
                 document.getElementById("buildingFileInput").click();
             }
         };
-        gui.add(buildingFile, 'loadBuildingFile').name('Load Building file');
+        gui.add( buildingFile, 'loadBuildingFile').name('Load Building file');
     }
     function initDataFileInput(){
         var dataFileInput = document.createElement('input');
@@ -303,20 +321,20 @@
         dataFileInput.style.top = "0px";
         dataFileInput.style.width = "0px";
         dataFileInput.style.height = "0px";
-        document.body.appendChild(dataFileInput);
+        document.body.appendChild( dataFileInput ) ;
 
         dataFileInput.addEventListener( 'change', function( e ) {
 
             var file = dataFileInput.files[0];
             var fileType = /text.*/;
 
-            if (file.type.match(fileType)) {
+            if ( file.type.match( fileType ) ) {
                 var reader = new FileReader();
                 reader.onload = function ( e ) {
-                    //alert(reader.result);
-                    loadTrajectories(reader.result);
+                    //alert( reader.result ) ;
+                    loadTrajectories( reader.result ) ;
                 };
-                reader.readAsText(file);
+                reader.readAsText( file ) ;
             } else {
                 alert("File not supported");
             }
@@ -328,19 +346,19 @@
                 document.getElementById("dataFileInput").click();
             }
         };
-        gui.add(trajectoryFile, 'loadDataFile').name('Load Trajectory file');
+        gui.add( trajectoryFile, 'loadDataFile').name('Load Trajectory file');
     }
 
     function loadBgImg( buildingName ){
 
         var buildingPath = 'img/' + buildingName;
 
-        scene.remove(scene.getObjectByName('backgroundMesh'));
+        scene.remove( scene.getObjectByName('backgroundMesh'));
 
         //DISPOSING OF REMOVED MESH OBJECTS
        /* var hi = scene.getObjectByName('backgroundMesh');
-        if(scene.getObjectByName('backgroundMesh') instanceof THREE.Mesh){
-            deleteObject(scene.getObjectByName('backgroundMesh'));
+        if( scene.getObjectByName('backgroundMesh') instanceof THREE.Mesh ) {
+            deleteObject( scene.getObjectByName('backgroundMesh'));
         }*/
         //----------------------------------
 
@@ -365,13 +383,13 @@
                 //create bgPlane
                 var backgroundPlane = new THREE.Geometry();
 
-                backgroundPlane.vertices.push(new THREE.Vector3(0, 0, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(0, -building.height, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(building.width, -building.height, BG_Z));
-                backgroundPlane.vertices.push(new THREE.Vector3(building.width, 0, BG_Z));
+                backgroundPlane.vertices.push( new THREE.Vector3(0, 0, BG_Z));
+                backgroundPlane.vertices.push( new THREE.Vector3(0, -building.height, BG_Z));
+                backgroundPlane.vertices.push( new THREE.Vector3( building.width, -building.height, BG_Z));
+                backgroundPlane.vertices.push( new THREE.Vector3( building.width, 0, BG_Z));
 
-                backgroundPlane.faces.push(new THREE.Face3(0,1,3));
-                backgroundPlane.faces.push(new THREE.Face3(1,2,3));
+                backgroundPlane.faces.push( new THREE.Face3(0,1,3));
+                backgroundPlane.faces.push( new THREE.Face3(1,2,3));
                 //backgroundPlane.computeFaceNormals();
 
                 backgroundPlane.faceVertexUvs[0] = [];
@@ -394,7 +412,7 @@
                     bgMaterial
                 );
                 backgroundMesh.name = 'backgroundMesh';
-                scene.add(backgroundMesh);
+                scene.add( backgroundMesh ) ;
 
                 loadGrid();
             },
@@ -406,34 +424,34 @@
     }
     function loadGrid(){
 
-        scene.remove(coordLines);
+        scene.remove( coordLines ) ;
 
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for (i = 0; i < (building.height); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(0, -i, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(building.width, -i, COORD_Z));
+        for ( i = 0; i < ( building.height ) ; i++) {
+            coordGeometry.vertices.push( new THREE.Vector3(0, -i, COORD_Z));
+            coordGeometry.vertices.push( new THREE.Vector3( building.width, -i, COORD_Z));
         }
         //y-axis
-        for (i = 0; i < (building.width); i++) {
-            coordGeometry.vertices.push(new THREE.Vector3(i, 0, COORD_Z));
-            coordGeometry.vertices.push(new THREE.Vector3(i, -building.height, COORD_Z));
+        for ( i = 0; i < ( building.width ) ; i++) {
+            coordGeometry.vertices.push( new THREE.Vector3( i, 0, COORD_Z));
+            coordGeometry.vertices.push( new THREE.Vector3( i, -building.height, COORD_Z));
         }
 
         var coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
-        coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
+        coordLines = new THREE.LineSegments( coordGeometry, coordMaterial ) ;
 
         /*  updateCamera();
          updateRenderer();*/
 
-        scene.add(coordLines);
+        scene.add( coordLines ) ;
     }
 
     //SHOULD remove mesh objects, geoms, mats and textures
-    function deleteObject(sceneObject){
+    function deleteObject( sceneObject ) {
 
-        scene.remove(sceneObject);
+        scene.remove( sceneObject ) ;
 
         sceneObject.geometry.dispose();
         sceneObject.material.map.dispose();
@@ -442,67 +460,227 @@
 
 //
 
+    function sortPoints( pointList ) {
+
+        pointList.sort(
+            firstBy("did")
+            .thenBy("f")
+            .thenBy("t")
+        );
+
+        return pointList;
+        //splitPoints( pointList ) ;
+    }
+
+    function splitPoints( pointList ) {
+
+        var tempDID, tempFloor, tempTime;
+        var newPointList;
+
+        pointList.forEach( function( point )  {
+
+            var tempDidArray = [];
+            var tempFloorArray = [];
+            var tempTimeArray = [];
+
+            if( tempDID != point.did ) {
+
+                tempFloorArray.push( tempDidArray ) ;
+                tempFloorArray = [];
+
+                if( tempFloor != point.f ) {
+
+                    tempTimeArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+
+                    if( tempTime + CUT_TIME < point.t ) {
+
+                        tempFloorArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+                        tempTimeArray.push( point ) ;
+
+                    } else {
+
+                        tempTimeArray.push( point ) ;
+
+                    }
+
+                } else {
+
+                    if( tempFloor != point.f ) {
+
+                        tempTimeArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+
+                        if( tempTime + CUT_TIME < point.t ) {
+
+                            tempFloorArray.push( tempTimeArray ) ;
+                            tempTimeArray = [];
+                            tempTimeArray.push( point ) ;
+
+                        } else {
+
+                            tempTimeArray.push( point ) ;
+
+                        }
+                    }
+                }
+            } else {
+
+                tempFloorArray.push( tempDidArray ) ;
+                tempFloorArray = [];
+
+                if( tempFloor != point.f ) {
+
+                    tempTimeArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+
+                    if( tempTime + CUT_TIME < point.t ) {
+
+                        tempFloorArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+                        tempTimeArray.push( point ) ;
+
+                    } else {
+
+                        tempTimeArray.push( point ) ;
+
+                    }
+                } else {
+
+                    if( tempFloor != point.f ) {
+
+                        tempTimeArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+
+                        if( tempTime + CUT_TIME < point.t ) {
+
+                            tempFloorArray.push( tempTimeArray ) ;
+                            tempTimeArray = [];
+                            tempTimeArray.push( point ) ;
+
+                        } else {
+
+                            tempTimeArray.push( point ) ;
+
+                        }
+                    }
+                }
+            }
+
+            newPointList = tempDidArray;
+
+            return newPointList;
+
+        });
+    }
+
     function loadTrajectories ( readerResult ) {
 
-        /*var pointList = importCSV(readerResult);
-        var corredPointList = corrPoints(pointList);
-        var corredPointListByFloor = groupPointsByFloor(corredPointList);*/
+        var pointList = importCSV( readerResult ) ;
+        /*var corredPointList = corrPoints( pointList ) ;
+        var corredPointListByFloor = groupPointListByFloor( corredPointList ) ;*/
 
-        var corredPointListByFloor = groupPointsByFloor(corrPoints(importCSV(readerResult)));
-        var corredPointListByFloorByDid = {};
+        pointList = sortPoints( pointList ) ;
 
-        for (var key in corredPointListByFloor) {
-            if (corredPointListByFloor.hasOwnProperty(key)) {
-                corredPointListByFloorByDid[key] = groupPointListByDid(corredPointListByFloor[key]);
+        var corredPointListByDID = groupPointListByDid( corrPoints( pointList ) );
+        var corredPointListByDIDByFloor = [];
+
+        for ( var did in corredPointListByDID){
+            if ( corredPointListByDID.hasOwnProperty( did ) ){
+                corredPointListByDIDByFloor[did] = groupPointListByFloor( corredPointListByDID[did]);
             }
         }
 
-        for (var floor in corredPointListByFloorByDid) {
-            if (corredPointListByFloorByDid.hasOwnProperty(floor)) {
+        var corredPointListByDIDByFloorByTime = [];
+
+        for ( var did in corredPointListByDIDByFloor ) {
+
+            var tempList = [];
+
+            for ( var floor in corredPointListByDIDByFloor[did]){
+                if ( corredPointListByDIDByFloor[did].hasOwnProperty( floor ) ) {
+
+                    tempList[floor] = groupPointListByTime(corredPointListByDIDByFloor[did][floor])
+                }
+            }
+            corredPointListByDIDByFloorByTime[did] = tempList;
+        }
+
+        for( var did in corredPointListByDIDByFloorByTime ) {
+            for( var floor in corredPointListByDIDByFloorByTime[did] ){
+                for( var pointGroup in corredPointListByDIDByFloorByTime[did][floor]){
+
+                    var tempTrajectory = new Trajectory();
+                    tempTrajectory.did = did;
+                    tempTrajectory.floor = corredPointListByDIDByFloorByTime[did][floor][pointGroup][0].f;
+                    tempTrajectory.points = corredPointListByDIDByFloorByTime[did][floor][pointGroup];
+
+                    if( !trajectoryFloorGroups[tempTrajectory.floor] ) {
+                        trajectoryFloorGroups[tempTrajectory.floor] = [];
+                    }
+                    if( tempTrajectory.points.length > 1) {
+                        trajectoryFloorGroups[tempTrajectory.floor].push(tempTrajectory);
+                    }
+                }
+            }
+        }
+
+        /*for ( var floor in corredPointListByDIDByFloor ) {
+            if ( corredPointListByDIDByFloor.hasOwnProperty( floor ) ){
                 var trajectoryFloorGroup = [];
 
-                for (var pointGroup in corredPointListByFloorByDid[floor]) {
-                    if (corredPointListByFloorByDid[floor].hasOwnProperty(pointGroup)) {
+                for ( var pointGroup in corredPointListByDIDByFloor[floor]){
+                    if ( corredPointListByDIDByFloor[floor].hasOwnProperty( pointGroup ) ){
                         var tempTrajectory = new Trajectory();
                         tempTrajectory.did = pointGroup;
-                        tempTrajectory.floor = corredPointListByFloorByDid[floor][pointGroup][0].f;
-                        tempTrajectory.points = corredPointListByFloorByDid[floor][pointGroup];
-                        trajectoryFloorGroup.push(tempTrajectory);
+                        tempTrajectory.floor = corredPointListByDIDByFloor[floor][pointGroup][0].f;
+                        tempTrajectory.points = corredPointListByDIDByFloor[floor][pointGroup];
+                        trajectoryFloorGroup.push( tempTrajectory ) ;
                     }
                 }
                 trajectoryFloorGroups[tempTrajectory.floor] = trajectoryFloorGroup;
             }
-        }
+        }*/
 
-        for(var f in trajectoryFloorGroups) {
-            trajectoryFloorGroups[f].forEach(function (trajectory) {
+        makeAllTrajectories();
+        drawAllTrajectories();
 
-                drawTrajectory(makeTrajectory(trajectory));
+       /* for( var f in trajectoryFloorGroups ){
+            trajectoryFloorGroups[f].forEach( function( trajectory ){
+                drawTrajectory( makeTrajectory( trajectory ));
             });
-        }
+        }*/
+
     }
 
-    function changeFloors() {
-        console.log(building.floor);
-        loadBgImg(building.path);
+    function changeFloors(){
+        console.log( building.floor );
+        loadBgImg( building.path );
         drawAllTrajectories();
     }
     function changeScale(){
-        console.log(building.s);
-        loadBgImg(building.path);
+        console.log( building.scale );
+        loadBgImg( building.path );
+        drawAllTrajectories();
+    }
+    function changeLineType(){
+        console.log( building.lineType );
+        removeAllTrajectories();
+        makeAllTrajectories();
         drawAllTrajectories();
     }
 
     function importCSV ( csvString ) {
 
-        var pointsList = Papa.parse(csvString , {
+        var pointsList = Papa.parse( csvString , {
             header: true,
             dynamicTyping: true
         });
-        //console.log(results);
+        //console.log( results ) ;
 
         /*var pointList = [];
-         results.data.forEach(function ( o ){
+         results.data.forEach( function ( o ){
          pointList.push( o );
          })*/
 
@@ -530,7 +708,7 @@
         return pointsList.data; // = array of objects
     }
 
-    function corrPoints( pointList ){
+    function corrPoints ( pointList ) {
         pointList.forEach(
             function ( point ) {
                 //point.x = point.x; //scale;
@@ -540,25 +718,59 @@
         return pointList;
     }
 
-    function groupPointsByFloor( pointList ){
+    function groupPointListByFloor( pointList )  {
         var pointListByFloor = groupBy(
             pointList,
-            function(item) {
+            function( item )  {
                 return [item.f]; //, item.t
             }
         );
         return pointListByFloor;
     }
 
-    function groupPointListByDid ( pointList ) {
-
-        var pointListByID = groupBy(
+    function groupPointListByDid( pointList )  {
+        var pointListByDID = groupBy(
             pointList,
-            function(item) {
+            function( item )  {
                 return [item.did]; //, item.t
             }
         );
-        return pointListByID;
+        return pointListByDID;
+    }
+
+    function groupPointListByTime( pointList )  {
+
+        var pointListByTime = [];
+
+        var tempTime = pointList[0].t;
+        var tempTimeArray = [];
+
+
+        pointList.forEach(function( point ){
+
+            if( tempTime + CUT_TIME < point.t ) {
+
+                pointListByTime.push( tempTimeArray ) ;
+                tempTimeArray = [];
+                tempTimeArray.push( point );
+                tempTime = point.t;
+
+            } else {
+
+                tempTimeArray.push( point );
+                tempTime = point.t;
+
+            }
+        });
+        pointListByTime.push(tempTimeArray);
+
+        /* var pointListByTime = groupBy(
+            pointList,
+            function( item )  {
+                return [item.did]; //, item.t
+            }
+        );*/
+        return pointListByTime;
     }
 
     function groupBy( array , f ) {
@@ -567,25 +779,45 @@
         array.forEach(
             function( object ) {
                 var group = JSON.stringify( f( object ) );
-                groups[group] = groups[group] || [];
+                groups[group] = groups[group] || []; //if groups[group] doesn't exist, [] is assigned
                 groups[group].push( object );
             }
         );
         return groups;
 
-        /*return Object.keys(groups).map(
+        /*return Object.keys( groups ) .map(
             function( group ) {
                 return groups[group];
             }
         )*/
     }
 
-    function makeLineGeom ( points ){
+    function makeAllTrajectories(){
+        for( var floor in trajectoryFloorGroups )  {
+            trajectoryFloorGroups[floor].forEach( function ( traj )  {
+
+                makeTrajectory( traj ) ;
+            });
+        }
+    }
+    function makeTrajectory( traj )  {
+        var tempTraj;
+
+        if( building.lineType == 'Line' ){
+            tempTraj = makeLineGeom( traj.points ) ;
+        } else if ( building.lineType == 'Curve' ){
+            tempTraj = makeCurveGeom( traj.points ) ;
+        }
+
+        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: traj.color, opacity: 1 } );
+        traj.line = new THREE.Line( tempTraj, trajectoryMaterial ) ;
+    }
+    function makeLineGeom( points ) {
 
         var vertices = [];
         points.forEach(
-            function ( point ){
-                vertices.push( new THREE.Vector3(point.x, point.y, TRAJ_Z));
+            function ( point ) {
+                vertices.push( new THREE.Vector3( point.x, point.y, TRAJ_Z));
             }
         );
 
@@ -595,13 +827,12 @@
 
         return lineGeom;
     }
-
-    function makeCurveGeom ( points ){
+    function makeCurveGeom( points ) {
 
         var vertices = [];
         points.forEach(
-            function ( point ){
-                vertices.push( new THREE.Vector3(point.x, point.y, TRAJ_Z));
+            function( point ) {
+                vertices.push( new THREE.Vector3( point.x, point.y, TRAJ_Z));
             }
         );
         var curve = new THREE.CatmullRomCurve3( vertices );
@@ -612,58 +843,34 @@
         return curveGeom;
     }
 
-    function makeTrajectory(traj){
-        var tempTraj;
+    function drawAllTrajectories() {
+        for( var floor in trajectoryFloorGroups )  {
+            trajectoryFloorGroups[floor].forEach( function ( traj ){
 
-        if(traj.type == 'Line'){
-            tempTraj = makeLineGeom(traj.points);
-        } else if (traj.type == 'Curve'){
-            tempTraj = makeCurveGeom(traj.points);
-        }
-
-        var trajectoryMaterial = new THREE.LineBasicMaterial( { color: traj.color, opacity: 1 } );
-        traj.line = new THREE.Line(tempTraj, trajectoryMaterial);
-
-        return traj;
-    }
-
-    function drawAllTrajectories(){
-        for(var floor in trajectoryFloorGroups) {
-            trajectoryFloorGroups[floor].forEach(function (traj) {
-
-                drawTrajectory(traj);
+                drawTrajectory( traj ) ;
             });
         }
     }
-    function drawTrajectory(traj){
+    function drawTrajectory( traj )  {
 
-        if(traj.floor == building.f){
+        if( traj.floor == building.floor ){
 
-            traj.typeController = gui.add(traj, 'type', ['Line', 'Curve']).name(traj.did);
-
-            traj.typeController.onChange(function () {
-                removeTrajectory(traj);
-                drawTrajectory(makeTrajectory(traj));
-            });
-
-            scene.add(traj.line);
+            scene.add( traj.line ) ;
             traj.visible = true;
         }
-        // da könnte man die farbe / den dateinamen / etc. verwenden ---
     }
 
-    function removeAllTrajectories(){
-        for(var floor in trajectoryFloorGroups){
-            trajectoryFloorGroups[floor].forEach( function (traj) {
+    function removeAllTrajectories() {
+        for( var floor in trajectoryFloorGroups )  {
+            trajectoryFloorGroups[floor].forEach( function( traj )  {
 
-                removeTrajectory(traj);
+                removeTrajectory( traj ) ;
             });
         }
     }
-    function removeTrajectory(traj) {
-        if(traj.visible) {
-            scene.remove(traj.line);
-            gui.remove(traj.typeController);
+    function removeTrajectory( traj )  {
+        if( traj.visible )  {
+            scene.remove( traj.line ) ;
             traj.visible = false;
         }
     }
@@ -671,58 +878,58 @@
     //erweitern um zwischen einzelnen trajectoryGroups nach der Zeit zu unterscheiden
     //filter DIDs with only one point -- not working, groups is an object, not list
     /*var filteredGroups = [];
-     groups.forEach(function ( group ) {
-     if (group.size > 1) {
-     filteredGroups.push(group);
+     groups.forEach( function ( group ) {
+     if ( group.size > 1) {
+     filteredGroups.push( group ) ;
      }
      });*/
     //
 
-    function initRaycaster(){
+    function initRaycaster() {
         raycaster = new THREE.Raycaster();
         raycaster.near = -500;
         raycaster.far = 1000;
         mouse = new THREE.Vector2();
 
-        window.addEventListener('click', onMouseClick, false);
+        window.addEventListener('click', onMouseClick, false ) ;
     }
 
-    function onMouseClick( event ){
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    function onMouseClick( event ) {
+        mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
+        mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
 
         raycaster.setFromCamera( mouse, camera );
 
         var bg = scene.getObjectByName('backgroundMesh');
 
         // calculate objects intersecting the picking ray
-        var intersects = raycaster.intersectObject(bg, true);
+        var intersects = raycaster.intersectObject( bg, true ) ;
 
         for ( var i = 0; i < intersects.length; i++ ) {
             console.log('x:' + intersects[0].point.x + ' ' +
                         'y:' + intersects[0].point.y + ' ' +
-                        'z:' + intersects[0].point.z);
+                        'z:' + intersects[0].point.z ) ;
         }
     }
 
-    function addWindowListeners(){
-        window.addEventListener('resize', onWindowResize, false);
+    function addWindowListeners() {
+        window.addEventListener('resize', onWindowResize, false ) ;
     }
 
-    function onWindowResize (){
+    function onWindowResize () {
         configCamera();
         updateRenderer();
     }
 
-    function update (){
+    function update () {
 
-        /*if((!INITIALIZED) && IMG_LOADED){
+        /*if((!INITIALIZED) && IMG_LOADED) {
             initialize();
         }*/
 
-        requestAnimationFrame(update);
+        requestAnimationFrame( update ) ;
 
-        renderer.render(scene, camera);
+        renderer.render( scene, camera ) ;
     }
 
 </script>
