@@ -40,3 +40,143 @@ bgRatio = bgImg.naturalWidth / bgImg.naturalHeight;
 bgImg.width = WIDTH;
 bgImg.height = WIDTH / bgRatio;
 background.appendChild(bgImg);
+
+
+function splitPoints( pointList ) {
+
+    var tempDID, tempFloor, tempTime;
+    var newPointList;
+
+    pointList.forEach( function( point )  {
+
+        var tempDidArray = [];
+        var tempFloorArray = [];
+        var tempTimeArray = [];
+
+        if( tempDID != point.did ) {
+
+            tempFloorArray.push( tempDidArray ) ;
+            tempFloorArray = [];
+
+            if( tempFloor != point.f ) {
+
+                tempTimeArray.push( tempTimeArray ) ;
+                tempTimeArray = [];
+
+                if( tempTime + CUT_TIME < point.t ) {
+
+                    tempFloorArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+                    tempTimeArray.push( point ) ;
+
+                } else {
+
+                    tempTimeArray.push( point ) ;
+
+                }
+
+            } else {
+
+                if( tempFloor != point.f ) {
+
+                    tempTimeArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+
+                    if( tempTime + CUT_TIME < point.t ) {
+
+                        tempFloorArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+                        tempTimeArray.push( point ) ;
+
+                    } else {
+
+                        tempTimeArray.push( point ) ;
+
+                    }
+                }
+            }
+        } else {
+
+            tempFloorArray.push( tempDidArray ) ;
+            tempFloorArray = [];
+
+            if( tempFloor != point.f ) {
+
+                tempTimeArray.push( tempTimeArray ) ;
+                tempTimeArray = [];
+
+                if( tempTime + CUT_TIME < point.t ) {
+
+                    tempFloorArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+                    tempTimeArray.push( point ) ;
+
+                } else {
+
+                    tempTimeArray.push( point ) ;
+
+                }
+            } else {
+
+                if( tempFloor != point.f ) {
+
+                    tempTimeArray.push( tempTimeArray ) ;
+                    tempTimeArray = [];
+
+                    if( tempTime + CUT_TIME < point.t ) {
+
+                        tempFloorArray.push( tempTimeArray ) ;
+                        tempTimeArray = [];
+                        tempTimeArray.push( point ) ;
+
+                    } else {
+
+                        tempTimeArray.push( point ) ;
+
+                    }
+                }
+            }
+        }
+
+        newPointList = tempDidArray;
+
+        return newPointList;
+
+    });
+}
+
+//console.log( results ) ;
+
+/*var pointList = [];
+ results.data.forEach( function ( o ){
+ pointList.push( o );
+ })*/
+
+//not implemented yet
+
+/*var pointList = [
+ {x: 0, y: 500, t: 0, f: 1, id: "10"},
+ {x: 10, y: 490, t: 10, f: 1, id: "10"},
+ {x: 20, y: 500, t: 20, f: 1, id: "10"},
+ {x: 30, y: 470, t: 30, f: 1, id: "10"},
+ {x: 40, y: 460, t: 40, f: 1, id: "20"},
+ {x: 50, y: 450, t: 50, f: 1, id: "20"},
+ {x: 60, y: 440, t: 60, f: 1, id: "30"},
+ {x: 70, y: 430, t: 70, f: 1, id: "30"},
+ {x: 80, y: 420, t: 80, f: 1, id: "30"},
+ {x: 90, y: 410, t: 90, f: 1, id: "30"},
+ {x: 100, y: 400, t: 100, f: 1, id: "40"},
+ {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "40"},
+ {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+ {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+ {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"},
+ {x: Math.random() * iW, y: Math.random() * iH, t: 0, id: "50"}
+ ];*/
+
+/*if((WINDOW_WIDTH / WINDOW_HEIGHT) < buildingRatio ) {
+ camera = new THREE.OrthographicCamera( buildingWidth / -2, buildingWidth / 2,
+ ( buildingWidth / 2) / ratio, ( buildingWidth / -2) / ratio, -500, 1000);
+ } else {
+ camera = new THREE.OrthographicCamera(( buildingHeight / -2) * ratio, ( buildingHeight / 2) * ratio,
+ ( buildingHeight / 2), ( buildingHeight / -2), -500, 1000);
+ }*/

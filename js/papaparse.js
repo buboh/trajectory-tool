@@ -595,7 +595,7 @@
 				this._chunkError();
 			else
 				this._start += this._config.chunkSize;
-		}
+		};
 
 		this._chunkLoaded = function()
 		{
@@ -610,13 +610,13 @@
 
 			this._finished = !this._config.chunkSize || this._start > getFileSize(xhr);
 			this.parseChunk(xhr.responseText);
-		}
+		};
 
 		this._chunkError = function(errorMessage)
 		{
 			var errorText = xhr.statusText || errorMessage;
 			this._sendError(errorText);
-		}
+		};
 
 		function getFileSize(xhr)
 		{
@@ -665,7 +665,7 @@
 		{
 			if (!this._finished && (!this._config.preview || this._rowCount < this._config.preview))
 				this._readChunk();
-		}
+		};
 
 		this._readChunk = function()
 		{
@@ -678,7 +678,7 @@
 			var txt = reader.readAsText(input, this._config.encoding);
 			if (!usingAsyncReader)
 				this._chunkLoaded({ target: { result: txt } });	// mimic the async signature
-		}
+		};
 
 		this._chunkLoaded = function(event)
 		{
@@ -686,7 +686,7 @@
 			this._start += this._config.chunkSize;
 			this._finished = !this._config.chunkSize || this._start >= this._input.size;
 			this.parseChunk(event.target.result);
-		}
+		};
 
 		this._chunkError = function()
 		{
@@ -710,7 +710,7 @@
 			string = s;
 			remaining = s;
 			return this._nextChunk();
-		}
+		};
 		this._nextChunk = function()
 		{
 			if (this._finished) return;
@@ -964,7 +964,7 @@
 					if (typeof fieldCountPrevRow === 'undefined')
 					{
 						fieldCountPrevRow = fieldCount;
-						continue;
+
 					}
 					else if (fieldCount > 1)
 					{
