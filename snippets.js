@@ -180,3 +180,38 @@ function splitPoints( pointList ) {
  camera = new THREE.OrthographicCamera(( buildingHeight / -2) * ratio, ( buildingHeight / 2) * ratio,
  ( buildingHeight / 2), ( buildingHeight / -2), -500, 1000);
  }*/
+
+
+//DISPOSING OF REMOVED MESH OBJECTS
+/* var hi = scene.getObjectByName('backgroundMesh');
+ if( scene.getObjectByName('backgroundMesh') instanceof THREE.Mesh ) {
+ deleteObject( scene.getObjectByName('backgroundMesh'));
+ }*/
+
+//SHOULD remove mesh objects, geoms, mats and textures
+/*    function deleteObject( sceneObject ) {
+
+ scene.remove( sceneObject ) ;
+
+ sceneObject.geometry.dispose();
+ sceneObject.material.map.dispose();
+ sceneObject.material.dispose();
+ }
+ */
+
+/*for ( var floor2 in corredPointListByDIDByFloor ) {
+ if ( corredPointListByDIDByFloor.hasOwnProperty( floor2 ) ){
+ var trajectoryFloorGroup = [];
+
+ for ( var pointGroup in corredPointListByDIDByFloor[floor2]){
+ if ( corredPointListByDIDByFloor[floor2].hasOwnProperty( pointGroup ) ){
+ var tempTrajectory = new Trajectory();
+ tempTrajectory.did1 = pointGroup;
+ tempTrajectory.floor2 = corredPointListByDIDByFloor[floor2][pointGroup][0].f;
+ tempTrajectory.points = corredPointListByDIDByFloor[floor2][pointGroup];
+ trajectoryFloorGroup.push( tempTrajectory ) ;
+ }
+ }
+ building.trajectoryFloorGroups[tempTrajectory.floor2] = trajectoryFloorGroup;
+ }
+ }*/
