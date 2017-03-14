@@ -24,59 +24,30 @@
     var BG_CORR_Z = -0.4;
     var GRID_CORR_Z = 0.4;
     var IMG_DIR = 'img/';
-//    const TRAJ_Z = 2;
-//    const BG_Z = 100;
 
-    const CUT_TIME = 0.08;
-
-    /*var buildingWidth = {
-        widthValue: 1,
-        widthListener: function( w ) {},
-
-        set value( w ) {
-            this.widthValue = w;
-            this.widthListener( w ) 
-        },
-        get value(){
-            return this.widthValue;
-        },
-        registerWidthListener: function( listener ) {
-            this.widthListener = listener;
-        }
-    };
-
-    var buildingHeight = {
-        heightValue: 1,
-        heightListener: function( w ) {},
-
-        set value( w ) {
-            this.heightValue = w;
-            this.heightListener( w ) 
-        },
-        get value(){
-            return this.heightValue;
-        },
-        registerHeightListener: function( listener ) {
-            this.heightListener = listener;
-        }
-    };
-
-    buildingWidth.registerWidthListener( function( w )  {
-        updateCamera();
-        updateRenderer();
-    });
-    buildingHeight.registerHeightListener( function( w )  {
-        updateCamera();
-        updateRenderer();
-    });*/
+    //const CUT_TIME = 0.08; //s
+    const CUT_TIME = 8000; // 8 s in ms
 
     //three.js
     var camera, scene, renderer;
 //    var camerahelper;
-//    var mouse, raycaster;
+    var mouse, raycaster;
 
     //dat.gui
     var gui;
+
+    /*    var cam = {
+        C_N: -100,
+        C_F: 100,
+        cnListener: function() {},
+        cfListener: function() {},
+        get CAM_NEAR(){
+
+        }
+        get CAM_FA
+
+    };*/
+
 
     //daten des dargestellten gebäudes
     var building = {
@@ -247,8 +218,9 @@
         gui.add( building, 'floor', -3, 3 ).step( 1 ).name( 'Floor' );
         gui.add( building, 'scale', 100, 400 ).step( 100 ).name( 'Scale (1/X)' );
         gui.add( building, 'lineType', ['Line', 'Curve']).name( 'Line type' );
-//        gui.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
-//        gui.add( this, 'CAM_NEAR' ).step( 0.5 ).listen();
+        /*var f1 = gui.addFolder( 'Dev tools' );
+        f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
+        f1.add( this, 'CAM_NEAR' ).step( 0.5 ).listen();*/
     }
 
     function initBackgroundFileInput(){
@@ -470,7 +442,13 @@
 
         var pointsList = Papa.parse( csvString , {
             header: true,
-            dynamicTyping: true
+            dynamicTyping: true,
+            step: true,
+            beforeFirstChunk: function(chunk) {
+                var rows = chunk.split( /\r\n|\r|\n/ );
+                rows[0] = 't, x, y, acc, f, did';
+                return rows.join("\r\n");
+            }
         });
         return pointsList.data; // = array of objects
     }
