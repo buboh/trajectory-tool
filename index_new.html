@@ -28,7 +28,7 @@
     var CAM_NEAR = -100;
     var CAM_FAR = 100;
     const BG_Z = 100;
-    const COORD_Z = 100;
+    var COORD_Z = 100;
     const TRAJ_Z = 2;
 
     const CUT_TIME = 0.08;
@@ -215,7 +215,7 @@
 
     addWindowListeners();
 
-    loadGrid();
+    //loadGrid();
 
     update();
 
@@ -431,7 +431,6 @@
         building.backgroundMeshes = {};
     }
 
-
     function loadGrid(){
 
         scene.remove( coordLines ) ;
@@ -553,8 +552,10 @@
     function changeFloors(){
         console.log( building.floor );
         CAM_NEAR = (building.floor) * -1 ;
+        COORD_Z = building.floor;
 
         if( building.backgroundMeshes[building.floor] != THREE.Mesh ){
+            loadGrid();
             loadBgImage( building.path );
             drawAllTrajectories();
         } else {
