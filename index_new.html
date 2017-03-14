@@ -79,7 +79,7 @@
     var camerahelper;
     var mouse, raycaster;
 
-    var coordLines;
+    var coordPlane, coordLines;
     var trajectoryFloorGroups = {};
 
     //dat.gui
@@ -215,6 +215,8 @@
 
     addWindowListeners();
 
+    loadGrid();
+
     update();
 
     function initRenderer(){
@@ -283,9 +285,9 @@
 
                 //delete trajectories & bg
                 //removeAllTrajectories();
-                //removeAllBgMeshes();
+                removeAllBgMeshes();
                 removeAllFromScene();
-                loadBgImage( building.path );
+                //loadBgImage( building.path );
                 changeFloors();
 
             } else {
@@ -414,7 +416,7 @@
 
     function removeAllBgMeshes(){
         for( var bgMesh in building.backgroundMeshes ){
-            removeBgMesh( building.backgroundMeshes(bgMesh) );
+            removeBgMesh( building.backgroundMeshes[bgMesh] );
         }
         building.backgroundMeshes = {};
     }
@@ -437,20 +439,20 @@
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for ( i = 0; i < ( building.height ) ; i++) {
+        for( i = 0; i < ( building.height ); i++){
             coordGeometry.vertices.push( new THREE.Vector3( 0, -i, COORD_Z ));
             coordGeometry.vertices.push( new THREE.Vector3( building.width, -i, COORD_Z ));
         }
         //y-axis
-        for ( i = 0; i < ( building.width ) ; i++) {
+        for( i = 0; i < ( building.width ); i++){
             coordGeometry.vertices.push( new THREE.Vector3( i, 0, COORD_Z));
             coordGeometry.vertices.push( new THREE.Vector3( i, -building.height, COORD_Z ));
         }
 
         var coordMaterial = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 1, linewidth: 1 });
-        coordLines = new THREE.LineSegments( coordGeometry, coordMaterial ) ;
+        coordLines = new THREE.LineSegments( coordGeometry, coordMaterial );
 
-        scene.add( coordLines ) ;
+        scene.add( coordLines );
     }
 
     //SHOULD remove mesh objects, geoms, mats and textures
@@ -552,11 +554,11 @@
         console.log( building.floor );
         CAM_NEAR = (building.floor) * -1 ;
 
-        if( building.backgroundMeshes[building.floor] != null ){
-            configCamera();
-        } else {
+        if( building.backgroundMeshes[building.floor] != THREE.Mesh ){
             loadBgImage( building.path );
             drawAllTrajectories();
+        } else {
+            configCamera();
         }
     }
     function changeScale(){
