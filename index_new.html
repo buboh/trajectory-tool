@@ -350,12 +350,14 @@
                     backgroundPlane,
                     bgMaterial
                 );
-                //backgroundMesh.name = 'backgroundMesh-' + building.floor;
+                backgroundMesh.name = 'backgroundMesh-' + building.floor;
 
                 building.bgMeshes[floor] = backgroundMesh;
                 scene.add( building.bgMeshes[floor] );
 
                 loadNewGrid( floor );
+                initRaycaster(); //testing
+
             },
             function (){},
             function (){
@@ -385,10 +387,10 @@
         building.grids[floor] = coordLines;
         scene.add( coordLines );
     }
-    function loadNewTrajectories( readerResult ) {
+    function loadNewTrajectories( readerResult ){
 
-        var pointList = parseCSV( readerResult ) ;
-        pointList = sortPoints( pointList ) ;
+        var pointList = parseCSV( readerResult );
+        pointList = sortPoints( pointList );
 
         var corredPointListByDID = groupPointListByDid( corrPoints( pointList ) );
         var corredPointListByDIDByFloor = [];
@@ -399,7 +401,7 @@
                 corredPointListByDIDByFloor[did1] = groupPointListByFloor( corredPointListByDID[did1]);
             }
         }
-        for( var did2 in corredPointListByDIDByFloor ) {
+        for( var did2 in corredPointListByDIDByFloor ){
 
             var tempList = [];
 
@@ -411,15 +413,15 @@
             }
             corredPointListByDIDByFloorByTime[did2] = tempList;
         }
-        for( var did in corredPointListByDIDByFloorByTime ) {
-            for( var floor2 in corredPointListByDIDByFloorByTime[did] ){
-                if( corredPointListByDIDByFloorByTime[did].hasOwnProperty( floor2 ) ){
-                    for ( var pointGroup in corredPointListByDIDByFloorByTime[did][floor2] ){
-                        if( corredPointListByDIDByFloorByTime[did][floor2].hasOwnProperty( pointGroup ) ){
+        for( var did3 in corredPointListByDIDByFloorByTime ){
+            for( var floor2 in corredPointListByDIDByFloorByTime[did3] ){
+                if( corredPointListByDIDByFloorByTime[did3].hasOwnProperty( floor2 ) ){
+                    for ( var pointGroup in corredPointListByDIDByFloorByTime[did3][floor2] ){
+                        if( corredPointListByDIDByFloorByTime[did3][floor2].hasOwnProperty( pointGroup ) ){
                             var tempTrajectory = new Trajectory();
-                            tempTrajectory.did = did;
-                            tempTrajectory.floor = corredPointListByDIDByFloorByTime[did][floor2][pointGroup][0].f;
-                            tempTrajectory.points = corredPointListByDIDByFloorByTime[did][floor2][pointGroup];
+                            tempTrajectory.did = did3;
+                            tempTrajectory.floor = corredPointListByDIDByFloorByTime[did3][floor2][pointGroup][0].f;
+                            tempTrajectory.points = corredPointListByDIDByFloorByTime[did3][floor2][pointGroup];
 
                             if ( !building.trajectoryFloorGroups[tempTrajectory.floor] ){
                                 building.trajectoryFloorGroups[tempTrajectory.floor] = [];
@@ -443,10 +445,10 @@
         var pointsList = Papa.parse( csvString , {
             header: true,
             dynamicTyping: true,
-            step: true,
-            beforeFirstChunk: function(chunk) {
+            //step: true,
+            beforeFirstChunk: function( chunk ) {
                 var rows = chunk.split( /\r\n|\r|\n/ );
-                rows[0] = 't, x, y, acc, f, did';
+                rows[0] = 't,x,y,acc,f,did';
                 return rows.join("\r\n");
             }
         });
@@ -458,6 +460,7 @@
                 point.y = point.y * -1;
             }
         );
+        var x = pointList.shift(); // remove weird empty point in pointlist <--- investigate
         return pointList;
     }
     function groupPointListByFloor( pointList ){
@@ -531,8 +534,8 @@
     function sortPoints( pointList ){
         pointList.sort(
             firstBy("did")
-                .thenBy("f")
-                .thenBy("t")
+            .thenBy("f")
+            .thenBy("t")
         );
 
         return pointList;
@@ -693,6 +696,32 @@ function onMouseClick( event ){
     function onWindowResize () {
         configCamera();
         updateRenderer();
+    }
+
+    function initRaycaster() {
+        raycaster = new THREE.Raycaster();
+        raycaster.near = CAM_NEAR;
+        raycaster.far = CAM_FAR;
+        mouse = new THREE.Vector2();
+
+        window.addEventListener('click', onMouseClick, false ) ;
+    }
+    function onMouseClick( event ){
+        mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
+        mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
+
+        raycaster.setFromCamera( mouse, camera );
+
+        var bg = scene.getObjectByName('backgroundMesh-' + building.floor);
+
+        // calculate objects intersecting the picking ray
+        var intersects = raycaster.intersectObject( bg, true ) ;
+
+        for ( var i = 0; i < intersects.length; i++ ) {
+            console.log('x:' + intersects[0].point.x + ' ' +
+                'y:' + intersects[0].point.y + ' ' +
+                'z:' + intersects[0].point.z ) ;
+        }
     }
 
     function update() {
