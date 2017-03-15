@@ -215,3 +215,11 @@ function splitPoints( pointList ) {
  building.trajectoryFloorGroups[tempTrajectory.floor2] = trajectoryFloorGroup;
  }
  }*/
+
+
+//var fileType = /text.*/;
+//if ( file.type.match( fileType ) ){
+
+/*} else {
+ alert("File not supported");
+ }*/

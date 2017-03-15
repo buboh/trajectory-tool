@@ -235,7 +235,7 @@
     function initDatGUI(){
         gui = new dat.GUI();
         gui.add( building, 'floor', GUI_FLOORMIN, GUI_FLOORMAX ).step( GUI_FLOORSTEP ).name( 'Floor' );
-        gui.add( building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX ).step( GUI_SCALESTEP ).name( 'Scale (1/X)' );
+        gui.add( building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX ).step( GUI_SCALESTEP ).name( 'Scale (1:X)' );
         gui.add( building, 'lineType', ['Line', 'Curve']).name( 'Line type' );
         /*var f1 = gui.addFolder( 'Dev tools' );
         f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
@@ -275,7 +275,7 @@
                 document.getElementById( "buildingFileInput" ).click();
             }
         };
-        gui.add( buildingFile, 'loadBuildingFile' ).name( 'Load Building file' );
+        gui.add( buildingFile, 'loadBuildingFile' ).name( 'Load building' );
     }
     function initDataFileInput(){
         var dataFileInput = document.createElement('input');
@@ -298,13 +298,6 @@
                 reader.readAsText( dataFileInput.files[file] );
             }
 
-            //var fileType = /text.*/;
-            //if ( file.type.match( fileType ) ){
-
-            /*} else {
-                alert("File not supported");
-            }*/
-
             this.value = null; //remove filename from input
         });
 
@@ -313,7 +306,7 @@
                 document.getElementById("dataFileInput").click();
             }
         };
-        gui.add( trajectoryFile, 'loadDataFile').name('Load Trajectory file');
+        gui.add( trajectoryFile, 'loadDataFile').name('Load trajectories');
     }
 
 
@@ -655,11 +648,11 @@
         building.trajectoryFloorGroups = {};
     }
 
-    function removeAll(){
+    /* function removeAll(){
         removeAllBgMeshes();
         removeAllGrids();
         removeAllTrajectories();
-    }
+    }*/
     function deleteAll(){
         deleteAllBgMeshes();
         deleteAllGrids();
