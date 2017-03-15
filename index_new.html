@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <title>draw</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden }
         canvas { width: 100%!important; height: auto!important; }
     </style>
 </head>
 <body>
-
-<!--<input id="myInput" type="file" style="visibility:hidden" />-->
-
 
 <script src="js/three.js"></script>
 <script src="js/dat.gui.js"></script>
@@ -265,11 +262,6 @@
                 building.filePath = fileName.slice( 0, -5 );
                 building.fileExt = fileName.slice( -4, fileName.length );
 
-                //delete trajectories & bg
-                //removeAllTrajectories();
-                //loadNewBgMesh( building.path, building.floor );
-                //loadNewGrid( building.floor ); //?
-
                 deleteAll();
                 changeFloors( building.floor, building.path );
 
@@ -290,22 +282,24 @@
         dataFileInput.id = "dataFileInput";
         dataFileInput.type = "file";
         dataFileInput.accept = ".csv";
+        dataFileInput.multiple = true;
         dataFileInput.style.position = "absolute";
         dataFileInput.style.visibility = "hidden";
         document.body.appendChild( dataFileInput ) ;
 
         dataFileInput.addEventListener( 'change', function() {
 
-            var file = dataFileInput.files[0];
+            for( var file = 0; file < dataFileInput.files.length; file++ ){
+                var reader = new FileReader();
+                reader.onload = function() {
+                    var result = this.result;
+                    loadNewTrajectories( result );
+                };
+                reader.readAsText( dataFileInput.files[file] );
+            }
 
             //var fileType = /text.*/;
             //if ( file.type.match( fileType ) ){
-
-                var reader = new FileReader();
-                reader.onload = function() {
-                    loadNewTrajectories( reader.result );
-                };
-                reader.readAsText( file );
 
             /*} else {
                 alert("File not supported");
@@ -611,17 +605,21 @@
     }
 
     function addAllTrajectories() {
-        for( var floor in building.trajectoryFloorGroups )  {
-            building.trajectoryFloorGroups[floor].forEach( function ( traj ){
-                scene.add( traj.line );
-            });
+        for( var floor in building.trajectoryFloorGroups ){
+            if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
+                building.trajectoryFloorGroups[floor].forEach(function (traj) {
+                    scene.add(traj.line);
+                });
+            }
         }
     }
 
 
     function removeAllBgMeshes(){
         for( var bgMesh in building.bgMeshes ){
-            scene.remove( building.bgMeshes[bgMesh] );
+            if( building.bgMeshes.hasOwnProperty( bgMesh ) ){
+                scene.remove(building.bgMeshes[bgMesh]);
+            }
         }
     }
     function deleteAllBgMeshes(){
@@ -631,7 +629,9 @@
 
     function removeAllGrids(){
         for( var grid in building.grids ){
-            scene.remove( building.grids[grid] );
+            if( building.grids.hasOwnProperty( grid ) ){
+                scene.remove( building.grids[grid] );
+            }
         }
     }
     function deleteAllGrids(){
@@ -640,9 +640,13 @@
     }
 
     function removeAllTrajectories(){
-        for( var floor in building.trajectoryFloorGroups )  {
-            for( var traj in building.trajectoryFloorGroups[floor] ){
-                scene.remove( building.trajectoryFloorGroups[floor][traj].line );
+        for( var floor in building.trajectoryFloorGroups ){
+            if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
+                for ( var traj in building.trajectoryFloorGroups[floor] ){
+                    if( building.trajectoryFloorGroups[floor].hasOwnProperty( traj ) ){
+                        scene.remove( building.trajectoryFloorGroups[floor][traj].line );
+                    }
+                }
             }
         }
     }
