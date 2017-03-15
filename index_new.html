@@ -21,12 +21,34 @@
 
     var CAM_NEAR = -100;
     var CAM_FAR = 100;
-    var BG_CORR_Z = -0.4;
-    var GRID_CORR_Z = 0.4;
-    var IMG_DIR = 'img/';
 
-    //const CUT_TIME = 0.08; //s
-    const CUT_TIME = 8000; // 8 s in ms
+    const GUI_FLOORMIN = -3;
+    const GUI_FLOORMAX = 3;
+    const GUI_FLOORSTEP = 1;
+    const GUI_SCALEMIN = 50;
+    const GUI_SCALEMAX = 200;
+    const GUI_SCALESTEP = 50;
+
+    const INIT_FLOOR = 0;
+    const INIT_SCALE = 50;
+    const INIT_FILEPATH = 'LUCI-neu-';
+    const INIT_EXT = '.png';
+    const INIT_LINETYPE = 'Line';
+
+    const TRAJ_COLOR = 0xFF0000;
+    const TRAJ_CUT_TIME = 8000; // 8 s in ms
+    //const TRAJ_CUT_TIME = 0.08; //s
+
+    const BG_DIR = 'img/';
+    const BG_COLOR = 0xFFFFFF;
+    const BG_ALPHA = 0;
+    const BG_MESH_NAME = 'backgroundMesh-';
+    const BG_CORR_Z = -0.4;
+
+    const GRID_D = 5;
+    const GRID_CORR_Z = 0.4;
+
+    const CSV_REPL_HEADER = 't,x,y,acc,f,did';
 
     //three.js
     var camera, scene, renderer;
@@ -78,7 +100,7 @@
             this.wListener = listener;
         },
 
-        f: 0,
+        f: INIT_FLOOR,
         fListener: function() {},
         get floor(){
             return this.f;
@@ -93,7 +115,7 @@
             this.fListener = listener;
         },
 
-        s: 100,
+        s: INIT_SCALE,
         sListener: function() {},
         get scale(){
             return this.s;
@@ -111,13 +133,13 @@
             this.sListener = listener;
         },
 
-        filePath: 'indoors-office-',
-        fileExt: '.png',
+        filePath: INIT_FILEPATH,
+        fileExt: INIT_EXT,
         get path(){
             return this.filePath + this.f + this.fileExt;
         },
 
-        lt: 'Line',
+        lt: INIT_LINETYPE,
         ltListener: function() {},
         get lineType(){
             return this.lt;
@@ -157,7 +179,7 @@
     });
 
     var Trajectory = function(){
-        this.color = 0xff0000;
+        this.color = TRAJ_COLOR;
         this.did = '';
         this.floor = 0;
         this.points = [];
@@ -181,8 +203,8 @@
     }
 
     function initRenderer(){
-        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
-        renderer.setClearColor(0xffffff, 0);
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setClearColor( BG_COLOR, BG_ALPHA );
 //        renderer.setPixelRatio( window.devicePixelRatio ) ;
         document.body.appendChild( renderer.domElement ) ;
         updateRenderer();
@@ -215,8 +237,8 @@
 
     function initDatGUI(){
         gui = new dat.GUI();
-        gui.add( building, 'floor', -3, 3 ).step( 1 ).name( 'Floor' );
-        gui.add( building, 'scale', 100, 400 ).step( 100 ).name( 'Scale (1/X)' );
+        gui.add( building, 'floor', GUI_FLOORMIN, GUI_FLOORMAX ).step( GUI_FLOORSTEP ).name( 'Floor' );
+        gui.add( building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX ).step( GUI_SCALESTEP ).name( 'Scale (1/X)' );
         gui.add( building, 'lineType', ['Line', 'Curve']).name( 'Line type' );
         /*var f1 = gui.addFolder( 'Dev tools' );
         f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
@@ -227,11 +249,9 @@
         var buildingFileInput = document.createElement( 'input' );
         buildingFileInput.id = "buildingFileInput";
         buildingFileInput.type = "file";
+        buildingFileInput.accept = "image/*";
         buildingFileInput.style.position = "absolute";
         buildingFileInput.style.visibility = "hidden";
-        buildingFileInput.style.top = "0px";
-        buildingFileInput.style.width = "0px";
-        buildingFileInput.style.height = "0px";
         document.body.appendChild( buildingFileInput );
 
         buildingFileInput.addEventListener( 'change', function(){
@@ -269,28 +289,28 @@
         var dataFileInput = document.createElement('input');
         dataFileInput.id = "dataFileInput";
         dataFileInput.type = "file";
+        dataFileInput.accept = ".csv";
         dataFileInput.style.position = "absolute";
         dataFileInput.style.visibility = "hidden";
-        dataFileInput.style.top = "0px";
-        dataFileInput.style.width = "0px";
-        dataFileInput.style.height = "0px";
         document.body.appendChild( dataFileInput ) ;
 
         dataFileInput.addEventListener( 'change', function() {
 
             var file = dataFileInput.files[0];
-            var fileType = /text.*/;
 
-            if ( file.type.match( fileType ) ) {
+            //var fileType = /text.*/;
+            //if ( file.type.match( fileType ) ){
+
                 var reader = new FileReader();
                 reader.onload = function() {
-                    //alert( reader.result ) ;
-                    loadNewTrajectories( reader.result ) ;
+                    loadNewTrajectories( reader.result );
                 };
-                reader.readAsText( file ) ;
-            } else {
+                reader.readAsText( file );
+
+            /*} else {
                 alert("File not supported");
-            }
+            }*/
+
             this.value = null; //remove filename from input
         });
 
@@ -305,7 +325,7 @@
 
     function loadNewBgMesh( buildingName, floor ){
 
-        var buildingPath = IMG_DIR + buildingName;
+        var buildingPath = BG_DIR + buildingName;
         var backgroundMesh;
         var bgMaterial = new THREE.MeshBasicMaterial();
 
@@ -350,7 +370,7 @@
                     backgroundPlane,
                     bgMaterial
                 );
-                backgroundMesh.name = 'backgroundMesh-' + building.floor;
+                backgroundMesh.name = BG_MESH_NAME + building.floor;
 
                 building.bgMeshes[floor] = backgroundMesh;
                 scene.add( building.bgMeshes[floor] );
@@ -371,12 +391,12 @@
         var coordGeometry = new THREE.Geometry();
 
         //x-axis
-        for( var x = 0; x < ( building.height ); x++){
+        for( var x = 0; x < ( building.height ); x += GRID_D ){
             coordGeometry.vertices.push( new THREE.Vector3( 0, -x, floor + GRID_CORR_Z ));
             coordGeometry.vertices.push( new THREE.Vector3( building.width, -x, floor + GRID_CORR_Z ));
         }
         //y-axis
-        for( var y = 0; y < ( building.width ); y++){
+        for( var y = 0; y < ( building.width ); y += GRID_D ){
             coordGeometry.vertices.push( new THREE.Vector3( y, 0, floor + GRID_CORR_Z ));
             coordGeometry.vertices.push( new THREE.Vector3( y, -building.height, floor + GRID_CORR_Z ));
         }
@@ -445,10 +465,12 @@
         var pointsList = Papa.parse( csvString , {
             header: true,
             dynamicTyping: true,
+            skipEmptyLines: true,
+            comments: '#',
             //step: true,
             beforeFirstChunk: function( chunk ) {
                 var rows = chunk.split( /\r\n|\r|\n/ );
-                rows[0] = 't,x,y,acc,f,did';
+                rows[0] = CSV_REPL_HEADER;
                 return rows.join("\r\n");
             }
         });
@@ -460,7 +482,6 @@
                 point.y = point.y * -1;
             }
         );
-        var x = pointList.shift(); // remove weird empty point in pointlist <--- investigate
         return pointList;
     }
     function groupPointListByFloor( pointList ){
@@ -489,7 +510,7 @@
 
         pointList.forEach(function( point ){
 
-            if( tempTime + CUT_TIME < point.t ) {
+            if( tempTime + TRAJ_CUT_TIME < point.t ) {
 
                 pointListByTime.push( tempTimeArray ) ;
                 tempTimeArray = [];
@@ -712,7 +733,7 @@ function onMouseClick( event ){
 
         raycaster.setFromCamera( mouse, camera );
 
-        var bg = scene.getObjectByName('backgroundMesh-' + building.floor);
+        var bg = scene.getObjectByName( BG_MESH_NAME + building.floor );
 
         // calculate objects intersecting the picking ray
         var intersects = raycaster.intersectObject( bg, true ) ;
