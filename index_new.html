@@ -402,36 +402,36 @@
         var pointList = parseCSV( readerResult );
         pointList = sortPoints( pointList );
 
-        var corredPointListByDID = groupPointListByDid( corrPoints( pointList ) );
-        var corredPointListByDIDByFloor = [];
-        var corredPointListByDIDByFloorByTime = [];
+        var pointListByDID = groupPointListByDid( pointList );
+        var pointListByDIDByFloor = [];
+        var pointListByDIDByFloorByTime = [];
 
-        for( var did1 in corredPointListByDID ){
-            if ( corredPointListByDID.hasOwnProperty( did1 ) ){
-                corredPointListByDIDByFloor[did1] = groupPointListByFloor( corredPointListByDID[did1]);
+        for( var did1 in pointListByDID ){
+            if ( pointListByDID.hasOwnProperty( did1 ) ){
+                pointListByDIDByFloor[did1] = groupPointListByFloor( pointListByDID[did1]);
             }
         }
-        for( var did2 in corredPointListByDIDByFloor ){
+        for( var did2 in pointListByDIDByFloor ){
 
             var tempList = [];
 
-            for ( var floor1 in corredPointListByDIDByFloor[did2]){
-                if ( corredPointListByDIDByFloor[did2].hasOwnProperty( floor1 ) ) {
+            for ( var floor1 in pointListByDIDByFloor[did2]){
+                if ( pointListByDIDByFloor[did2].hasOwnProperty( floor1 ) ) {
 
-                    tempList[floor1] = groupPointListByTime(corredPointListByDIDByFloor[did2][floor1])
+                    tempList[floor1] = groupPointListByTime(pointListByDIDByFloor[did2][floor1])
                 }
             }
-            corredPointListByDIDByFloorByTime[did2] = tempList;
+            pointListByDIDByFloorByTime[did2] = tempList;
         }
-        for( var did3 in corredPointListByDIDByFloorByTime ){
-            for( var floor2 in corredPointListByDIDByFloorByTime[did3] ){
-                if( corredPointListByDIDByFloorByTime[did3].hasOwnProperty( floor2 ) ){
-                    for ( var pointGroup in corredPointListByDIDByFloorByTime[did3][floor2] ){
-                        if( corredPointListByDIDByFloorByTime[did3][floor2].hasOwnProperty( pointGroup ) ){
+        for( var did3 in pointListByDIDByFloorByTime ){
+            for( var floor2 in pointListByDIDByFloorByTime[did3] ){
+                if( pointListByDIDByFloorByTime[did3].hasOwnProperty( floor2 ) ){
+                    for ( var pointGroup in pointListByDIDByFloorByTime[did3][floor2] ){
+                        if( pointListByDIDByFloorByTime[did3][floor2].hasOwnProperty( pointGroup ) ){
                             var tempTrajectory = new Trajectory();
                             tempTrajectory.did = did3;
-                            tempTrajectory.floor = corredPointListByDIDByFloorByTime[did3][floor2][pointGroup][0].f;
-                            tempTrajectory.points = corredPointListByDIDByFloorByTime[did3][floor2][pointGroup];
+                            tempTrajectory.floor = pointListByDIDByFloorByTime[did3][floor2][pointGroup][0].f;
+                            tempTrajectory.points = pointListByDIDByFloorByTime[did3][floor2][pointGroup];
 
                             if ( !building.trajectoryFloorGroups[tempTrajectory.floor] ){
                                 building.trajectoryFloorGroups[tempTrajectory.floor] = [];
@@ -466,14 +466,14 @@
         });
         return pointsList.data; // = array of objects
     }
-    function corrPoints ( pointList ){
+    /*function corrPoints ( pointList ){
         pointList.forEach(
             function ( point ) {
                 point.y = point.y * -1;
             }
         );
         return pointList;
-    }
+    }*/
     function groupPointListByFloor( pointList ){
         return groupBy(
             pointList,
@@ -587,7 +587,7 @@
         var vertices = [];
         points.forEach(
             function ( point ){
-                vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
+                vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ));
             }
         );
 
@@ -602,7 +602,7 @@
         var vertices = [];
         points.forEach(
             function( point ){
-                vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
+                vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ));
             }
         );
         var curve = new THREE.CatmullRomCurve3( vertices );
@@ -614,9 +614,7 @@
     }
     function makePointGeom( points ){
 
-        var pointGeom = new THREE.Geometry();
-
-        //var vertices = [];
+        var vertices = [];
 
        /* points.forEach(
             function( point ){
@@ -625,16 +623,39 @@
         );*/
 
         //subsampling
+        vertices = subsamplePoints( points );
+
+        //centroid seed
+        var verticesWCentroids = seedCentroids( vertices );
+
+        verticesWCentroids.forEach(
+            function( point ){
+                vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ));
+            }
+        );
+
+        var pointGeom = new THREE.Geometry();
+        pointGeom.name = points[0].did;
+        pointGeom.vertices = vertices;
+
+        return pointGeom;
+    }
+
+    function subsamplePoints( points ){
 
         var vertices = [];
+
+        //R = Radius for subsampling, r = radius remaining for next segment, i = iterator, p0 = first point of traj,
+        //pA and pB are start and end of segment to be subsampled, D = dist between pA and pB, d = remaining distance
+        //p = subsampled point, vh = ratio of _________ (?),
 
         var R = 3;
         var r = R;
 
         var i = 0;
 
-        var p0 = ( new THREE.Vector3( points[i].x, points[i].y, points[i].f ) );
-        pointGeom.vertices.push( p0 );
+        var p0 = { x: points[i].x, y: points[i].y, f: points[i].f, t: points[i].t, did: points[i].did  };
+        vertices.push( p0 );
 
         for( i; i < points.length - 2; i++ ){
             if( points.hasOwnProperty( i ) ){
@@ -642,15 +663,15 @@
                 var pA = points[i];
                 var pB = points[i + 1];
 
-                var D = Math.sqrt( (pB.x - pA.x) * (pB.x - pA.x) + (pB.y - pA.y) * (pB.y - pA.y) );
+                var D = spatialDistance( pA, pB );
                 var d = D;
 
                 while( d > r ){
                     var vh = ( r + ( D - d ) ) / D;
-                    var p = { x: ( 1 - vh ) * pA.x + vh * pB.x, y: ( 1 - vh ) * pA.y + vh * pB.y, z: pA.f };
+                    // t not interpolated!!
+                    var p = { x: ( 1 - vh ) * pA.x + vh * pB.x, y: ( 1 - vh ) * pA.y + vh * pB.y, f: pA.f, t: pA.t, did: pA.did };
 
-
-                    pointGeom.vertices.push( new THREE.Vector3( p.x, p.y, p.z ) );
+                    vertices.push( p );
 
                     d -= r;
                     r = R;
@@ -658,22 +679,183 @@
                 r -= d;
             }
         }
-
         //über raum interpolieren -- könnte mit curve.getSpacedPoints gemacht werden (?)
         /*for( var v = 0 ; var vector in vertices ){
 
-            var parts =
+         var parts =
 
-        }
-        var line = new THREE.LineSegments()*/
+         }
+         var line = new THREE.LineSegments()*/
 
-        //centroid seed
-
-
-
-
-        return pointGeom;
+        return vertices;
     }
+    function spatialDistance( p1, p2 ){
+        return Math.sqrt( (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y) );
+    }
+
+    var maxRadius = 10;
+    var C = [];
+
+    function seedCentroids( points ){
+
+        var P = points;
+
+        var G = {
+            xMin: 0,
+            xMax: 0,
+            yMin: 0,
+            yMax: 0,
+            grid: []
+        }; //grid
+
+        for( var i in P ){
+
+            var p = P[i];
+
+            if( G.xMin > p.x ) G.xMin = p.x;
+            if( G.xMax < p.x ) G.xMax = p.x;
+            if( G.yMin > p.y ) G.yMin = p.y;
+            if( G.yMax < p.y ) G.yMax = p.y;
+        }
+
+        //build grid
+
+        /*for( var x = xMin; x <= xMax; x += maxRadius ){
+
+            var u = { x1: x, y1: yMin, x2: x, y2: yMax };
+            G.push( u );
+        }
+        for( var y = yMin; y <= yMax; y += maxRadius ){
+
+            var v = { x1: xMin, y1: y, x2: xMax, y: y };
+            G.push( v );
+        }*/
+
+        for( var x = G.xMin; x <= G.xMax; x += maxRadius ){
+
+            var gX = [];
+
+            for( var y = G.yMin; y <= G.yMax; y += maxRadius ) {
+
+                var gY = [];
+                gX.push( gY );
+            }
+            G.grid.push( gX );
+        }
+        //
+
+        var R = []; //results
+
+        for( var j in P ){
+
+            putInProperGroup( P[j], R, G );
+        }
+        redistributePoints( P, R, G );
+
+        return P; //change to R later
+    }
+    function putInProperGroup( p, R, G ){
+        var c = getClosestCentroid( p, G );
+        var gr = {
+            centroid: {},
+            members: []
+        };
+
+        if( c == null ){
+
+            gr.centroid = {
+                    x: p.x,
+                    y: p.y,
+                    g: gr
+                };
+            R.push( gr );
+        } else {
+            gr = c.g; // g is group with centroid c // indices? centroid array? -------------------------------
+            gr.members.push( p );
+            var gc = getGridPosition( c, G );
+
+            var index = G.grid[gc.i][gc.j].indexOf( c );
+            G.grid[gc.i][gc.j].splice( index, 1 );
+
+            gr.centroid = getCentroid( gr.members );
+            gr.centroid.g = gr;
+        }
+        gc = getGridPosition( gr.centroid, G );
+        G.grid[gc.i][gc.j].push( gr.centroid );
+    }
+    function getClosestCentroid( p, G ){
+        var gc = getGridPosition( p, G );
+        var C = [];
+        for( var k = Math.max( gc.i - 1, 1 ); k < Math.min( gc.i + 1, G.grid.length ); k++ ){
+            for( var m = Math.max( gc.j - 1, 1 ); m < Math.min( gc.j + 1, G.grid[gc.i].length ); m++ ){
+                for( var c in G.grid[k][m] ){
+                    if( G.grid[k][m].hasOwnProperty( c ) ) {
+                        if ( spatialDistance( p, G.grid[k][m][c] ) <= maxRadius ) {
+                            C.push( G.grid[k][m][c] );
+                        }
+                    }
+                }
+            }
+        }
+        if( C.length == 0 ){
+            return null;
+        } else if( C.length == 1){
+            return C[0];
+        } else {
+            var ck = C[0];
+
+            for( var l in C ){
+                if( spatialDistance( C[l], p ) <= spatialDistance( ck, p )){
+                    ck = C[l];
+                }
+            }
+            return ck;
+        }
+    }
+    function getGridPosition( p, G ){
+        var gc = {
+            i: Math.floor( ( p.x - G.xMin ) / maxRadius ),
+            j: Math.floor( ( p.y - G.yMin ) / maxRadius )
+        };
+        return gc;
+    }
+    function redistributePoints( P, R, G ){
+        for( var r in R ){
+            R[r].members = [];
+        }
+        for( var p in P ){
+            var c = getClosestCentroid( P[p], G );
+            if( c != null ){ // FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                var gr = c.g; //---------------------------------------------------
+                gr.members.push( P[p] );
+            }
+        }
+    }
+    function getCentroid( points ){
+
+        var c = {
+            x: 0,
+            y: 0,
+            g: {}
+        };
+        var sumX = 0;
+        var sumY = 0;
+        var numPoints = points.length;
+
+        for( var p in points ){
+            sumX += points[p].x;
+            sumY += points[p].y;
+        }
+
+        if( numPoints > 0 ) {
+            c.x = sumX / numPoints;
+            c.y = sumY / numPoints;
+            return c;
+        } else {
+            return null;
+        }
+    }
+
 
     function addAllTrajectories() {
         for( var floor in building.trajectoryFloorGroups ){
