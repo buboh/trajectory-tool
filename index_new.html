@@ -14,23 +14,24 @@
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
 <script src="js/thenBy.js"></script>
+<!--Trajectory viewer-->
 <script>
 
     var CAM_NEAR = -100;
     var CAM_FAR = 100;
 
-    const GUI_FLOORMIN = -3;
-    const GUI_FLOORMAX = 3;
+    const GUI_FLOORMIN = -2;
+    const GUI_FLOORMAX = 2;
     const GUI_FLOORSTEP = 1;
     const GUI_SCALEMIN = 50;
     const GUI_SCALEMAX = 200;
     const GUI_SCALESTEP = 50;
 
-    const INIT_FLOOR = 0;
+    const INIT_FLOOR = 1;
     const INIT_SCALE = 50;
     const INIT_FILEPATH = 'LUCI-neu-';
     const INIT_EXT = '.png';
-    const INIT_LINETYPE = 'Line';
+    const INIT_LINETYPE = 'Point';
 
     const TRAJ_COLOR = 0xFF0000;
     const TRAJ_CUT_TIME = 8000; // 8 s in ms
@@ -44,6 +45,8 @@
 
     const GRID_D = 5;
     const GRID_CORR_Z = 0.4;
+
+    const POINT_SIZE = 5.0;
 
     const CSV_REPL_HEADER = 't,x,y,acc,f,did';
 
@@ -236,7 +239,7 @@
         gui = new dat.GUI();
         gui.add( building, 'floor', GUI_FLOORMIN, GUI_FLOORMAX ).step( GUI_FLOORSTEP ).name( 'Floor' );
         gui.add( building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX ).step( GUI_SCALESTEP ).name( 'Scale (1:X)' );
-        gui.add( building, 'lineType', ['Line', 'Curve']).name( 'Line type' );
+        gui.add( building, 'lineType', ['Line', 'Curve', 'Point']).name( 'Line type' );
         /*var f1 = gui.addFolder( 'Dev tools' );
         f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
         f1.add( this, 'CAM_NEAR' ).step( 0.5 ).listen();*/
@@ -554,23 +557,36 @@
             if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
                 building.trajectoryFloorGroups[floor].forEach( function ( traj ){
 
-                    var tempTraj;
+                    var tempTrajGeom;
                     if ( building.lineType == 'Line' ){
-                        tempTraj = makeLineGeom( traj.points );
+                        tempTrajGeom = makeLineGeom( traj.points );
+                        traj.line = makeLine( tempTrajGeom, traj.color );
                     } else if ( building.lineType == 'Curve' ){
-                        tempTraj = makeCurveGeom( traj.points );
+                        tempTrajGeom = makeCurveGeom( traj.points );
+                        traj.line = makeLine( tempTrajGeom, traj.color );
+                    } else if ( building.lineType == 'Point' ){
+                        tempTrajGeom = makePointGeom( traj.points );
+                        traj.line = makeDots( tempTrajGeom, traj.color );
                     }
-                    var trajectoryMaterial = new THREE.LineBasicMaterial({ color: traj.color, opacity: 1 });
-                    traj.line = new THREE.Line( tempTraj, trajectoryMaterial );
+
                 });
             }
         }
     }
-    function makeLineGeom( points ) {
+    function makeLine( trajGeom, color ){
+        var trajectoryMaterial = new THREE.LineBasicMaterial({ color: color, opacity: 1 });
+        return new THREE.Line( trajGeom, trajectoryMaterial );
+    }
+    function makeDots( trajGeom, color ){
+        var trajectoryMaterial = new THREE.PointsMaterial({ color: color, opacity: 1, size: POINT_SIZE, sizeAttenuation: false });
+        return new THREE.Points( trajGeom, trajectoryMaterial );
+    }
+
+    function makeLineGeom( points ){
 
         var vertices = [];
         points.forEach(
-            function ( point ) {
+            function ( point ){
                 vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
             }
         );
@@ -581,11 +597,11 @@
 
         return lineGeom;
     }
-    function makeCurveGeom( points ) {
+    function makeCurveGeom( points ){
 
         var vertices = [];
         points.forEach(
-            function( point ) {
+            function( point ){
                 vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
             }
         );
@@ -595,6 +611,68 @@
         curveGeom.vertices = curve.getPoints( 50 );
 
         return curveGeom;
+    }
+    function makePointGeom( points ){
+
+        var pointGeom = new THREE.Geometry();
+
+        //var vertices = [];
+
+       /* points.forEach(
+            function( point ){
+                vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
+            }
+        );*/
+
+        //subsampling
+
+        var vertices = [];
+
+        var R = 3;
+        var r = R;
+
+        var i = 0;
+
+        var p0 = ( new THREE.Vector3( points[i].x, points[i].y, points[i].f ) );
+        pointGeom.vertices.push( p0 );
+
+        for( i; i < points.length - 2; i++ ){
+            if( points.hasOwnProperty( i ) ){
+
+                var pA = points[i];
+                var pB = points[i + 1];
+
+                var D = Math.sqrt( (pB.x - pA.x) * (pB.x - pA.x) + (pB.y - pA.y) * (pB.y - pA.y) );
+                var d = D;
+
+                while( d > r ){
+                    var vh = ( r + ( D - d ) ) / D;
+                    var p = { x: ( 1 - vh ) * pA.x + vh * pB.x, y: ( 1 - vh ) * pA.y + vh * pB.y, z: pA.f };
+
+
+                    pointGeom.vertices.push( new THREE.Vector3( p.x, p.y, p.z ) );
+
+                    d -= r;
+                    r = R;
+                }
+                r -= d;
+            }
+        }
+
+        //über raum interpolieren -- könnte mit curve.getSpacedPoints gemacht werden (?)
+        /*for( var v = 0 ; var vector in vertices ){
+
+            var parts =
+
+        }
+        var line = new THREE.LineSegments()*/
+
+        //centroid seed
+
+
+
+
+        return pointGeom;
     }
 
     function addAllTrajectories() {
@@ -748,5 +826,16 @@ function onMouseClick( event ){
     }
 
 </script>
+
+<!--Trajectory clustering / edge bundling-->
+<script>
+
+
+
+
+
+
+</script>
+
 </body>
 </html>
