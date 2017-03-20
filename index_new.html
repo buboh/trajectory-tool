@@ -31,7 +31,7 @@
     const INIT_SCALE = 50;
     const INIT_FILEPATH = 'LUCI-neu-';
     const INIT_EXT = '.png';
-    const INIT_LINETYPE = 'Point';
+    const INIT_LINETYPE = 'Clusters';
 
     const TRAJ_COLOR = 0xFF0000;
     const TRAJ_CUT_TIME = 8000; // 8 s in ms
@@ -161,7 +161,7 @@
 
         bgMeshes: {},
         grids: {},
-        trajectoryFloorGroups: {}
+        trajectories: []
     };
     building.registerWListener( function( ) {
         this.ratio = this.w / this.h;
@@ -188,8 +188,7 @@
         this.did = '';
         this.floor = 0;
         this.points = [];
-        this.line = new THREE.Line();
-        this.visible = false;
+        this.objects = [];
     };
 
     init();
@@ -244,7 +243,7 @@
         gui = new dat.GUI();
         gui.add( building, 'floor', GUI_FLOORMIN, GUI_FLOORMAX ).step( GUI_FLOORSTEP ).name( 'Floor' );
         gui.add( building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX ).step( GUI_SCALESTEP ).name( 'Scale (1:X)' );
-        gui.add( building, 'lineType', ['Line', 'Curve', 'Point']).name( 'Line type' );
+        gui.add( building, 'lineType', ['Line', 'Curve', 'Point', 'Clusters']).name( 'Line type' );
         /*var f1 = gui.addFolder( 'Dev tools' );
         f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
         f1.add( this, 'CAM_NEAR' ).step( 0.5 ).listen();*/
@@ -408,48 +407,30 @@
         pointList = sortPoints( pointList );
 
         var pointListByDID = groupPointListByDid( pointList );
-        var pointListByDIDByFloor = [];
-        var pointListByDIDByFloorByTime = [];
+        var pointListByDIDByTime = [];
 
         for( var did1 in pointListByDID ){
-            if ( pointListByDID.hasOwnProperty( did1 ) ){
-                pointListByDIDByFloor[did1] = groupPointListByFloor( pointListByDID[did1]);
-            }
-        }
-        for( var did2 in pointListByDIDByFloor ){
 
             var tempList = [];
 
-            for ( var floor1 in pointListByDIDByFloor[did2]){
-                if ( pointListByDIDByFloor[did2].hasOwnProperty( floor1 ) ) {
+            tempList = groupPointListByTime( pointListByDID[did1] );
 
-                    tempList[floor1] = groupPointListByTime(pointListByDIDByFloor[did2][floor1])
-                }
-            }
-            pointListByDIDByFloorByTime[did2] = tempList;
+            pointListByDIDByTime[did1] = tempList;
         }
-        for( var did3 in pointListByDIDByFloorByTime ){
-            for( var floor2 in pointListByDIDByFloorByTime[did3] ){
-                if( pointListByDIDByFloorByTime[did3].hasOwnProperty( floor2 ) ){
-                    for ( var pointGroup in pointListByDIDByFloorByTime[did3][floor2] ){
-                        if( pointListByDIDByFloorByTime[did3][floor2].hasOwnProperty( pointGroup ) ){
-                            var tempTrajectory = new Trajectory();
-                            tempTrajectory.did = did3;
-                            tempTrajectory.floor = pointListByDIDByFloorByTime[did3][floor2][pointGroup][0].f;
-                            tempTrajectory.points = pointListByDIDByFloorByTime[did3][floor2][pointGroup];
+        for( var did2 in pointListByDIDByTime ){
+            for ( var pointGroup in pointListByDIDByTime[did2] ){
+                if( pointListByDIDByTime[did2].hasOwnProperty( pointGroup ) ){
+                    var tempTrajectory = new Trajectory();
+                    tempTrajectory.did = did2;
+                    tempTrajectory.floor = pointListByDIDByTime[did2][pointGroup][0].f;
+                    tempTrajectory.points = pointListByDIDByTime[did2][pointGroup];
 
-                            if ( !building.trajectoryFloorGroups[tempTrajectory.floor] ){
-                                building.trajectoryFloorGroups[tempTrajectory.floor] = [];
-                            }
-                            if ( tempTrajectory.points.length > 1 ){
-                                building.trajectoryFloorGroups[tempTrajectory.floor].push( tempTrajectory );
-                            }
-                        }
+                    if ( tempTrajectory.points.length > 1 ){
+                        building.trajectories.push( tempTrajectory );
                     }
                 }
             }
         }
-
         makeAllTrajectories();
         addAllTrajectories();
     }
@@ -558,31 +539,37 @@
     }
 
     function makeAllTrajectories(){
-        for( var floor in building.trajectoryFloorGroups ){
 
-            if( building.lineType == 'Line' ){
+        if( building.lineType == 'Line' ){
+            building.trajectories.forEach( function ( traj ){
+                var tempTrajGeom = makeLineGeom( traj.points );
+                traj.objects = [
+                    makeLine( tempTrajGeom, traj.color )
+                ];
+            });
+        } else if( building.lineType == 'Curve' ){
+            building.trajectories.forEach(function (traj) {
+                var tempTrajGeom = makeCurveGeom( traj.points );
+                traj.objects = [
+                    makeLine( tempTrajGeom, traj.color )
+                ];
+            });
+        } else if( building.lineType == 'Point' ){
+            building.trajectories.forEach( function ( traj ) {
+                var tempTrajGeom = makePointGeom( traj.points );
+                traj.objects = [
+                    makeDots( tempTrajGeom, traj.color, TRAJ_DOT_SIZE )
+                ];
+            });
+        } else if ( building.lineType == 'Clusters' ){
+            var stuff = makeClusteredGeom( building.trajectories );
 
-                if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
-                    building.trajectoryFloorGroups[floor].forEach( function ( traj ) {
-                        var tempTrajGeom = makeLineGeom(traj.points);
-                        traj.line = makeLine(tempTrajGeom, traj.color);
-                    });
-                }
-            } else if ( building.lineType == 'Curve' ){
-                if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
-                    building.trajectoryFloorGroups[floor].forEach( function ( traj ) {
-                        var tempTrajGeom = makeCurveGeom(traj.points);
-                        traj.line = makeLine(tempTrajGeom, traj.color);
-                    });
-                }
+            // addAllTrajectories not compatible with this list. needs to be changed later
 
-            } else if ( building.lineType == 'Point' ){
-                var stuff = makePointGeom( building.trajectoryFloorGroups[floor] );
-                scene.add( stuff.cents );
-                stuff.points.forEach( function( point ){
-                   scene.add( point );
-                });
-            }
+            scene.add( stuff.cents );
+            stuff.points.forEach( function( point ){
+               scene.add( point );
+            });
         }
     }
     function makeLine( geom, color ){
@@ -595,7 +582,6 @@
     }
 
     function makeLineGeom( points ){
-
         var vertices = [];
         points.forEach(
             function ( point ){
@@ -610,7 +596,6 @@
         return lineGeom;
     }
     function makeCurveGeom( points ){
-
         var vertices = [];
         points.forEach(
             function( point ){
@@ -624,7 +609,19 @@
 
         return curveGeom;
     }
-    function makePointGeom( floorTrajs ){
+    function makePointGeom( points ){
+        var vertices = [];
+        points.forEach(
+            function( point ){
+                vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ));
+            }
+        );
+        var pointsGeom = new THREE.Geometry();
+        pointsGeom.name = points[0].did;
+
+        return pointsGeom;
+    }
+    function makeClusteredGeom( trajs ){
 
         var vertices = [];
 
@@ -633,7 +630,7 @@
                 vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
             }
         );*/
-        floorTrajs.forEach( function( traj ){
+        trajs.forEach( function( traj ){
             var points = traj.points;
             //subsampling
             vertices.push( subsamplePoints( points ) );
@@ -891,15 +888,14 @@
 
 
     function addAllTrajectories() {
-        for( var floor in building.trajectoryFloorGroups ){
-            if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
-                building.trajectoryFloorGroups[floor].forEach(function (traj) {
-                    scene.add(traj.line);
-                });
+        building.trajectories.forEach(function (traj) {
+            for( var obj in building.trajectories[traj].objects ){
+                if( building.trajectories[traj].objects.hasOwnProperty( obj ) ){
+                    scene.add( building.trajectories[traj].objects[obj] );
+                }
             }
-        }
+        });
     }
-
 
     function removeAllBgMeshes(){
         for( var bgMesh in building.bgMeshes ){
@@ -926,19 +922,17 @@
     }
 
     function removeAllTrajectories(){
-        for( var floor in building.trajectoryFloorGroups ){
-            if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
-                for ( var traj in building.trajectoryFloorGroups[floor] ){
-                    if( building.trajectoryFloorGroups[floor].hasOwnProperty( traj ) ){
-                        scene.remove( building.trajectoryFloorGroups[floor][traj].line );
-                    }
+        for( var traj in building.trajectories ){
+            if( building.trajectories.hasOwnProperty( traj ) ){
+                for( var obj in building.trajectories[traj].objects ){
+                    scene.remove( building.trajectories[traj].objects[obj] );
                 }
             }
         }
     }
     function deleteAllTrajectories(){
         removeAllTrajectories();
-        building.trajectoryFloorGroups = {};
+        building.trajectories = [];
     }
 
     /* function removeAll(){

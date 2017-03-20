@@ -212,7 +212,7 @@ function splitPoints( pointList ) {
  trajectoryFloorGroup.push( tempTrajectory ) ;
  }
  }
- building.trajectoryFloorGroups[tempTrajectory.floor2] = trajectoryFloorGroup;
+ building.trajectories[tempTrajectory.floor2] = trajectoryFloorGroup;
  }
  }*/
 
