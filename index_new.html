@@ -46,7 +46,12 @@
     const GRID_D = 5;
     const GRID_CORR_Z = 0.4;
 
-    const POINT_SIZE = 5.0;
+    const CENT_DOT_SIZE = 7.0;
+    const TRAJ_DOT_SIZE = 5.0;
+
+    //clustering
+    var maxRadius = 10;
+
 
     const CSV_REPL_HEADER = 't,x,y,acc,f,did';
 
@@ -554,32 +559,39 @@
 
     function makeAllTrajectories(){
         for( var floor in building.trajectoryFloorGroups ){
-            if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
-                building.trajectoryFloorGroups[floor].forEach( function ( traj ){
 
-                    var tempTrajGeom;
-                    if ( building.lineType == 'Line' ){
-                        tempTrajGeom = makeLineGeom( traj.points );
-                        traj.line = makeLine( tempTrajGeom, traj.color );
-                    } else if ( building.lineType == 'Curve' ){
-                        tempTrajGeom = makeCurveGeom( traj.points );
-                        traj.line = makeLine( tempTrajGeom, traj.color );
-                    } else if ( building.lineType == 'Point' ){
-                        tempTrajGeom = makePointGeom( traj.points );
-                        traj.line = makeDots( tempTrajGeom, traj.color );
-                    }
+            if( building.lineType == 'Line' ){
 
+                if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
+                    building.trajectoryFloorGroups[floor].forEach( function ( traj ) {
+                        var tempTrajGeom = makeLineGeom(traj.points);
+                        traj.line = makeLine(tempTrajGeom, traj.color);
+                    });
+                }
+            } else if ( building.lineType == 'Curve' ){
+                if( building.trajectoryFloorGroups.hasOwnProperty( floor ) ){
+                    building.trajectoryFloorGroups[floor].forEach( function ( traj ) {
+                        var tempTrajGeom = makeCurveGeom(traj.points);
+                        traj.line = makeLine(tempTrajGeom, traj.color);
+                    });
+                }
+
+            } else if ( building.lineType == 'Point' ){
+                var stuff = makePointGeom( building.trajectoryFloorGroups[floor] );
+                scene.add( stuff.cents );
+                stuff.points.forEach( function( point ){
+                   scene.add( point );
                 });
             }
         }
     }
-    function makeLine( trajGeom, color ){
-        var trajectoryMaterial = new THREE.LineBasicMaterial({ color: color, opacity: 1 });
-        return new THREE.Line( trajGeom, trajectoryMaterial );
+    function makeLine( geom, color ){
+        var mat = new THREE.LineBasicMaterial({ color: color, opacity: 1 });
+        return new THREE.Line( geom, mat );
     }
-    function makeDots( trajGeom, color ){
-        var trajectoryMaterial = new THREE.PointsMaterial({ color: color, opacity: 1, size: POINT_SIZE, sizeAttenuation: false });
-        return new THREE.Points( trajGeom, trajectoryMaterial );
+    function makeDots( geom, color, pointSize ){
+        var mat = new THREE.PointsMaterial({ color: color, opacity: 1, size: pointSize, sizeAttenuation: false });
+        return new THREE.Points( geom, mat );
     }
 
     function makeLineGeom( points ){
@@ -612,7 +624,7 @@
 
         return curveGeom;
     }
-    function makePointGeom( points ){
+    function makePointGeom( floorTrajs ){
 
         var vertices = [];
 
@@ -621,24 +633,44 @@
                 vertices.push( new THREE.Vector3( point.x, point.y, point.f ));
             }
         );*/
-
-        //subsampling
-        vertices = subsamplePoints( points );
+        floorTrajs.forEach( function( traj ){
+            var points = traj.points;
+            //subsampling
+            vertices.push( subsamplePoints( points ) );
+        });
 
         //centroid seed
         var verticesWCentroids = seedCentroids( vertices );
+        var centGeom = new THREE.Geometry();
+        var pointGeoms = [];
 
-        verticesWCentroids.forEach(
-            function( point ){
-                vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ));
+        for( var group in verticesWCentroids ){
+
+            var pointGeom = new THREE.Geometry();
+
+            var cent = verticesWCentroids[group].centroid;
+            centGeom.vertices.push( new THREE.Vector3( cent.x, cent.y * -1, cent.f ) );
+
+            for( var p in verticesWCentroids[group].members ){
+                var point = verticesWCentroids[group].members[p];
+                pointGeom.name = point.did;
+                pointGeom.vertices.push( new THREE.Vector3( point.x, point.y * -1, point.f ) );
             }
-        );
+            pointGeoms.push( pointGeom );
+        }
 
-        var pointGeom = new THREE.Geometry();
-        pointGeom.name = points[0].did;
-        pointGeom.vertices = vertices;
+        var centDots = makeDots( centGeom, 0x000000, CENT_DOT_SIZE );
+        var pointDots = [];
+        pointGeoms.forEach( function( pointGeom ){
+            pointDots.push( makeDots( pointGeom, Math.random() * 0xffffff, TRAJ_DOT_SIZE ) );
+        });
 
-        return pointGeom;
+        var drawStuff = {
+            cents: centDots,
+            points: pointDots
+        };
+
+        return drawStuff;
     }
 
     function subsamplePoints( points ){
@@ -663,7 +695,7 @@
                 var pA = points[i];
                 var pB = points[i + 1];
 
-                var D = spatialDistance( pA, pB );
+                var D = getSpatialDistance( pA, pB );
                 var d = D;
 
                 while( d > r ){
@@ -689,12 +721,9 @@
 
         return vertices;
     }
-    function spatialDistance( p1, p2 ){
+    function getSpatialDistance( p1, p2 ){
         return Math.sqrt( (p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y) );
     }
-
-    var maxRadius = 10;
-    var C = [];
 
     function seedCentroids( points ){
 
@@ -709,13 +738,13 @@
         }; //grid
 
         for( var i in P ){
-
-            var p = P[i];
-
-            if( G.xMin > p.x ) G.xMin = p.x;
-            if( G.xMax < p.x ) G.xMax = p.x;
-            if( G.yMin > p.y ) G.yMin = p.y;
-            if( G.yMax < p.y ) G.yMax = p.y;
+            for( var j in P[i] ){
+                var p = P[i][j];
+                if( G.xMin > p.x ) G.xMin = p.x;
+                if( G.xMax < p.x ) G.xMax = p.x;
+                if( G.yMin > p.y ) G.yMin = p.y;
+                if( G.yMax < p.y ) G.yMax = p.y;
+            }
         }
 
         //build grid
@@ -746,13 +775,14 @@
 
         var R = []; //results
 
-        for( var j in P ){
-
-            putInProperGroup( P[j], R, G );
+        for( var i in P ){
+            for( var j in P[i] ){
+                putInProperGroup( P[i][j], R, G );
+            }
         }
         redistributePoints( P, R, G );
 
-        return P; //change to R later
+        return R; //change to R later
     }
     function putInProperGroup( p, R, G ){
         var c = getClosestCentroid( p, G );
@@ -790,7 +820,7 @@
             for( var m = Math.max( gc.j - 1, 1 ); m < Math.min( gc.j + 1, G.grid[gc.i].length ); m++ ){
                 for( var c in G.grid[k][m] ){
                     if( G.grid[k][m].hasOwnProperty( c ) ) {
-                        if ( spatialDistance( p, G.grid[k][m][c] ) <= maxRadius ) {
+                        if ( getSpatialDistance( p, G.grid[k][m][c] ) <= maxRadius ) {
                             C.push( G.grid[k][m][c] );
                         }
                     }
@@ -805,7 +835,7 @@
             var ck = C[0];
 
             for( var l in C ){
-                if( spatialDistance( C[l], p ) <= spatialDistance( ck, p )){
+                if( getSpatialDistance( C[l], p ) <= getSpatialDistance( ck, p )){
                     ck = C[l];
                 }
             }
@@ -823,12 +853,15 @@
         for( var r in R ){
             R[r].members = [];
         }
-        for( var p in P ){
-            var c = getClosestCentroid( P[p], G );
-            if( c != null ){ // FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
-                var gr = c.g; //---------------------------------------------------
-                gr.members.push( P[p] );
+        for( var i in P ){
+            for( var j in P[i] ){
+                var c = getClosestCentroid( P[i][j], G );
+                if( c != null ){ // FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                    var gr = c.g; //---------------------------------------------------
+                    gr.members.push( P[i][j] );
+                }
             }
+
         }
     }
     function getCentroid( points ){
