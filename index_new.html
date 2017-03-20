@@ -191,6 +191,19 @@
         this.objects = [];
     };
 
+    var Point = function(){
+        this.color = TRAJ_COLOR;
+        this.did = '';
+        this.f = 0;
+        this.x = 0;
+        this.y = 0;
+        this.centroid = null;
+        this.prevPoint = null;
+        this.nextPoint = null;
+    }
+
+    var clusterData = [];
+
     init();
     update();
 
@@ -417,6 +430,7 @@
 
             pointListByDIDByTime[did1] = tempList;
         }
+
         for( var did2 in pointListByDIDByTime ){
             for ( var pointGroup in pointListByDIDByTime[did2] ){
                 if( pointListByDIDByTime[did2].hasOwnProperty( pointGroup ) ){
@@ -431,10 +445,27 @@
                 }
             }
         }
+
+        saveTheNeighbors();
+
         makeAllTrajectories();
         addAllTrajectories();
     }
 
+    function saveTheNeighbors(){
+
+        var matriX = [];
+        var matriY = [];
+        var matriT = [];
+
+        building.trajectories.forEach( function( traj ){
+            traj.points.forEach( function(){
+
+
+
+            });
+        });
+    }
 
     function parseCSV ( csvString ){
 
@@ -543,35 +574,32 @@
         if( building.lineType == 'Line' ){
             building.trajectories.forEach( function ( traj ){
                 var tempTrajGeom = makeLineGeom( traj.points );
-                traj.objects = [
-                    makeLine( tempTrajGeom, traj.color )
-                ];
+                traj.objects = [];
+                traj.objects.push( makeLine( tempTrajGeom, traj.color ) );
             });
         } else if( building.lineType == 'Curve' ){
             building.trajectories.forEach(function (traj) {
                 var tempTrajGeom = makeCurveGeom( traj.points );
-                traj.objects = [
-                    makeLine( tempTrajGeom, traj.color )
-                ];
+                traj.objects = [];
+                traj.objects.push( makeLine( tempTrajGeom, traj.color ) );
             });
         } else if( building.lineType == 'Point' ){
-            building.trajectories.forEach( function ( traj ) {
+            building.trajectories.forEach( function( traj ) {
                 var tempTrajGeom = makePointGeom( traj.points );
-                traj.objects = [
-                    makeDots( tempTrajGeom, traj.color, TRAJ_DOT_SIZE )
-                ];
+                traj.objects = [];
+                traj.objects.push( makeDots( tempTrajGeom, traj.color, TRAJ_DOT_SIZE ) );
             });
         } else if ( building.lineType == 'Clusters' ){
             var stuff = makeClusteredGeom( building.trajectories );
 
             // addAllTrajectories not compatible with this list. needs to be changed later
-
             scene.add( stuff.cents );
             stuff.points.forEach( function( point ){
                scene.add( point );
             });
         }
     }
+
     function makeLine( geom, color ){
         var mat = new THREE.LineBasicMaterial({ color: color, opacity: 1 });
         return new THREE.Line( geom, mat );
@@ -618,6 +646,7 @@
         );
         var pointsGeom = new THREE.Geometry();
         pointsGeom.name = points[0].did;
+        pointsGeom.vertices = vertices;
 
         return pointsGeom;
     }
@@ -638,6 +667,7 @@
 
         //centroid seed
         var verticesWCentroids = seedCentroids( vertices );
+
         var centGeom = new THREE.Geometry();
         var pointGeoms = [];
 
@@ -666,6 +696,8 @@
             cents: centDots,
             points: pointDots
         };
+        clusterData.push( drawStuff );
+
 
         return drawStuff;
     }
@@ -887,14 +919,16 @@
     }
 
 
-    function addAllTrajectories() {
-        building.trajectories.forEach(function (traj) {
-            for( var obj in building.trajectories[traj].objects ){
-                if( building.trajectories[traj].objects.hasOwnProperty( obj ) ){
-                    scene.add( building.trajectories[traj].objects[obj] );
+    function addAllTrajectories(){ //abgesehen von clusters
+        if( building.lineType != 'Clusters' ){
+            building.trajectories.forEach( function( traj ){
+                for( var obj in traj.objects ){
+                    if( traj.objects.hasOwnProperty( obj ) ){
+                        scene.add( traj.objects[obj] );
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     function removeAllBgMeshes(){
@@ -925,7 +959,17 @@
         for( var traj in building.trajectories ){
             if( building.trajectories.hasOwnProperty( traj ) ){
                 for( var obj in building.trajectories[traj].objects ){
-                    scene.remove( building.trajectories[traj].objects[obj] );
+                    if( building.trajectories[traj].objects.hasOwnProperty( obj ) ){
+                        scene.remove( building.trajectories[traj].objects[obj] );
+                    }
+                }
+            }
+        }
+        for( var c in clusterData ){
+            scene.remove( clusterData[c].cents );
+            for( var cp in clusterData[c].points ){
+                if( clusterData[c].points.hasOwnProperty( cp ) ){
+                    scene.remove( clusterData[c].points[cp] );
                 }
             }
         }
