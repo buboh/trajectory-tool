@@ -224,8 +224,8 @@
         this.y = point.y;
         this.f = point.f;
         this.t = point.t;
-        this.c = point.c;
-        this.gr = null;
+        this.c = null;
+        this.g = null;
         this.prevPoint = null;
         this.nextPoint = null;
     };
@@ -236,9 +236,7 @@
         this.g = c.g;
     };
 
-    var centroidList = {
-        index: 0
-    };
+    var centroidList = [];
 
 
     init();
@@ -746,8 +744,7 @@
                 g: gr
             });
 
-            centroidList[centroidList.index] = gr.centroid;
-            centroidList.index += 1;
+            centroidList.push( gr.centroid );
 
             R.push( gr );
         } else {
@@ -846,10 +843,10 @@
         }
     }
 
-    function connectTheDots(){
+    function connectTheDots1(){
 
         var matri = [];
-        for( var i = 0; i < centroidList.index; i++ ){
+        for( var i = 0; i < centroidList.length; i++ ){
             var matriX = [];
             for( var j = 0; j < centroidList.index; j++ ){
                 var matriY = 0;
@@ -858,20 +855,23 @@
             matri.push( matriX );
         }
 
-        for( var m = 0; m < centroidList.index; m++ ){
+        for( var m = 0; m < centroidList.length; m++ ){
             for( var n in centroidList[m].g.members ){
                 var point = centroidList[m].g.members[n];
-                if( point.c !== point.nextPoint.c ){
-                    var nI = centroidList.( point.nextPoint.c );
-                    matri[m][nI]++;
+                if( point.nextPoint !== null ){
+                    if (point.c !== point.nextPoint.c){
+
+
+
+                    }
                 }
             }
         }
 
         var log = '';
-        for( var k = 0; k < centroidList.index; k++ ){
+        for( var k = 0; k < centroidList.length; k++ ){
 
-            for( var l = 0; l < centroidList.index; l++ ){
+            for( var l = 0; l < centroidList.length; l++ ){
 
                 log += centroidList[k][l];
             }
@@ -880,6 +880,70 @@
         console.log( log );
     }
 
+    function connectTheDots() {
+
+        centroidList.forEach( function( centroid ){
+
+            centroid.prevCents = new Set();
+            centroid.nextCents = new Set();
+
+            //compare centroid floors
+
+            centroid.g.members.forEach( function( point ){
+                if( ( point.prevPoint !== null ) &&
+                    ( point.prevPoint.c !== point.c ) &&
+                    ( point.prevPoint.c !== null ) ){
+
+                    centroid.prevCents.add( point.prevPoint.c );
+                }
+                if( ( point.nextPoint !== null ) &&
+                    ( point.nextPoint.c !== point.c ) &&
+                    ( point.nextPoint.c !== null ) ){
+
+                    centroid.nextCents.add( point.nextPoint.c );
+                }
+            });
+        });
+
+        var vertices = [];
+        centroidList.forEach( function( centroid ){
+            centroid.nextCents.forEach( function( nextCentroid ){
+
+                vertices.push( new THREE.Vector3( centroid.x, centroid.y * - 1, centroid.f ) );
+                vertices.push( new THREE.Vector3( nextCentroid.x, nextCentroid.y * - 1, nextCentroid.f ) );
+            });
+        });
+
+        var edgeGeom = new THREE.Geometry();
+        edgeGeom.vertices = vertices;
+
+        return edgeGeom;
+        /*for( var m = 0; m < centroidList.length; m++ ) {
+            for (var n in centroidList[m].g.members) {
+                var point = centroidList[m].g.members[n];
+
+                var lineGeom = new THREE.Geometry();
+
+                if (point.nextPoint !== null) {
+                    if (point.c !== point.nextPoint.c) {
+                        var pA = centroidList[m].g.members[n];
+                        lineGeom.vertices.push(new THREE.Vector3())
+
+                    }
+                }
+            }
+        }
+
+
+        for( var i = 0; i < centroidList.length; i++ ){
+
+            var pA = centroidList[m].g.members[n];
+            //lineGeom.vertices.push( new THREE.Vector3())
+
+        }
+
+        var lines = new THREE.LineSegments();*/
+    }
 
     function makeAllTrajectories(){
 
@@ -911,7 +975,6 @@
             });
         } else if( building.lineType === 'Graph' ){
             var drawGraphStuff = makeGraphGeom( cluster( building.trajectories ) );
-            connectTheDots();
 
             drawGraphStuff.cents.forEach( function( centGeom ){
                 building.clusters.cents.push( centGeom );
@@ -1012,7 +1075,7 @@
     function makeGraphGeom( verticesWCentroids ){
 
         var centGeoms = [];
-        var edgeGeoms = [];
+        var edgeGeom;
 
         for( var group in verticesWCentroids ){
 
@@ -1023,6 +1086,7 @@
             centGeoms.push( centGeom );
         }
 
+        edgeGeom = connectTheDots();
 
         //edges zeichnen
 
@@ -1032,8 +1096,11 @@
         for( var g in centGeoms ){
             var randColor = Math.random() * 0xffffff;
             centDots.push( makeDots( centGeoms[g], randColor, CENT_DOT_SIZE ) );
-            edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            //edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
         }
+
+        var mat = new THREE.LineBasicMaterial({ color: 0x000000, opacity: 1 });
+        edgeLines.push( new THREE.LineSegments( edgeGeom, mat ) );
 
         var drawGraphStuff = {
             cents: centDots,
@@ -1045,7 +1112,7 @@
 
 
     function addAllTrajectories(){ //abgesehen von clusters
-        if( building.lineType !== ( 'Clusters' || 'Graph' ) ){
+        if( ( building.lineType !== 'Clusters' ) && ( building.lineType !== 'Graph' ) ){
             building.trajectories.forEach( function( traj ){
                 for( var obj in traj.objects ){
                     if( traj.objects.hasOwnProperty( obj ) ){
@@ -1121,9 +1188,7 @@
             cents: [],
             points: []
         };
-        centroidList = {
-            index: 0
-        };
+        centroidList = [];
     }
 
     /* function removeAll(){
@@ -1160,9 +1225,7 @@
     }
     function changeClusterRadius(){
         removeAllTrajectories();
-        centroidList = {
-            index: 0
-        };
+        centroidList = [];
         building.clusters = {
             cents: [],
             points: []
