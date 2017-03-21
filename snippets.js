@@ -223,3 +223,15 @@ function splitPoints( pointList ) {
 /*} else {
  alert("File not supported");
  }*/
+
+
+/*for( var x = xMin; x <= xMax; x += maxRadius ){
+
+ var u = { x1: x, y1: yMin, x2: x, y2: yMax };
+ G.push( u );
+ }
+ for( var y = yMin; y <= yMax; y += maxRadius ){
+
+ var v = { x1: xMin, y1: y, x2: xMax, y: y };
+ G.push( v );
+ }*/
