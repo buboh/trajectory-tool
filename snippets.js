@@ -235,3 +235,17 @@ function splitPoints( pointList ) {
  var v = { x1: xMin, y1: y, x2: xMax, y: y };
  G.push( v );
  }*/
+
+/*const mat2 = new THREE.MeshLineMaterial();
+ mat2.color = 0x00ff00;
+ mat2.lineWidth = 5.0;
+ mat2.resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+ mat2.sizeAttenuation = false;
+ mat2.near = CAM_NEAR;
+ mat2.far = CAM_FAR;
+
+ let line = new THREE.MeshLine();
+ line.setGeometry(edgeGeoms[eg]);
+
+ let mesh = new THREE.Mesh(line.geometry, mat2);
+ edgeLines.push(mesh);*/

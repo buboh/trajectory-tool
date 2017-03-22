@@ -34,7 +34,7 @@
     const INIT_LINETYPE = 'Graph';
 
     const TRAJ_COLOR = 0xff0000;
-    const TRAJ_CUT_TIME = 8000; // 8 s in ms
+    const TRAJ_CUT_TIME = 10000; // 8 s in ms
 
     const BG_DIR = 'img/';
     const BG_COLOR = 0xffffff;
@@ -58,7 +58,7 @@
     //three.js
     let camera, scene, renderer;
     //    var camerahelper;
-    //    var mouse, raycaster;
+    let mouse, raycaster;
 
     //dat.gui
     let gui;
@@ -172,22 +172,6 @@
         },
         registerMRListener: function (listener) {
             this.mRListener = listener;
-        },
-
-        bgMeshes: {},
-        grids: {},
-
-        trajectories: {
-            raw: [],
-            subsa: [],
-        },
-
-        clusters: {
-            cents: [],
-            points: []
-        },
-        graph: {
-            edges: []
         }
     };
     building.registerWListener(function () {
@@ -212,6 +196,43 @@
     building.registerMRListener(function () {
         changeClusterRadius();
     });
+
+    const data = {
+        points: [],
+        trajectories: {
+            raw: [],
+            subsa: [],
+        },
+        clusters: {
+            centroids: [],
+            points: []
+        },
+        graph: {
+            edges: []
+        },
+
+        centroids: [],
+
+    };
+
+    const drawing = {
+        bgMeshes: {},
+        grids: {},
+
+        points: [],
+        trajectories: {
+            raw: [],
+            subsa: [],
+        },
+        clusters: {
+            centroids: [],
+            points: []
+        },
+        graph: {
+            edges: []
+        }
+    };
+
 
     const Trajectory = function(points) {
         this.color = TRAJ_COLOR;
@@ -238,8 +259,6 @@
         this.g = c.g;
     };
 
-    let centroidList = [];
-
 
     init();
     update();
@@ -249,6 +268,7 @@
         camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
         initRenderer();
         configCamera();
+        initRaycaster();
         initDatGUI();
         initBackgroundFileInput();
         initDataFileInput();
@@ -412,8 +432,8 @@
                 );
                 backgroundMesh.name = BG_MESH_NAME + building.floor;
 
-                building.bgMeshes[floor] = backgroundMesh;
-                scene.add(building.bgMeshes[floor]);
+                drawing.bgMeshes[floor] = backgroundMesh;
+                scene.add(drawing.bgMeshes[floor]);
 
                 loadNewGrid(floor);
                 //initRaycaster(); //testing
@@ -444,7 +464,7 @@
 
         const coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
         coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
-        building.grids[floor] = coordLines;
+        drawing.grids[floor] = coordLines;
         scene.add(coordLines);
     }
     function loadNewTrajectories(readerResult) {
@@ -491,8 +511,12 @@
                             tempTrajectory.points[p].prevPoint = tempPrevPoint;
                             tempPrevPoint = tempTrajectory.points[p];
                         }
-                        building.trajectories.raw.push(tempTrajectory);
+                        data.trajectories.raw.push(tempTrajectory);
                     }
+
+                    pointListByDIDByTime[did2][pointGroup].forEach( function(point){
+                        data.points.push(point);
+                    });
                 }
             }
         }
@@ -603,12 +627,14 @@
         trajs.forEach(function (traj) {
             const points = traj.points;
             //subsampling
-            vertices.push(
-                subsamplePoints(points));
+            vertices.push(subsamplePoints(points));
         });
-
         //centroid seed
-        return seedAndRedistCentroids(vertices);
+        const R = seedAndRedistCentroids(vertices);
+        R.forEach( function(cluster) {
+            data.clusters.centroids.push(cluster.centroid);
+            data.clusters.points.push(cluster.members);
+        });
     }
 
     function subsamplePoints(points) {
@@ -718,25 +744,26 @@
     function putInProperGroup(p, R, G) {
         const c = getClosestCentroid(p, G);
         let gr = {
-            centroid: {}, members: []
+            centroid: {},
+            members: []
         };
         let gc;
 
         if (c === null) {
 
-            gr.members.push(p);
             gr.centroid = new Centroid({
                 x: p.x,
                 y: p.y,
                 f: p.f,
                 g: gr
             });
-            centroidList.push(gr.centroid);
+            p.c = gr.centroid;
+            gr.members.push(p);
+            data.clusters.centroids.push(gr.centroid);
 
             R.push(gr);
         } else {
             gr = c.g; // g is group with centroid c // indices? centroid array? -------------------------------
-            gr.members.push(p);
             gc = getGridPosition(c, G);
 
             const index = G.grid[gc.i][gc.j].indexOf(c);
@@ -744,6 +771,8 @@
 
             gr.centroid = updateCentroid(c, gr.members);
             gr.centroid.g = gr;
+            p.c = gr.centroid;
+            gr.members.push(p);
         }
         gc = getGridPosition(gr.centroid, G);
         G.grid[gc.i][gc.j].push(gr.centroid);
@@ -839,18 +868,18 @@
     function connectTheDots1() {
 
         const matri = [];
-        for (let i = 0; i < centroidList.length; i++) {
+        for (let i = 0; i < data.clusters.centroids.length; i++) {
             const matriX = [];
-            for (let j = 0; j < centroidList.index; j++) {
+            for (let j = 0; j < data.clusters.centroids.length; j++) {
                 const matriY = 0;
                 matriX.push(matriY);
             }
             matri.push(matriX);
         }
 
-        for (let m = 0; m < centroidList.length; m++) {
-            for (let n in centroidList[m].g.members) {
-                const point = centroidList[m].g.members[n];
+        for (let m = 0; m < data.clusters.centroids.length; m++) {
+            for (let n in data.clusters.centroids[m].g.members) {
+                const point = data.clusters.centroids[m].g.members[n];
                 if (point.nextPoint !== null) {
                     if (point.c !== point.nextPoint.c) {
 
@@ -861,18 +890,18 @@
         }
 
         let log = '';
-        for (let k = 0; k < centroidList.length; k++) {
+        for (let k = 0; k < data.clusters.centroids.length; k++) {
 
-            for (let l = 0; l < centroidList.length; l++) {
+            for (let l = 0; l < data.clusters.centroids.length; l++) {
 
-                log += centroidList[k][l];
+                log += data.clusters.centroids[k][l];
             }
             log += '\n';
         }
         console.log(log);
     }
-    function connectTheDots() {
-        centroidList.forEach(function (centroid) {
+    function connectTheDots( centroids ) {
+        centroids.forEach(function (centroid) {
 
             centroid.prevCents = new Set();
             centroid.nextCents = new Set();
@@ -880,33 +909,27 @@
             //compare centroid floors
 
             centroid.g.members.forEach(function (point) {
-                if (( point.prevPoint !== null) &&
-                    ( point.prevPoint.c !== point.c ) &&
-                    ( point.prevPoint.c !== null )) {
-
-                    centroid.prevCents.add(point.prevPoint.c);
+                if ((point.prevPoint !== null) && (point.prevPoint.c !== null)){
+                    if((point.prevPoint.c !== point.c) && (point.prevPoint.c.f === point.c.f)) {
+                        centroid.prevCents.add(point.prevPoint.c);
+                    }
                 }
-                if (( point.nextPoint !== null ) &&
-                    ( point.nextPoint.c !== point.c ) &&
-                    ( point.nextPoint.c !== null )) {
-                    centroid.nextCents.add(point.nextPoint.c);
+                if ((point.nextPoint !== null) && (point.nextPoint.c !== null)){
+                    if((point.nextPoint.c !== point.c) && (point.nextPoint.c.f === point.c.f)) {
+                        centroid.nextCents.add(point.nextPoint.c);
+                    }
                 }
             });
         });
 
-        const vertices = [];
-        centroidList.forEach(function (centroid) {
+        centroids.forEach(function (centroid) {
             centroid.nextCents.forEach(function (nextCentroid) {
-
-                vertices.push(new THREE.Vector3(centroid.x, centroid.y * -1, centroid.f));
-                vertices.push(new THREE.Vector3(nextCentroid.x, nextCentroid.y * -1, nextCentroid.f));
+                data.graph.edges.push({
+                    start: centroid,
+                    end: nextCentroid
+                });
             });
         });
-
-        const edgeGeom = new THREE.Geometry();
-        edgeGeom.vertices = vertices;
-
-        return edgeGeom;
         /*for( var m = 0; m < centroidList.length; m++ ) {
          for (var n in centroidList[m].g.members) {
          var point = centroidList[m].g.members[n];
@@ -938,38 +961,36 @@
     function makeAllTrajectories() {
 
         if (building.lineType === 'Line') {
-            building.trajectories.raw.forEach(function (traj) {
+            data.trajectories.raw.forEach(function (traj) {
                 const tempTrajGeom = makeLineGeom(traj.points);
-                traj.objects = [];
-                traj.objects.push(makeLine(tempTrajGeom, traj.color));
+                drawing.trajectories.raw.push(makeLine(tempTrajGeom, traj.color));
             });
         } else if (building.lineType === 'Curve') {
-            building.trajectories.raw.forEach(function (traj) {
+            data.trajectories.raw.forEach(function (traj) {
                 const tempTrajGeom = makeCurveGeom(traj.points);
-                traj.objects = [];
-                traj.objects.push(makeLine(tempTrajGeom, traj.color));
+                drawing.trajectories.raw.push(makeLine(tempTrajGeom, traj.color));
             });
         } else if (building.lineType === 'Point') {
-            building.trajectories.raw.forEach(function (traj) {
-                const tempTrajGeom = makePointGeom(traj.points);
-                traj.objects = [];
-                traj.objects.push(makeDots(tempTrajGeom, traj.color, TRAJ_DOT_SIZE));
-            });
+            const tempTrajGeom = makePointGeom(data.points);
+            drawing.points.push(makeDots(tempTrajGeom, TRAJ_COLOR, TRAJ_DOT_SIZE));
         } else if (building.lineType === 'Clusters') {
-            const drawStuff = makeClusteredGeom(cluster(building.trajectories.raw));
+            cluster(data.trajectories.raw);
+            const drawStuff = makeClusteredGeom(data.clusters);
             drawStuff.cents.forEach(function (centGeom) {
-                building.clusters.cents.push(centGeom);
+                drawing.clusters.centroids.push(centGeom);
             });
             drawStuff.points.forEach(function (pointGeom) {
-                building.clusters.points.push(pointGeom);
+                drawing.clusters.points.push(pointGeom);
             });
         } else if (building.lineType === 'Graph') {
-            const drawGraphStuff = makeGraphGeom(cluster(building.trajectories.raw));
+            cluster(data.trajectories.raw);
+            connectTheDots(data.clusters.centroids);
+            const drawGraphStuff = makeGraphGeom(data.clusters, data.graph);
             drawGraphStuff.cents.forEach(function (centGeom) {
-                building.clusters.cents.push(centGeom);
+                drawing.clusters.centroids.push(centGeom);
             });
             drawGraphStuff.edges.forEach(function (edgeGeom) {
-                building.graph.edges.push(edgeGeom);
+                drawing.graph.edges.push(edgeGeom);
             });
         }
     }
@@ -1013,29 +1034,27 @@
 
         return pointsGeom;
     }
-    function makeClusteredGeom(verticesWCentroids) {
+    function makeClusteredGeom(clusters) {
 
         const centGeoms = [];
         const pointGeoms = [];
 
-        for (let group in verticesWCentroids) {
-            if(verticesWCentroids.hasOwnProperty(group)){
+        for (let c in clusters.centroids) {
+
                 const centGeom = new THREE.Geometry();
-                const cent = verticesWCentroids[group].centroid;
+                const cent = clusters.centroids[c];
                 centGeom.name = cent.did;
                 centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
                 centGeoms.push(centGeom);
 
                 const pointGeom = new THREE.Geometry();
-                for (let p in verticesWCentroids[group].members) {
-                    const point = verticesWCentroids[group].members[p];
+                for (let p in clusters.centroids[c].g.members) {
+                    const point = clusters.centroids[c].g.members[p];
                     pointGeom.name = point.did;
                     pointGeom.vertices.push(new THREE.Vector3(point.x, point.y * -1, point.f));
                 }
                 pointGeoms.push(pointGeom);
-            }
         }
-
         const centDots = [];
         const pointDots = [];
         for (let g in centGeoms) {
@@ -1045,39 +1064,42 @@
         }
 
         return {
-            cents: centDots, points: pointDots
+            cents: centDots,
+            points: pointDots
         };
     }
-    function makeGraphGeom(verticesWCentroids) {
+    function makeGraphGeom(clusters, graph) {
 
         const centGeoms = [];
-        let edgeGeom;
+        const edgeGeoms = [];
 
-        for (let group in verticesWCentroids) {
-
-            if( verticesWCentroids.hasOwnProperty(group)) {
-                const centGeom = new THREE.Geometry();
-                const cent = verticesWCentroids[group].centroid;
-                centGeom.name = cent.did;
-                centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
-                centGeoms.push(centGeom);
-            }
+        for(let c in clusters.centroids) {
+            const centGeom = new THREE.Geometry();
+            const cent = clusters.centroids[c];
+            centGeom.name = cent.did;
+            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeoms.push(centGeom);
         }
 
-        edgeGeom = connectTheDots();
+        for(let e in graph.edges){
+            const edgeGeom = new THREE.Geometry();
+            const edge = graph.edges[e];
+            edgeGeom.vertices.push(new THREE.Vector3(edge.start.x, edge.start.y * -1, edge.start.f));
+            edgeGeom.vertices.push(new THREE.Vector3(edge.end.x, edge.end.y * -1, edge.end.f));
+            edgeGeoms.push(edgeGeom);
+        }
 
         //edges zeichnen
-
-
         const centDots = [];
         const edgeLines = [];
-        for (let g in centGeoms) {
+        for(let cg in centGeoms) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(makeDots(centGeoms[g], randColor, CENT_DOT_SIZE));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            centDots.push(makeDots(centGeoms[cg], randColor, CENT_DOT_SIZE));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
         }
-
-        const mat = new THREE.LineBasicMaterial({color: 0x000000, opacity: 1});
-        edgeLines.push(new THREE.LineSegments(edgeGeom, mat));
+        for(let eg in edgeGeoms) {
+            const mat = new THREE.LineBasicMaterial({color: 0x000000, opacity: 1});
+            edgeLines.push(new THREE.LineSegments(edgeGeoms[eg], mat));
+        }
 
         return {
             cents: centDots,
@@ -1096,84 +1118,101 @@
 
 
     function addAllTrajectories() { //abgesehen von clusters
-        if (( building.lineType !== 'Clusters' ) && ( building.lineType !== 'Graph' )) {
-            building.trajectories.raw.forEach(function (traj) {
-                for (let obj in traj.objects) {
-                    if (traj.objects.hasOwnProperty(obj)) {
-                        scene.add(traj.objects[obj]);
-                    }
-                }
+        if ((building.lineType === 'Line') || (building.lineType === 'Curve')) {
+            drawing.trajectories.raw.forEach(function (traj) {
+                scene.add(traj);
+            });
+        } else if(building.lineType === 'Point'){
+            drawing.points.forEach(function (point){
+                scene.add(point);
             });
         } else if (building.lineType === 'Clusters') {
-            building.clusters.cents.forEach(function (cent) {
+            drawing.clusters.centroids.forEach(function (cent) {
                 scene.add(cent);
             });
-            building.clusters.points.forEach(function (point) {
+            drawing.clusters.points.forEach(function (point) {
                 scene.add(point);
             });
         } else if (building.lineType === ('Graph' )) {
-            building.clusters.cents.forEach(function (cent) {
+            drawing.clusters.centroids.forEach(function (cent) {
                 scene.add(cent);
             });
-            building.graph.edges.forEach(function (edge) {
+            drawing.graph.edges.forEach(function (edge) {
                 scene.add(edge);
             });
         }
     }
 
     function removeAllBgMeshes() {
-        for (let bgMesh in building.bgMeshes) {
-            if (building.bgMeshes.hasOwnProperty(bgMesh)) {
-                scene.remove(building.bgMeshes[bgMesh]);
+        for (let bgMesh in drawing.bgMeshes) {
+            if (drawing.bgMeshes.hasOwnProperty(bgMesh)) {
+                scene.remove(drawing.bgMeshes[bgMesh]);
             }
         }
     }
     function deleteAllBgMeshes() {
         removeAllBgMeshes();
-        building.bgMeshes = {};
+        drawing.bgMeshes = {};
     }
     function removeAllGrids() {
-        for (let grid in building.grids) {
-            if (building.grids.hasOwnProperty(grid)) {
-                scene.remove(building.grids[grid]);
+        for (let grid in drawing.grids) {
+            if (drawing.grids.hasOwnProperty(grid)) {
+                scene.remove(drawing.grids[grid]);
             }
         }
     }
     function deleteAllGrids() {
         removeAllGrids();
-        building.grids = {};
+        drawing.grids = {};
     }
     function removeAllTrajectories() {
-        for (let traj in building.trajectories.raw) {
-            if (building.trajectories.raw.hasOwnProperty(traj)) {
-                for (let obj in building.trajectories.raw[traj].objects) {
-                    if (building.trajectories.raw[traj].objects.hasOwnProperty(obj)) {
-                        scene.remove(building.trajectories.raw[traj].objects[obj]);
-                    }
-                }
-            }
+        for (let p in drawing.points) {
+            scene.remove(drawing.points[p]);
         }
-        for (let c in building.clusters.cents) {
-            scene.remove(building.clusters.cents[c]);
+        drawing.points = [];
+
+        for (let t in drawing.trajectories.raw) {
+            scene.remove(drawing.trajectories.raw[t]);
         }
-        for (let p in building.clusters.points) {
-            scene.remove(building.clusters.points[p]);
+        drawing.trajectories.raw = [];
+
+        for (let c in drawing.clusters.centroids) {
+            scene.remove(drawing.clusters.centroids[c]);
         }
-        for (let e in building.graph.edges) {
-            scene.remove(building.graph.edges[e]);
+        drawing.clusters.centroids = [];
+
+        for (let p in drawing.clusters.points) {
+            scene.remove(drawing.clusters.points[p]);
+        }
+        drawing.clusters.points = [];
+
+        for (let e in drawing.graph.edges) {
+            scene.remove(drawing.graph.edges[e]);
         }
     }
     function deleteAllTrajectories() {
         removeAllTrajectories();
-        building.trajectories = {
+        data.points = [];
+        drawing.points = [];
+        data.trajectories = {
             raw: [],
             subsa: []
         };
-        building.clusters = {
-            cents: [],
+        drawing.trajectories = {
+            raw: [],
+            subsa: []
+        };
+        drawing.clusters = {
+            centroids: [],
             points: []
         };
-        centroidList = [];
+        data.clusters = {
+            centroids: [],
+            points: []
+        };
+        data.graph = {
+            edges: []
+        };
     }
     /* function removeAll(){
      removeAllBgMeshes();
@@ -1190,7 +1229,7 @@
         console.log(floor);
         CAM_NEAR = ( floor + GRID_CORR_Z ) * -1;
 
-        if (building.bgMeshes[floor] instanceof THREE.Mesh) {
+        if (drawing.bgMeshes[floor] instanceof THREE.Mesh) {
             configCamera();
         } else {
             loadNewBgMesh(path, floor); //also invokes loadGrid()
@@ -1209,45 +1248,23 @@
     }
     function changeClusterRadius() {
         removeAllTrajectories();
-        centroidList = [];
-        building.clusters = {
-            cents: [],
+        data.clusters = {
+            centroids: [],
             points: []
         };
-        building.graph = {
+        drawing.clusters = {
+            centroids: [],
+            points: []
+        };
+        data.graph = {
+            edges: []
+        };
+        drawing.graph = {
             edges: []
         };
         makeAllTrajectories();
         addAllTrajectories();
     }
-
-    /*   function initRaycaster() {
-     raycaster = new THREE.Raycaster();
-     raycaster.near = -500;
-     raycaster.far = 1000;
-     mouse = new THREE.Vector2();
-
-     window.addEventListener('click', onMouseClick, false ) ;
-     }
-
-     function onMouseClick( event ){
-     mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
-     mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
-
-     raycaster.setFromCamera( mouse, camera );
-
-     var bg = scene.getObjectByName('backgroundMesh');
-
-     // calculate objects intersecting the picking ray
-     var intersects = raycaster.intersectObject( bg, true ) ;
-
-     for ( var i = 0; i < intersects.length; i++ ) {
-     console.log('x:' + intersects[0].point.x + ' ' +
-     'y:' + intersects[0].point.y + ' ' +
-     'z:' + intersects[0].point.z ) ;
-     }
-     }
-     */
 
     function addWindowListeners() {
         window.addEventListener('resize',
@@ -1258,31 +1275,31 @@
 
         updateRenderer();
     }
-    /*function initRaycaster() {
-     raycaster = new THREE.Raycaster();
-     raycaster.near = CAM_NEAR;
-     raycaster.far = CAM_FAR;
-     mouse = new THREE.Vector2();
+    function initRaycaster() {
+        raycaster = new THREE.Raycaster();
+        raycaster.near = CAM_NEAR;
+        raycaster.far = CAM_FAR;
+        mouse = new THREE.Vector2();
 
-     window.addEventListener('click', onMouseClick, false ) ;
-     }
-     function onMouseClick( event ){
-     mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
-     mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
+        window.addEventListener('click', onMouseClick, false ) ;
+    }
+    function onMouseClick( event ){
+        mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
+        mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
 
-     raycaster.setFromCamera( mouse, camera );
+        raycaster.setFromCamera( mouse, camera );
 
-     var bg = scene.getObjectByName( BG_MESH_NAME + building.floor );
+        let bg = scene.getObjectByName( BG_MESH_NAME + building.floor );
 
-     // calculate objects intersecting the picking ray
-     var intersects = raycaster.intersectObject( bg, true ) ;
+        // calculate objects intersecting the picking ray
+        let intersects = raycaster.intersectObject( bg, true ) ;
 
-     for ( var i = 0; i < intersects.length; i++ ) {
-     console.log('x:' + intersects[0].point.x + ' ' +
-     'y:' + intersects[0].point.y + ' ' +
-     'z:' + intersects[0].point.z ) ;
-     }
-     }*/
+        for ( let i = 0; i < intersects.length; i++ ) {
+            console.log('x:' + intersects[0].point.x + ' ' +
+            'y:' + intersects[0].point.y + ' ' +
+            'z:' + intersects[0].point.z ) ;
+        }
+    }
     function update() {
         requestAnimationFrame(update);
 
