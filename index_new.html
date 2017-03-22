@@ -1281,23 +1281,37 @@
         raycaster.far = CAM_FAR;
         mouse = new THREE.Vector2();
 
-        window.addEventListener('click', onMouseClick, false ) ;
+        window.addEventListener('click', onMouseClick, false);
     }
-    function onMouseClick( event ){
-        mouse.x = ( event.clientX / window.innerWidth )  * 2 - 1;
-        mouse.y = -( event.clientY / window.innerHeight )  * 2 + 1;
+    function onMouseClick(event){
+        mouse.x = (event.clientX / window.innerWidth)  * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight)  * 2 + 1;
 
         raycaster.setFromCamera( mouse, camera );
 
-        let bg = scene.getObjectByName( BG_MESH_NAME + building.floor );
+        let intersects = [];
+        scene.children.forEach(function (ch){
+            intersects.push(raycaster.intersectObject(ch, false))
+        });
+
+        //let bg = scene.getObjectByName(BG_MESH_NAME + building.floor);
 
         // calculate objects intersecting the picking ray
-        let intersects = raycaster.intersectObject( bg, true ) ;
+        //let intersects = raycaster.intersectObject(bg, true);
 
-        for ( let i = 0; i < intersects.length; i++ ) {
-            console.log('x:' + intersects[0].point.x + ' ' +
-            'y:' + intersects[0].point.y + ' ' +
-            'z:' + intersects[0].point.z ) ;
+        if(intersects.length > 0){
+            intersects.forEach(function(intersect){
+                let candidates = [];
+                if(intersect.length > 0){
+                    if(intersect[0].object.type === 'LineSegkments'){
+                        intersect[0].object.material.color.set( 0x00ff00 );
+                    } else if(intersect[0].object.type === 'Mesh'){
+                        console.log('x:' + intersect[0].point.x + ' ' +
+                            'y:' + intersect[0].point.y + ' ' +
+                            'z:' + intersect[0].point.z);
+                    }
+                }
+            });
         }
     }
     function update() {
