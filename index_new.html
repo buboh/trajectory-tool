@@ -33,11 +33,11 @@
     const INIT_EXT = '.png';
     const INIT_LINETYPE = 'Graph';
 
-    const TRAJ_COLOR = 0xFF0000;
+    const TRAJ_COLOR = 0xff0000;
     const TRAJ_CUT_TIME = 8000; // 8 s in ms
 
     const BG_DIR = 'img/';
-    const BG_COLOR = 0xFFFFFF;
+    const BG_COLOR = 0xffffff;
     const BG_ALPHA = 0;
     const BG_MESH_NAME = 'backgroundMesh-';
     const BG_CORR_Z = -0.4;
@@ -81,10 +81,8 @@
         w: window.innerWidth,
         h: window.innerHeight,
         ratio: this.w / this.h,
-        wListener: function () {
-        },
-        hListener: function () {
-        },
+        wListener: function () {},
+        hListener: function () {},
 
         get width() {
             return this.w;
@@ -99,19 +97,20 @@
         set height(val) {
             this.h = val;
             this.hListener(val);
-        }, registerWListener: function (listener) {
+        },
+        registerWListener: function (listener) {
             this.hListener = listener;
-        }, registerHListener: function (listener) {
+        },
+        registerHListener: function (listener) {
             this.wListener = listener;
         },
 
         f: INIT_FLOOR,
-        fListener: function () {
-        },
+        fListener: function () {},
         get floor() {
             return this.f;
         },
-        setfloor(val) {
+        set floor(val) {
             if (val !== this.f) {
                 this.f = val;
                 this.fListener(val);
@@ -122,14 +121,14 @@
         },
 
         s: INIT_SCALE,
-        sListener: function () {
-        },
+        sListener: function () {},
         get scale() {
             return this.s;
         },
         get scaleFraction() {
             return ( 1 / this.s );
-        }, set scale(val) {
+        },
+        set scale(val) {
             if (val !== this.s) {
                 this.s = val;
                 this.sListener(val);
@@ -146,12 +145,11 @@
         },
 
         lt: INIT_LINETYPE,
-        ltListener: function () {
-        },
+        ltListener: function () {},
         get lineType() {
             return this.lt;
         },
-        setlineType(val) {
+        set lineType(val) {
             if (val !== this.lt) {
                 this.lt = val;
                 this.ltListener(val);
@@ -162,8 +160,7 @@
         },
 
         mR: INIT_MAXRADIUS,
-        mRListener: function () {
-        },
+        mRListener: function () {},
         get maxRadius() {
             return this.mR;
         },
@@ -179,7 +176,11 @@
 
         bgMeshes: {},
         grids: {},
-        trajectories: [],
+
+        trajectories: {
+            raw: [],
+            subsa: [],
+        },
 
         clusters: {
             cents: [],
@@ -212,15 +213,13 @@
         changeClusterRadius();
     });
 
-    const Trajectory = function () {
+    const Trajectory = function(points) {
         this.color = TRAJ_COLOR;
-        this.did = '';
-        this.floor = 0;
-        this.points = [];
+        this.points = points;
         this.objects = [];
     };
 
-    const Point = function (point) {
+    const Point = function(point) {
         this.color = TRAJ_COLOR;
         this.did = point.did;
         this.x = point.x;
@@ -232,7 +231,7 @@
         this.prevPoint = null;
         this.nextPoint = null;
     };
-    const Centroid = function (c) {
+    const Centroid = function(c) {
         this.x = c.x;
         this.y = c.y;
         this.f = c.f;
@@ -352,6 +351,8 @@
                     result.push(this.result);
                     if (result.length === fileCount) {
                         loadNewTrajectories(result);
+                        makeAllTrajectories();
+                        addAllTrajectories();
                     }
                 };
                 reader.readAsText(dataFileInput.files[file]);
@@ -471,10 +472,7 @@
             for ( let pointGroup in pointListByDIDByTime [did2]) {
                 if (pointListByDIDByTime[did2].hasOwnProperty(pointGroup)) {
 
-                    const tempTrajectory = new Trajectory();
-                    tempTrajectory.did = did2;
-                    tempTrajectory.floor = pointListByDIDByTime[did2][pointGroup][0].f;
-                    tempTrajectory.points = pointListByDIDByTime[did2] [pointGroup];
+                    const tempTrajectory = new Trajectory(pointListByDIDByTime[did2][pointGroup]);
                     /*var tempPrevPoint = null;
                      pointListByDIDByTime[did2][pointGroup].forEach( function( point ){
                      if( tempPrevPoint !== null ){
@@ -483,15 +481,21 @@
                      point.prevPoint = tempPrevPoint;
                      tempPrevPoint = point;
                      });*/
-
                     if (tempTrajectory.points.length > 1) {
-                        building.trajectories.push(tempTrajectory);
+
+                        let tempPrevPoint = tempTrajectory.points[0];
+                        tempPrevPoint.prevPoint = null;
+
+                        for(let p = 0; p < tempTrajectory.points.length; p++){
+                            tempPrevPoint.nextPoint = tempTrajectory.points[p];
+                            tempTrajectory.points[p].prevPoint = tempPrevPoint;
+                            tempPrevPoint = tempTrajectory.points[p];
+                        }
+                        building.trajectories.raw.push(tempTrajectory);
                     }
                 }
             }
         }
-        makeAllTrajectories();
-        addAllTrajectories();
     }
 
     function parseCSV(csvString) {
@@ -544,16 +548,13 @@
         let tempTime = pointList[0].t;
         let tempTimeArray = [];
 
-
         pointList.forEach(function (point) {
-
             if (tempTime + TRAJ_CUT_TIME < point.t) {
 
                 pointListByTime.push(tempTimeArray);
                 tempTimeArray = [];
                 tempTimeArray.push(point);
                 tempTime = point.t;
-
             } else {
                 tempTimeArray.push(point);
                 tempTime = point.t;
@@ -617,21 +618,19 @@
         const R = 3;
         let r = R;
 
-        let i = 0;
-
         const p0 = new Point({
-            did: points[i].did,
-            x: points[i].x,
-            y: points[i].y,
-            f: points[i].f,
-            t: points[i].t
+            did: points[0].did,
+            x: points[0].x,
+            y: points[0].y,
+            f: points[0].f,
+            t: points[0].t
         });
         p0.prevPoint = null;
         vertices.push(p0);
 
         let tempPrevPoint = p0;
 
-        for (i; i < points.length - 2; i++) {
+        for (let i = 0; i < points.length - 2; i++) {
             if (points.hasOwnProperty(i)) {
 
                 const pA = points[i];
@@ -872,15 +871,11 @@
         }
         console.log(log);
     }
-
     function connectTheDots() {
         centroidList.forEach(function (centroid) {
 
             centroid.prevCents = new Set();
-            centroid.nextCents =
-
-
-                new Set();
+            centroid.nextCents = new Set();
 
             //compare centroid floors
 
@@ -939,35 +934,29 @@
          var lines = new THREE.LineSegments();*/
     }
 
+
     function makeAllTrajectories() {
 
-        if (
-            building.lineType === 'Line') {
-
-            building.trajectories.forEach
-
-
-            (function (traj) {
-                const
-
-                    tempTrajGeom = makeLineGeom(traj.points);
+        if (building.lineType === 'Line') {
+            building.trajectories.raw.forEach(function (traj) {
+                const tempTrajGeom = makeLineGeom(traj.points);
                 traj.objects = [];
                 traj.objects.push(makeLine(tempTrajGeom, traj.color));
             });
         } else if (building.lineType === 'Curve') {
-            building.trajectories.forEach(function (traj) {
+            building.trajectories.raw.forEach(function (traj) {
                 const tempTrajGeom = makeCurveGeom(traj.points);
                 traj.objects = [];
                 traj.objects.push(makeLine(tempTrajGeom, traj.color));
             });
         } else if (building.lineType === 'Point') {
-            building.trajectories.forEach(function (traj) {
+            building.trajectories.raw.forEach(function (traj) {
                 const tempTrajGeom = makePointGeom(traj.points);
                 traj.objects = [];
                 traj.objects.push(makeDots(tempTrajGeom, traj.color, TRAJ_DOT_SIZE));
             });
         } else if (building.lineType === 'Clusters') {
-            const drawStuff = makeClusteredGeom(cluster(building.trajectories));
+            const drawStuff = makeClusteredGeom(cluster(building.trajectories.raw));
             drawStuff.cents.forEach(function (centGeom) {
                 building.clusters.cents.push(centGeom);
             });
@@ -975,7 +964,7 @@
                 building.clusters.points.push(pointGeom);
             });
         } else if (building.lineType === 'Graph') {
-            const drawGraphStuff = makeGraphGeom(cluster(building.trajectories));
+            const drawGraphStuff = makeGraphGeom(cluster(building.trajectories.raw));
             drawGraphStuff.cents.forEach(function (centGeom) {
                 building.clusters.cents.push(centGeom);
             });
@@ -983,15 +972,6 @@
                 building.graph.edges.push(edgeGeom);
             });
         }
-    }
-
-    function makeLine(geom, color) {
-        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
-        return new THREE.Line(geom, mat);
-    }
-    function makeDots(geom, color, pointSize) {
-        const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
-        return new THREE.Points(geom, mat);
     }
 
     function makeLineGeom(points) {
@@ -1104,9 +1084,20 @@
             edges: edgeLines
         };
     }
+
+    function makeLine(geom, color) {
+        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
+        return new THREE.Line(geom, mat);
+    }
+    function makeDots(geom, color, pointSize) {
+        const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
+        return new THREE.Points(geom, mat);
+    }
+
+
     function addAllTrajectories() { //abgesehen von clusters
         if (( building.lineType !== 'Clusters' ) && ( building.lineType !== 'Graph' )) {
-            building.trajectories.forEach(function (traj) {
+            building.trajectories.raw.forEach(function (traj) {
                 for (let obj in traj.objects) {
                     if (traj.objects.hasOwnProperty(obj)) {
                         scene.add(traj.objects[obj]);
@@ -1129,6 +1120,7 @@
             });
         }
     }
+
     function removeAllBgMeshes() {
         for (let bgMesh in building.bgMeshes) {
             if (building.bgMeshes.hasOwnProperty(bgMesh)) {
@@ -1140,7 +1132,6 @@
         removeAllBgMeshes();
         building.bgMeshes = {};
     }
-
     function removeAllGrids() {
         for (let grid in building.grids) {
             if (building.grids.hasOwnProperty(grid)) {
@@ -1152,13 +1143,12 @@
         removeAllGrids();
         building.grids = {};
     }
-
     function removeAllTrajectories() {
-        for (let traj in building.trajectories) {
-            if (building.trajectories.hasOwnProperty(traj)) {
-                for (let obj in building.trajectories[traj].objects) {
-                    if (building.trajectories[traj].objects.hasOwnProperty(obj)) {
-                        scene.remove(building.trajectories[traj].objects[obj]);
+        for (let traj in building.trajectories.raw) {
+            if (building.trajectories.raw.hasOwnProperty(traj)) {
+                for (let obj in building.trajectories.raw[traj].objects) {
+                    if (building.trajectories.raw[traj].objects.hasOwnProperty(obj)) {
+                        scene.remove(building.trajectories.raw[traj].objects[obj]);
                     }
                 }
             }
@@ -1175,7 +1165,10 @@
     }
     function deleteAllTrajectories() {
         removeAllTrajectories();
-        building.trajectories = [];
+        building.trajectories = {
+            raw: [],
+            subsa: []
+        };
         building.clusters = {
             cents: [],
             points: []
