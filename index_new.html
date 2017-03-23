@@ -202,6 +202,7 @@
         trajectories: {
             raw: [],
             subsa: [],
+            better: []
         },
         clusters: {
             centroids: [],
@@ -223,6 +224,7 @@
         trajectories: {
             raw: [],
             subsa: [],
+            better: []
         },
         clusters: {
             centroids: [],
@@ -237,7 +239,8 @@
     const Trajectory = function(points) {
         this.color = TRAJ_COLOR;
         this.points = points;
-        this.objects = [];
+        this.deviation = 0;
+        this.centroids = [];
     };
 
     const Point = function(point) {
@@ -309,7 +312,7 @@
         gui = new dat.GUI();
         gui.add(building, 'floor', GUI_FLOORMIN, GUI_FLOORMAX).step(GUI_FLOORSTEP).name('Floor');
         gui.add(building, 'scale', GUI_SCALEMIN, GUI_SCALEMAX).step(GUI_SCALESTEP).name('Scale (1:X)');
-        gui.add(building, 'lineType', ['Line', 'Curve', 'Point', 'Clusters', 'Graph']).name('Line type');
+        gui.add(building, 'lineType', ['Line', 'Curve', 'Point', 'Clusters', 'Graph', 'Better']).name('Line type');
         gui.add(building, 'maxRadius', MAXRADIUS_MIN, MAXRADIUS_MAX).step(MAXRADIUS_STEP).name('Radius');
         /*var f1 = gui.addFolder( 'Dev tools' );
          f1.add( this, 'CAM_FAR' ).step( 0.5 ).listen();
@@ -465,7 +468,7 @@
         const coordMaterial = new THREE.LineBasicMaterial({color: 0x555555, opacity: 1, linewidth: 1});
         coordLines = new THREE.LineSegments(coordGeometry, coordMaterial);
         drawing.grids[floor] = coordLines;
-        scene.add(coordLines);
+        //scene.add(coordLines);
     }
     function loadNewTrajectories(readerResult) {
 
@@ -625,9 +628,11 @@
     function cluster(trajs) {
         const vertices = [];
         trajs.forEach(function (traj) {
-            const points = traj.points;
             //subsampling
-            vertices.push(subsamplePoints(points));
+            const points = traj.points;
+            const tempTraj = new Trajectory(subsamplePoints(points));
+            data.trajectories.subsa.push(tempTraj);
+            vertices.push(tempTraj.points);
         });
         //centroid seed
         const R = seedAndRedistCentroids(vertices);
@@ -906,8 +911,6 @@
             centroid.prevCents = new Set();
             centroid.nextCents = new Set();
 
-            //compare centroid floors
-
             centroid.g.members.forEach(function (point) {
                 if ((point.prevPoint !== null) && (point.prevPoint.c !== null)){
                     if((point.prevPoint.c !== point.c) && (point.prevPoint.c.f === point.c.f)) {
@@ -957,6 +960,26 @@
          var lines = new THREE.LineSegments();*/
     }
 
+    // Standard Normal variate using Box-Muller transform.
+    function rand_BoxMuller() {
+        const u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
+        const v = 1 - Math.random();
+        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
+    function genBetterTrajs(trajs) {
+        trajs.forEach(function (trajectory) {
+            let tempTraj = new Trajectory(trajectory.points);
+            tempTraj.deviation = rand_BoxMuller();
+            tempTraj.centroids.push(trajectory.points[0].c);
+            for(let i = 1; i < trajectory.points.length; i++){
+                if(trajectory.points[i-1].c !== trajectory.points[i].c) {
+                    tempTraj.centroids.push(trajectory.points[i].c);
+                }
+            }
+            data.trajectories.better.push(tempTraj);
+        });
+    }
 
     function makeAllTrajectories() {
 
@@ -992,15 +1015,24 @@
             drawGraphStuff.edges.forEach(function (edgeGeom) {
                 drawing.graph.edges.push(edgeGeom);
             });
+        } else if (building.lineType === 'Better') {
+            cluster(data.trajectories.raw);
+            genBetterTrajs(data.trajectories.subsa);
+            const drawBetterStuff = makeBetterGeom(data.clusters, data.trajectories.better);
+            drawBetterStuff.cents.forEach(function (centGeom) {
+                drawing.clusters.centroids.push(centGeom);
+            });
+            drawBetterStuff.trajs.forEach(function (trajGeom) {
+                drawing.trajectories.better.push(trajGeom);
+            });
         }
     }
 
     function makeLineGeom(points) {
         const vertices = [];
         points.forEach(function (point) {
-                vertices.push(new THREE.Vector3(point.x, point.y * -1, point.f));
-            }
-        );
+            vertices.push(new THREE.Vector3(point.x, point.y * -1, point.f));
+        });
 
         const lineGeom = new THREE.Geometry();
         lineGeom.name = points[0].did;
@@ -1069,7 +1101,6 @@
         };
     }
     function makeGraphGeom(clusters, graph) {
-
         const centGeoms = [];
         const edgeGeoms = [];
 
@@ -1106,6 +1137,46 @@
             edges: edgeLines
         };
     }
+    function makeBetterGeom(clusters, trajs) {
+        const centGeoms = [];
+        const trajGeoms = [];
+
+        clusters.centroids.forEach(function (cent) {
+            const centGeom = new THREE.Geometry();
+            centGeom.name = cent.did;
+            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeoms.push(centGeom);
+        });
+
+        trajs.forEach(function (traj) {
+            const trajGeom = new THREE.Geometry();
+            traj.centroids.forEach(function (point) {
+                trajGeom.vertices.push(
+                    new THREE.Vector3(
+                        point.x + traj.deviation * 0.5,
+                        point.y * -1 + traj.deviation * 0.5,
+                        point.f));
+            });
+            trajGeoms.push(trajGeom);
+        });
+
+        //edges zeichnen
+        const centDots = [];
+        const trajLines = [];
+        for(let cg in centGeoms) {
+            const randColor = Math.random() * 0xffffff;
+            centDots.push(makeDots(centGeoms[cg], randColor, CENT_DOT_SIZE));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+        }
+        for(let tg in trajGeoms) {
+            const mat = new THREE.LineBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.5});
+            trajLines.push(new THREE.Line(trajGeoms[tg], mat));
+        }
+
+        return {
+            cents: centDots,
+            trajs: trajLines
+        };
+    }
 
     function makeLine(geom, color) {
         const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
@@ -1126,19 +1197,26 @@
             drawing.points.forEach(function (point){
                 scene.add(point);
             });
-        } else if (building.lineType === 'Clusters') {
+        } else if(building.lineType === 'Clusters') {
             drawing.clusters.centroids.forEach(function (cent) {
                 scene.add(cent);
             });
             drawing.clusters.points.forEach(function (point) {
                 scene.add(point);
             });
-        } else if (building.lineType === ('Graph' )) {
+        } else if(building.lineType === 'Graph') {
             drawing.clusters.centroids.forEach(function (cent) {
                 scene.add(cent);
             });
             drawing.graph.edges.forEach(function (edge) {
                 scene.add(edge);
+            });
+        } else if(building.lineType === 'Better') {
+            drawing.clusters.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            drawing.trajectories.better.forEach(function (traj) {
+                scene.add(traj);
             });
         }
     }
@@ -1174,7 +1252,12 @@
         for (let t in drawing.trajectories.raw) {
             scene.remove(drawing.trajectories.raw[t]);
         }
-        drawing.trajectories.raw = [];
+        drawing.trajectories.better = [];
+        for (let t in drawing.trajectories.better) {
+            scene.remove(drawing.trajectories.better[t]);
+        }
+        drawing.trajectories.better = [];
+
 
         for (let c in drawing.clusters.centroids) {
             scene.remove(drawing.clusters.centroids[c]);
@@ -1196,11 +1279,13 @@
         drawing.points = [];
         data.trajectories = {
             raw: [],
-            subsa: []
+            subsa: [],
+            better: []
         };
         drawing.trajectories = {
             raw: [],
-            subsa: []
+            subsa: [],
+            better: []
         };
         drawing.clusters = {
             centroids: [],
