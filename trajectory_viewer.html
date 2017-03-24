@@ -34,7 +34,7 @@
     const INIT_LINETYPE = 'Graph';
 
     const TRAJ_COLOR = 0xff0000;
-    const TRAJ_CUT_TIME = 10000; // 8 s in ms
+    const TRAJ_CUT_TIME = 20000; // 8 s in ms
 
     const BG_DIR = 'img/';
     const BG_COLOR = 0xffffff;
@@ -235,7 +235,6 @@
         }
     };
 
-
     const Trajectory = function(points) {
         this.color = TRAJ_COLOR;
         this.points = points;
@@ -261,6 +260,7 @@
         this.y = c.y;
         this.f = c.f;
         this.g = c.g;
+        this.color = Math.random() * 0xffffff;
     };
 
 
@@ -761,7 +761,7 @@
                 x: p.x,
                 y: p.y,
                 f: p.f,
-                g: gr
+                g: gr,
             });
             p.c = gr.centroid;
             gr.members.push(p);
@@ -1083,7 +1083,7 @@
         });
 
         const lineGeom = new THREE.Geometry();
-        lineGeom.name = points[0].did;
+        //lineGeom.name = points[0].did;
         lineGeom.vertices = vertices;
 
         return lineGeom;
@@ -1097,7 +1097,7 @@
         );
         const curve = new THREE.CatmullRomCurve3(vertices);
         const curveGeom = new THREE.Geometry();
-        curveGeom.name = points[0].did;
+        //curveGeom.name = points[0].did;
         curveGeom.vertices = curve.getPoints(50);
 
         return curveGeom;
@@ -1109,7 +1109,7 @@
             }
         );
         const pointsGeom = new THREE.Geometry();
-        pointsGeom.name = points[0].did;
+        //pointsGeom.name = points[0].did;
         pointsGeom.vertices = vertices;
 
         return pointsGeom;
@@ -1123,7 +1123,7 @@
 
                 const centGeom = new THREE.Geometry();
                 const cent = clusters.centroids[c];
-                centGeom.name = cent.did;
+                //centGeom.name = cent.did;
                 centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
                 centGeoms.push(centGeom);
 
@@ -1155,7 +1155,7 @@
         for(let c in clusters.centroids) {
             const centGeom = new THREE.Geometry();
             const cent = clusters.centroids[c];
-            centGeom.name = cent.did;
+            //centGeom.name = cent.did;
             centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
             centGeoms.push(centGeom);
         }
@@ -1188,12 +1188,16 @@
     function makeBetterGeom(clusters, trajs) {
         const centGeoms = [];
         const trajGeoms = [];
+        const centDots = [];
+        const trajLines = [];
 
         clusters.centroids.forEach(function (cent) {
             const centGeom = new THREE.Geometry();
             centGeom.name = cent.did;
             centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
-            centGeoms.push(centGeom);
+            //centGeoms.push(centGeom);
+
+            centDots.push(makeDots(centGeom, cent.color, CENT_DOT_SIZE));
         });
 
         trajs.forEach(function (traj) {
@@ -1209,12 +1213,10 @@
         });
 
         //edges zeichnen
-        const centDots = [];
-        const trajLines = [];
-        for(let cg in centGeoms) {
+        /*for(let cg in centGeoms) {
             const randColor = Math.random() * 0xffffff;
             centDots.push(makeDots(centGeoms[cg], randColor, CENT_DOT_SIZE));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
-        }
+        }*/
         for(let tg in trajGeoms) {
             const mat = new THREE.LineBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.4});
             trajLines.push(new THREE.Line(trajGeoms[tg], mat));

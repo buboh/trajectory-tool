@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>draw</title>
+    <style>
+        body { margin: 0; overflow: hidden }
+        canvas { width: 100%!important; height: auto!important; }
+    </style>
+</head>
+<body>
+
+<script src="js/three.js"></script>
+<script src="js/dat.gui.js"></script>
+<!--Trajectory viewer-->
+<script>
+
+    let CAM_NEAR = -100;
+    const CAM_FAR = 100;
+
+    const GUI_SCALEMIN = 50;
+    const GUI_SCALEMAX = 200;
+    const GUI_SCALESTEP = 50;
+
+    const INIT_SCALE = 50;
+
+    const TRAJ_COLOR = 0xff0000;
+    const CENT_COLOR = 0x0000ff;
+    const POINT_COLOR = 0x009900;
+
+    const CENT_DOT_SIZE = 10.0;
+    const TRAJ_DOT_SIZE = 3.5;
+    const STPO_DOT_SIZE = 10.0;
+
+    //three.js
+    let camera, scene, renderer;
+    let camerahelper;
+    let mouse, raycaster;
+
+    //dat.gui
+    let gui;
+
+    let image;
+
+    const params = {
+        pN: 15,
+        pNListener: function(){},
+        get pointNumber(){
+            return this.pN;
+        },
+        set pointNumber(val){
+            this.pN = val;
+            this.pNListener(val);
+        },
+        registerPNListener: function (listener) {
+            this.pNListener = listener;
+        },
+
+        radius: 250,
+        a: 0.5,
+        aListener: function(){},
+        get alpha(){
+            return this.a;
+        },
+        set alpha(val){
+            this.a = val;
+            this.aListener(val);
+        },
+        registerAListener: function (listener) {
+            this.aListener = listener;
+        },
+    };
+    params.registerPNListener(function () {
+        changeAll();
+    });
+    params.registerAListener(function () {
+        changeAlpha();
+    });
+
+
+    const Trajectory = function(points) {
+        this.color = TRAJ_COLOR;
+        this.points = points;
+        this.deviation = 0;
+        this.centroids = [];
+        this.anchors = [];
+    };
+    const Point = function(point) {
+        this.color = point.color;
+        this.did = 0;
+        this.x = point.x;
+        this.y = point.y;
+        this.f = 0;
+        this.t = 0;
+        this.c = null;
+        this.g = null;
+        this.prevPoint = null;
+        this.nextPoint = null;
+    };
+    const Centroid = function(c) {
+        this.x = c.x;
+        this.y = c.y;
+        this.f = 2;
+        this.g = null;
+        this.color = c.color;
+        //this.color = Math.random() * 0xffffff;
+    };
+
+    const Image = function() {
+        this.startPoint = new Centroid({x: window.innerWidth/2, y: window.innerHeight/2 + 250, color: CENT_COLOR});
+        this.secondPoint = new Centroid({x: window.innerWidth/2, y: window.innerHeight/2, color: CENT_COLOR});
+        this.points = [];
+        this.trajs = [];
+        this.betterTrajs = [];
+    };
+
+    init();
+    loadAll();
+    update();
+
+    function init() {
+        scene = new THREE.Scene();
+        initRenderer();
+        configCamera();
+        camerahelper = new THREE.CameraHelper(camera);
+        initDatGUI();
+        addWindowListeners();
+        //scene.add(camerahelper);
+    }
+
+    function loadAll() {
+        image = new Image();
+        initPoints();
+        genPoints();
+        genLines();
+    }
+    function loadLines(){
+        genLines();
+    }
+
+    function initRenderer() {
+        renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+        renderer.setClearColor(0xcccccc, 0.2);//        renderer.setPixelRatio( window.devicePixelRatio ) ;
+        document.body.appendChild(renderer.domElement);
+        updateRenderer();
+    }
+    function updateRenderer() {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    function configCamera() {
+        camera = new THREE.OrthographicCamera(0, window.innerWidth, 0, -window.innerHeight, CAM_NEAR, CAM_FAR);
+        //camera.position = new THREE.Vector3(window.innerWidth/2, -window.innerHeight/2, 0);
+        updateCamera();
+    }
+    function updateCamera() {
+        camera.updateProjectionMatrix();
+    }
+
+    function initDatGUI() {
+        gui = new dat.GUI();
+        gui.add(params, 'pointNumber', 0, 50).step(5);
+        gui.add(params, 'alpha', 0, 1).step(0.05);
+        gui.add(this, 'genLines').name('Lines');
+        gui.add(this, 'genBetterLines').name('Better Lines');
+    }
+
+    function makePoint(point) {
+        const tempPointGeom = new THREE.Geometry();
+        tempPointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
+        scene.add(makeDots(tempPointGeom, point.color, STPO_DOT_SIZE));
+    }
+    function makeTraj(traj) {
+        const tempTrajGeom = new THREE.Geometry();
+        traj.anchors.forEach(function(point){
+            tempTrajGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
+        });
+        scene.add(makeLine(tempTrajGeom, TRAJ_COLOR));
+    }
+
+    function makeDots(geom, color, pointSize) {
+        const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
+        return new THREE.Points(geom, mat);
+    }
+    function makeLine(geom, color) {
+        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
+        return new THREE.Line(geom, mat);
+    }
+
+    function initPoints() {
+        makePoint(image.startPoint);
+        makePoint(image.secondPoint);
+    }
+    function genPoints() {
+
+        let i = 0;
+        while( i < params.pointNumber ){
+            let angle = Math.random() * Math.PI*2;
+            let tempPoint = new Point({
+                x: image.secondPoint.x + Math.cos(angle) * params.radius,
+                y: image.secondPoint.y + Math.sin(angle) * params.radius,
+                color: POINT_COLOR
+            });
+            image.points.push(tempPoint);
+            makePoint(tempPoint);
+            i++;
+        }
+    }
+
+    function genLines() {
+
+        removeLines();
+
+        image.points.forEach(function(point) {
+            let tempTraj = new Trajectory([
+                image.startPoint,
+                image.secondPoint,
+                point
+            ]);
+            image.trajs.push(tempTraj);
+        });
+
+        image.trajs.forEach(function (trajectory) {
+            trajectory.anchors.push(trajectory.points[0]);
+            for(let i = 1; i < trajectory.points.length; i++) {
+
+                const cA = trajectory.points[i-1];
+                const cB = trajectory.points[i];
+
+                const p = new Point({
+                    x: params.alpha * cA.x + (1 - params.alpha) * cB.x,
+                    y: params.alpha * cA.y + (1 - params.alpha) * cB.y,
+                });
+                trajectory.anchors.push(p)
+            }
+            trajectory.anchors.push(trajectory.points[trajectory.points.length-1]);
+            image.betterTrajs.push(trajectory);
+            makeTraj(trajectory);
+        });
+    }
+
+    function genBetterLines() {
+
+        removeLines();
+
+        image.points.forEach(function(point) {
+            let tempTraj = new Trajectory([
+                image.startPoint,
+                image.secondPoint,
+                point
+            ]);
+            image.trajs.push(tempTraj);
+        });
+
+        image.trajs.forEach(function (trajectory) {
+
+            const p0 = trajectory.points[0];
+            const p1 = trajectory.points[1];
+            const p2 = trajectory.points[2];
+
+            let p1p0 = {x: p0.x - p1.x, y: p0.y - p1.y};
+            let p1p2 = {x: p2.x - p1.x, y: p2.y - p1.y};
+
+           /* let abs_p1p0 = getSpatialDistance(p1, p0);
+            let abs_p1p2 = getSpatialDistance(p1, p2);*/
+
+            let abs_p1p0 = Math.sqrt(p1p0.x * p1p0.x + p1p0.y * p1p0.y);
+            let abs_p1p2 = Math.sqrt(p1p2.x * p1p2.x + p1p2.y * p1p2.y);
+
+            let cos_p0p2 = ((p1p0.x * p1p2.x + p1p0.y * p1p2.y) / (abs_p1p0 * abs_p1p2));
+
+            let alpha = Math.abs(cos_p0p2);
+
+            const p01 = new Point({
+                x: (1 - alpha) * p0.x + (alpha) * p1.x,
+                y: (1 - alpha) * p0.y + (alpha) * p1.y,
+            });
+            const p12 = new Point({
+                x: alpha * p1.x + (1 - alpha) * p2.x,
+                y: alpha * p1.y + (1 - alpha) * p2.y,
+            });
+
+            trajectory.anchors.push(p0);
+            trajectory.anchors.push(p01);
+            trajectory.anchors.push(p12);
+            trajectory.anchors.push(p2);
+
+            image.betterTrajs.push(trajectory);
+            makeTraj(trajectory);
+        });
+    }
+
+    function getSpatialDistance(p1, p2) {
+        return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
+    }
+
+    function changeAll(){
+        removeAll();
+        loadAll();
+    }
+    function changeAlpha(){
+        removeLines();
+        loadLines();
+    }
+
+    function removeAll(){
+        let lines = [];
+        scene.children.forEach(function(child){
+            lines.push(child);
+        });
+        lines.forEach(function(line){
+            scene.remove(line);
+        });
+        image = new Image();
+    }
+    function removeLines() {
+        let lines = [];
+        scene.children.forEach(function(child){
+            if(child.type === 'Line'){
+                lines.push(child);
+            }
+        });
+        lines.forEach(function(line){
+            scene.remove(line);
+        });
+
+        image.trajs = [];
+        image.betterTrajs = [];
+    }
+
+    function addWindowListeners() {
+        window.addEventListener('resize',
+            onWindowResize, false);
+    }
+    function onWindowResize() {
+        configCamera();
+
+        updateRenderer();
+    }
+
+    function update() {
+        requestAnimationFrame(update);
+        camerahelper.update();
+        renderer.render(scene, camera);
+    }
+
+</script>
+</body>
+</html>
