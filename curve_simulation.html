@@ -43,7 +43,7 @@
     let image;
 
     const params = {
-        pN: 15,
+        pN: 5,
         pNListener: function(){},
         get pointNumber(){
             return this.pN;
@@ -96,8 +96,8 @@
         this.t = 0;
         this.c = null;
         this.g = null;
-        this.prevPoint = null;
-        this.nextPoint = null;
+        this.prevPoint = point.prevPoint;
+        this.nextPoint = point.prevPoint;
     };
     const Centroid = function(c) {
         this.x = c.x;
@@ -109,8 +109,20 @@
     };
 
     const Image = function() {
-        this.startPoint = new Centroid({x: window.innerWidth/2, y: window.innerHeight/2 + 250, color: CENT_COLOR});
-        this.secondPoint = new Centroid({x: window.innerWidth/2, y: window.innerHeight/2, color: CENT_COLOR});
+        this.startPoint = new Centroid({
+            x: window.innerWidth/2,
+            y: window.innerHeight/2 + 250,
+            color: CENT_COLOR,
+            prevPoint: null,
+            nextPoint: null
+        });
+        this.secondPoint = new Centroid({
+            x: window.innerWidth/2,
+            y: window.innerHeight/2,
+            color: CENT_COLOR,
+            prevPoint: null,
+            nextPoint: null,
+        });
         this.points = [];
         this.trajs = [];
         this.betterTrajs = [];
@@ -168,7 +180,7 @@
 
     function initDatGUI() {
         gui = new dat.GUI();
-        gui.add(params, 'pointNumber', 0, 50).step(5);
+        gui.add(params, 'pointNumber', 0, 20).step(1);
         gui.add(params, 'alpha', 0, 1).step(0.05);
         gui.add(this, 'genLines').name('Lines');
         gui.add(this, 'genSplineCurves').name('Spline Curves');
@@ -238,32 +250,43 @@
     function genPoints() {
 
         let i = 0;
-        while( i < params.pointNumber ){
-            let angle = Math.random() * Math.PI*2;
-            let tempPoint = new Point({
-                x: image.secondPoint.x + Math.cos(angle) * params.radius,
-                y: image.secondPoint.y + Math.sin(angle) * params.radius,
-                color: POINT_COLOR
-            });
-            image.points.push(tempPoint);
-            makePoint(tempPoint);
+        while(i < params.pointNumber){
+            const p1 = genRandomPoint(image.secondPoint);
+            const p2 = genRandomPoint(p1);
+            p1.nextPoint = p2;
+            image.points.push(p1, p2);
+            makePoint(p1);
+            makePoint(p2);
+
             i++;
         }
+    }
+
+    function genRandomPoint(prevPoint){
+        let angle = Math.random() * Math.PI*2;
+        return new Point({
+            x: prevPoint.x + Math.cos(angle) * params.radius,
+            y: prevPoint.y + Math.sin(angle) * params.radius,
+            color: POINT_COLOR,
+            prevPoint: prevPoint,
+            nextPoint: null
+        });
     }
 
     function genLines() {
 
         removeLines();
 
-        params.lineType = 'lines';
-
         image.points.forEach(function(point) {
-            let tempTraj = new Trajectory([
-                image.startPoint,
-                image.secondPoint,
-                point
-            ]);
-            image.trajs.push(tempTraj);
+            if(point.prevPoint === image.secondPoint){
+                let tempTraj = new Trajectory([
+                    image.startPoint,
+                    image.secondPoint,
+                    point,
+                    point.nextPoint
+                ]);
+                image.trajs.push(tempTraj);
+            }
         });
 
         image.trajs.forEach(function (trajectory) {
@@ -289,12 +312,15 @@
         removeLines();
 
         image.points.forEach(function(point) {
-            let tempTraj = new Trajectory([
-                image.startPoint,
-                image.secondPoint,
-                point
-            ]);
-            image.trajs.push(tempTraj);
+            if(point.prevPoint === image.secondPoint){
+                let tempTraj = new Trajectory([
+                    image.startPoint,
+                    image.secondPoint,
+                    point,
+                    point.nextPoint
+                ]);
+                image.trajs.push(tempTraj);
+            }
         });
 
         image.trajs.forEach(function (trajectory) {
@@ -351,7 +377,7 @@
         genBetter();
     }
 
-    function getSpatialDistance(p1, p2) {
+    function  getSpatialDistance(p1, p2) {
         return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
 
