@@ -56,7 +56,7 @@
             this.pNListener = listener;
         },
 
-        radius: 250,
+        radius: 220,
         a: 0.5,
         aListener: function(){},
         get alpha(){
@@ -111,7 +111,7 @@
     const Image = function() {
         this.startPoint = new Centroid({
             x: window.innerWidth/2,
-            y: window.innerHeight/2 + 250,
+            y: window.innerHeight/2 + params.radius,
             color: CENT_COLOR,
             prevPoint: null,
             nextPoint: null
@@ -129,6 +129,7 @@
     };
 
     init();
+    initRaycaster();
     loadAll();
     update();
 
@@ -140,6 +141,46 @@
         initDatGUI();
         addWindowListeners();
         //scene.add(camerahelper);
+    }
+
+    function initRaycaster() {
+        raycaster = new THREE.Raycaster();
+        raycaster.near = CAM_NEAR;
+        raycaster.far = CAM_FAR;
+        raycaster.linePrecision = 5;
+
+        mouse = new THREE.Vector2();
+
+        window.addEventListener('click', onMouseClick, false);
+    }
+    function onMouseClick(event){
+        mouse.x = (event.clientX / window.innerWidth)  * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight)  * 2 + 1;
+
+        raycaster.setFromCamera( mouse, camera );
+
+        let intersects = [];
+        scene.children.forEach(function (ch){
+            intersects.push(raycaster.intersectObject(ch, false))
+        });
+
+        //let bg = scene.getObjectByName(BG_MESH_NAME + building.floor);
+
+        // calculate objects intersecting the picking ray
+        //let intersects = raycaster.intersectObject(bg, true);
+        for(let int in intersects){
+            if(intersects[int].length !== 0){
+                const obj = intersects[int][0].object;
+                if(obj.type === 'Line'){
+                    if(obj.material.color.r === 1){
+                        obj.material.color = new THREE.Color( 0x000000 );
+                    } else if(obj.material.color.r === 0){
+                        obj.material.color = new THREE.Color( 0xFF0000 );
+                    }
+                    obj.material.needsUpdate = true;
+                }
+            }
+        }
     }
 
     function loadAll() {
@@ -325,39 +366,50 @@
 
         image.trajs.forEach(function (trajectory) {
 
-            const p0 = trajectory.points[0];
-            const p1 = trajectory.points[1];
-            const p2 = trajectory.points[2];
+            let i = 0;
 
-            let p1p0 = {x: p0.x - p1.x, y: p0.y - p1.y};
-            let p1p2 = {x: p2.x - p1.x, y: p2.y - p1.y};
+            trajectory.anchors.push(trajectory.points[i]);
 
-            let abs_p1p0 = Math.sqrt(p1p0.x * p1p0.x + p1p0.y * p1p0.y);
-            let abs_p1p2 = Math.sqrt(p1p2.x * p1p2.x + p1p2.y * p1p2.y);
+            i++;
 
-            let cos_p0p2 = ((p1p0.x * p1p2.x + p1p0.y * p1p2.y) / (abs_p1p0 * abs_p1p2));
+            while(i < trajectory.points.length - 1) {
 
-            let alpha = ((cos_p0p2 + 1.0) / 2.0 + params.alpha) / (1.0 + params.alpha);
+                const p0 = trajectory.points[i-1];
+                const p1 = trajectory.points[i];
+                const p2 = trajectory.points[i+1];
 
-            //boundaries
-            let beta = Math.max(alpha, 0.4);
-            beta = Math.min(beta, 0.95);
+                let p1p0 = {x: p0.x - p1.x, y: p0.y - p1.y};
+                let p1p2 = {x: p2.x - p1.x, y: p2.y - p1.y};
 
-            beta = alpha;
+                let abs_p1p0 = Math.sqrt(p1p0.x * p1p0.x + p1p0.y * p1p0.y);
+                let abs_p1p2 = Math.sqrt(p1p2.x * p1p2.x + p1p2.y * p1p2.y);
 
-            const p01 = new Point({
-                x: (1 - beta) * p0.x + beta * p1.x,
-                y: (1 - beta) * p0.y + beta * p1.y,
-            });
-            const p12 = new Point({
-                x: beta * p1.x + (1 - beta) * p2.x,
-                y: beta * p1.y + (1 - beta) * p2.y,
-            });
+                let cos_p0p2 = ((p1p0.x * p1p2.x + p1p0.y * p1p2.y) / (abs_p1p0 * abs_p1p2));
 
-            trajectory.anchors.push(p0);
-            trajectory.anchors.push(p01);
-            trajectory.anchors.push(p12);
-            trajectory.anchors.push(p2);
+                let alpha = ((cos_p0p2 + 1.0) / 2.0 + params.alpha) / (1.0 + params.alpha);
+
+                //boundaries
+                let beta = Math.max(alpha, 0.4);
+                //beta = Math.min(beta, 0.95);
+
+                beta = alpha;
+
+                const p01 = new Point({
+                    x: (1 - beta) * p0.x + beta * p1.x,
+                    y: (1 - beta) * p0.y + beta * p1.y,
+                });
+                const p12 = new Point({
+                    x: beta * p1.x + (1 - beta) * p2.x,
+                    y: beta * p1.y + (1 - beta) * p2.y,
+                });
+
+                trajectory.anchors.push(p01);
+                trajectory.anchors.push(p12);
+
+                i++;
+            }
+
+            trajectory.anchors.push(trajectory.points[i]);
 
             image.betterTrajs.push(trajectory);
             makeTraj(trajectory);
