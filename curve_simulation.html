@@ -69,6 +69,8 @@
         registerAListener: function (listener) {
             this.aListener = listener;
         },
+
+        lineType: 'lines'
     };
     params.registerPNListener(function () {
         changeAll();
@@ -132,10 +134,16 @@
         image = new Image();
         initPoints();
         genPoints();
-        genLines();
+        loadLines();
     }
     function loadLines(){
-        genLines();
+        if(params.lineType === 'lines'){
+            genLines();
+        } else if(params.lineType === 'betterLines'){
+            genBetterLines();
+        } else if(params.lineType === 'betterCurves'){
+            genBetterCurves();
+        }
     }
 
     function initRenderer() {
@@ -162,6 +170,7 @@
         gui.add(params, 'alpha', 0, 1).step(0.05);
         gui.add(this, 'genLines').name('Lines');
         gui.add(this, 'genBetterLines').name('Better Lines');
+        gui.add(this, 'genBetterCurves').name('Better Curves');
     }
 
     function makePoint(point) {
@@ -170,10 +179,22 @@
         scene.add(makeDots(tempPointGeom, point.color, STPO_DOT_SIZE));
     }
     function makeTraj(traj) {
-        const tempTrajGeom = new THREE.Geometry();
+        const vertices = [];
         traj.anchors.forEach(function(point){
-            tempTrajGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
+            vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
         });
+        const tempTrajGeom = new THREE.Geometry();
+
+        if((params.lineType === 'lines') || (params.lineType === 'betterLines')){
+
+            tempTrajGeom.vertices = vertices;
+
+        } else if(params.lineType === 'betterCurves'){
+
+            const curve = new THREE.CatmullRomCurve3(vertices);
+            tempTrajGeom.vertices = curve.getPoints(50);
+
+        }
         scene.add(makeLine(tempTrajGeom, TRAJ_COLOR));
     }
 
@@ -182,7 +203,7 @@
         return new THREE.Points(geom, mat);
     }
     function makeLine(geom, color) {
-        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
+        const mat = new THREE.LineBasicMaterial({color: color, transparent: true, opacity: 0.5});
         return new THREE.Line(geom, mat);
     }
 
@@ -209,6 +230,8 @@
     function genLines() {
 
         removeLines();
+
+        params.lineType = 'lines';
 
         image.points.forEach(function(point) {
             let tempTraj = new Trajectory([
@@ -237,10 +260,14 @@
             makeTraj(trajectory);
         });
     }
-
-    function genBetterLines() {
+    function genBetter(type) {
 
         removeLines();
+        if(type === 'betterLines'){
+            params.lineType = 'betterLines';
+        } else if(type === 'betterCurves'){
+            params.lineType = 'betterCurves';
+        }
 
         image.points.forEach(function(point) {
             let tempTraj = new Trajectory([
@@ -268,7 +295,8 @@
 
             let cos_p0p2 = ((p1p0.x * p1p2.x + p1p0.y * p1p2.y) / (abs_p1p0 * abs_p1p2));
 
-            let alpha = Math.abs(cos_p0p2);
+            let alpha = ((cos_p0p2 + 1.0) / 2.0 + params.alpha) / (1.0 + params.alpha);
+
 
             const p01 = new Point({
                 x: (1 - alpha) * p0.x + (alpha) * p1.x,
@@ -287,6 +315,13 @@
             image.betterTrajs.push(trajectory);
             makeTraj(trajectory);
         });
+    }
+
+    function genBetterLines(){
+        genBetter('betterLines');
+    }
+    function genBetterCurves(){
+        genBetter('betterCurves');
     }
 
     function getSpatialDistance(p1, p2) {
@@ -325,15 +360,14 @@
 
         image.trajs = [];
         image.betterTrajs = [];
+        image.betterCurves = [];
     }
 
     function addWindowListeners() {
-        window.addEventListener('resize',
-            onWindowResize, false);
+        window.addEventListener('resize', onWindowResize, false);
     }
     function onWindowResize() {
         configCamera();
-
         updateRenderer();
     }
 
