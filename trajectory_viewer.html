@@ -17,8 +17,66 @@
 <!--Trajectory viewer-->
 <script>
 
-    let CAM_NEAR = -100;
-    const CAM_FAR = 100;
+    let CAM_NEAR = -100.0;
+    const CAM_FAR = 100.0;
+
+
+    const guiPar = {
+        floor: {
+            min: -2.0,
+            max: 2.0,
+            step: 1.0,
+            init: 1.0,
+        },
+        lineType: {
+            init: 'Graph'
+        },
+        scale: {
+            min: 50.0,
+            max: 200.0,
+            step: 50.0,
+            init: 50.0,
+        },
+        clusMaxRadius: {
+            min: 1.0,
+            max: 50.0,
+            step: 5.0,
+            init: 20.0,
+        },
+        file: {
+            path: {
+                init: 'LUCI-neu-',
+            },
+            ext: {
+                init: '.png',
+            }
+        },
+    };
+    const par = {
+        trajcetory: {
+            color: 0xff0000,
+            cutTime: 20000.0,
+            dot: {
+                size: 3.5,
+            },
+        },
+        centroid: {
+            dot: {
+                size: 10.0,
+            },
+        },
+        background: {
+            dir: 'img/',
+            color: 0xffffff,
+            alpha: 0.0,
+            corrZ: -0.4,
+        },
+        grid: {
+            delta: 5.0,
+            corrZ: 0.4,
+        }
+    };
+
 
     const GUI_FLOORMIN = -2;
     const GUI_FLOORMAX = 2;
@@ -26,6 +84,11 @@
     const GUI_SCALEMIN = 50;
     const GUI_SCALEMAX = 200;
     const GUI_SCALESTEP = 50;
+
+    const MAXRADIUS_MIN = 1;
+    const MAXRADIUS_MAX = 50;
+    const MAXRADIUS_STEP = 5;
+    const INIT_MAXRADIUS = 20;
 
     const INIT_FLOOR = 1;
     const INIT_SCALE = 50;
@@ -36,22 +99,19 @@
     const TRAJ_COLOR = 0xff0000;
     const TRAJ_CUT_TIME = 20000; // 8 s in ms
 
+
     const BG_DIR = 'img/';
     const BG_COLOR = 0xffffff;
     const BG_ALPHA = 0;
-    const BG_MESH_NAME = 'backgroundMesh-';
     const BG_CORR_Z = -0.4;
 
     const GRID_D = 5;
     const GRID_CORR_Z = 0.4;
 
-    const MAXRADIUS_MIN = 1;
-    const MAXRADIUS_MAX = 50;
-    const MAXRADIUS_STEP = 5;
-    const INIT_MAXRADIUS = 20;
-
     const CENT_DOT_SIZE = 10.0;
     const TRAJ_DOT_SIZE = 3.5;
+
+
 
     const CSV_REPL_HEADER = 't,x,y,acc,f,did';
 
@@ -435,7 +495,6 @@
                     backgroundPlane,
                     bgMaterial
                 );
-                backgroundMesh.name = BG_MESH_NAME + building.floor;
 
                 drawing.bgMeshes[floor] = backgroundMesh;
                 scene.add(drawing.bgMeshes[floor]);
