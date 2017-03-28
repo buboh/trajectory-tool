@@ -153,7 +153,7 @@
 
         window.addEventListener('click', onMouseClick, false);
     }
-    function onMouseClick(event){
+    function onMouseClick(event) {
         mouse.x = (event.clientX / window.innerWidth)  * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight)  * 2 + 1;
 
@@ -164,10 +164,6 @@
             intersects.push(raycaster.intersectObject(ch, false))
         });
 
-        //let bg = scene.getObjectByName(BG_MESH_NAME + building.floor);
-
-        // calculate objects intersecting the picking ray
-        //let intersects = raycaster.intersectObject(bg, true);
         for(let int in intersects){
             if(intersects[int].length !== 0){
                 const obj = intersects[int][0].object;
@@ -189,7 +185,7 @@
         genPoints();
         loadLines();
     }
-    function loadLines(){
+    function loadLines() {
         if(params.lineType === 'lines'){
             genLines();
         } else if(params.lineType === 'betterLines'){
@@ -389,10 +385,10 @@
                 let alpha = ((cos_p0p2 + 1.0) / 2.0 + params.alpha) / (1.0 + params.alpha);
 
                 //boundaries
-                let beta = Math.max(alpha, 0.4);
+                let beta = Math.max(alpha, 0.5);
                 //beta = Math.min(beta, 0.95);
 
-                beta = alpha;
+                //beta = alpha;
 
                 const p01 = new Point({
                     x: (1 - beta) * p0.x + beta * p1.x,
