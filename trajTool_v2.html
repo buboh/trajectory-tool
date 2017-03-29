@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TrajTool</title>
+    <style>
+        body { margin: 0; overflow: hidden }
+        canvas { width: 100%!important; height: auto!important; }
+    </style>
+</head>
+<body>
+
+<script src="js/three.js"></script>
+<script src="js/dat.gui.js"></script>
+<script src="js/papaparse.js"></script>
+<script src="js/thenBy.js"></script>
+<!--Trajectory viewer-->
+<script>
+
+//--CONSTANTS-&-VARIABLES-----------------------------------------------------------------------------------------------
+
+    let camera, scene, renderer; //three.js
+    let mouse, raycaster; //raycaster
+    let gui; //dat.gui
+    let buildingFileClicker, trajectoryFileClicker;
+
+    const threePar = {
+        cam: {
+            near: -100.0,
+            far: 100.0,
+        },
+        rend: {
+            aa: true,
+            alpha: true,
+            color: 0xffffff,
+            alphaVal: 0.0,
+        },
+        rayc: {
+            linePrec: 1,
+        },
+    };
+    const guiPar = {
+        bgLoader: {
+            path: {
+                init: 'LUCI-neu-',
+            },
+            ext: {
+                init: '.png',
+            },
+            name: 'Load building',
+        },
+        scale: {
+            min: 45.0,
+            max: 100.0,
+            step: 1.0,
+            init: 49.0,
+            name: 'Scale (1:X)',
+        },
+        floor: {
+            min: -2.0,
+            max: 2.0,
+            step: 1.0,
+            init: 1.0,
+            name: 'Floor',
+        },
+        dataLoader: {
+            name: 'Load trajectories',
+        },
+        lineType: {
+            init: 'Point',
+            choices: [
+                'Point', 'Line', 'Clusters', 'Graph', 'Better', 'EvenBetter'
+            ],
+            name: 'Line type',
+        },
+        cMaxRad: {
+            min: 1.0,
+            max: 50.0,
+            step: 5.0,
+            init: 20.0,
+            name: 'Radius',
+        },
+
+
+    };
+    const par = {
+        tj: {
+            color: 0xff0000,
+            clickColor: 0x000000,
+            cutTime: 20000.0,
+            dot: {
+                size: 3.5,
+            },
+        },
+        pt: {
+            color: 0xff0000,
+            dot: {
+                size: 3.5,
+            },
+        },
+        ct: {
+            dot: {
+                size: 10.0,
+            },
+        },
+        bg: {
+            dir: 'img/',
+            corrZ: -0.4,
+        },
+        gd: {
+            delta: 5.0,
+            corrZ: 0.4,
+            line: {
+                color: 0x555555,
+                opacity: 1,
+            }
+        },
+        csv: {
+            header: 't,x,y,acc,f,did',
+        },
+        //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
+    };
+
+    const bd = {
+        w: window.innerWidth, //building width
+        wListener: function () {},
+        get width() {
+            return this.w;
+        },
+        set width(val) {
+            this.w = val;
+            this.wListener(val)
+        },
+        registerWListener: function (listener) {
+            this.hListener = listener;
+        },
+
+        h: window.innerHeight, //building height
+        hListener: function () {},
+        get height() {
+            return this.h;
+        },
+        set height(val) {
+            this.h = val;
+            this.hListener(val);
+        },
+        registerHListener: function (listener) {
+            this.wListener = listener;
+        },
+
+        ratio: this.w / this.h,
+
+        f: guiPar.floor.init, //building floor
+        fListener: function () {},
+        get floor() {
+            return this.f;
+        },
+        set floor(val) {
+            if (val !== this.f) {
+                this.f = val;
+                this.fListener(val);
+            }
+        },
+        registerFListener: function (listener) {
+            this.fListener = listener;
+        },
+
+        s: guiPar.scale.init, //building scale
+        sListener: function () {},
+        get scale() {
+            return this.s;
+        },
+        get scaleFraction() {
+            return ( 1 / this.s );
+        },
+        set scale(val) {
+            if (val !== this.s) {
+                this.s = val;
+                this.sListener(val);
+            }
+        },
+        registerSListener: function (listener) {
+            this.sListener = listener;
+        },
+
+        filePath: guiPar.bgLoader.path.init,
+        fileExt: guiPar.bgLoader.ext.init,
+        get path() {
+            return this.filePath + this.f + this.fileExt;
+        },
+
+        lt: guiPar.lineType.init, //trajectory linetype
+        ltListener: function () {},
+        get lineType() {
+            return this.lt;
+        },
+        set lineType(val) {
+            if (val !== this.lt) {
+                this.lt = val;
+                this.ltListener(val);
+            }
+        },
+        registerLtListener: function (listener) {
+            this.ltListener = listener;
+        },
+
+        mR: guiPar.cMaxRad.init, //cluster maxRadius
+        mRListener: function () {},
+        get maxRadius() {
+            return this.mR;
+        },
+        set maxRadius(val) {
+            if (val !== this.mR) {
+                this.mR = val;
+                this.mRListener(val);
+            }
+        },
+        registerMRListener: function (listener) {
+            this.mRListener = listener;
+        }
+    };
+    bd.registerWListener(function () {
+        this.ratio = this.w / this.h;
+        initCamera();
+        updateRenderer();
+    });
+    bd.registerHListener(function () {
+        this.ratio = this.w / this.h;
+        initCamera();
+        updateRenderer();
+    });
+    bd.registerFListener(function () {
+        changeFloors(bd.floor, bd.path);
+    });
+    bd.registerSListener(function () {
+        changeScale();
+    });
+    bd.registerLtListener(function () {
+        changeLineType();
+    });
+    bd.registerMRListener(function () {
+        changeClusterRadius();
+    });
+
+    const data = {
+        grds: {},
+
+        pnts: [],
+        trjs: {
+            raw: [],
+            subsa: [],
+            better: [],
+            evenbetter: []
+        },
+        clts: {
+            centroids: [],
+            points: []
+        },
+        grph: {
+            edges: []
+        },
+        cnts: [],
+    };
+    const draw = {
+        bgMs: {},
+        grds: {},
+
+        pnts: [],
+        trjs: {
+            raw: [],
+            subsa: [],
+            better: [],
+            evenbetter: []
+        },
+        clts: {
+            centroids: [],
+            points: []
+        },
+        grph: {
+            edges: []
+        }
+    };
+
+    const Point = function(point) {
+        this.color = par.pt.color;
+        this.did = point.did;
+        this.x = point.x;
+        this.y = point.y;
+        this.f = point.f;
+        this.t = point.t;
+        this.c = null;
+        this.g = null;
+        this.prevPoint = null;
+        this.nextPoint = null;
+    };
+    const Trajectory = function(points) {
+        this.color = par.tj.color;
+        this.points = points;
+        this.deviation = 0;
+        this.centroids = [];
+        this.anchors = [];
+    };
+    const Centroid = function(c) {
+        this.x = c.x;
+        this.y = c.y;
+        this.f = c.f;
+        this.g = c.g;
+        this.color = Math.random() * 0xffffff;
+    };
+
+//--START---------------------------------------------------------------------------------------------------------------
+
+    init();
+    initRaycaster();
+    update();
+
+//--INITALIZATION-------------------------------------------------------------------------------------------------------
+//  ToDo: Review init function (camera?)
+                function init() {
+                    scene = new THREE.Scene();
+                    camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
+                    initRenderer();
+                    initCamera();
+                    initRaycaster();
+                    initBackgroundFileInput();
+                    initDataFileInput();
+                    initDatGUI();
+
+                    initWindowResizeListeners();
+                }
+
+    function initRenderer() {
+        renderer = new THREE.WebGLRenderer({antialias: threePar.rend.aa, alpha: threePar.rend.alpha});
+        renderer.setClearColor(threePar.rend.color, threePar.rend.alphaVal);//        renderer.setPixelRatio( window.devicePixelRatio ) ;
+        document.body.appendChild(renderer.domElement);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    function initCamera() {
+        const windowRatio = window.innerWidth / window.innerHeight;
+        if( windowRatio < bd.ratio) {
+            camera = new THREE.OrthographicCamera(0, bd.width,
+                0, -bd.width / windowRatio, threePar.cam.near, threePar.cam.far);
+        } else {
+            camera = new THREE.OrthographicCamera(0, bd.height * windowRatio,
+                0, -bd.height, threePar.cam.near, threePar.cam.far);
+        }
+        camera.updateProjectionMatrix();
+    }
+    function updateRenderer() {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    function updateCamera() {
+        const windowRatio = window.innerWidth / window.innerHeight;
+        if( windowRatio < bd.ratio) {
+            camera.right = bd.width;
+            camera.bottom = -bd.width / windowRatio;
+            camera.near = threePar.cam.near;
+            camera.far = threePar.cam.far;
+        } else {
+            camera.right = bd.height / windowRatio;
+            camera.bottom = -bd.height;
+            camera.near = threePar.cam.near;
+            camera.far = threePar.cam.far;
+        }
+        camera.updateProjectionMatrix();
+//        if( camerahelper ) {
+//            camerahelper.update();
+//        }
+    }
+
+    function update() {
+        requestAnimationFrame(update);
+        renderer.render(scene, camera);
+    }
+
+    function initRaycaster() {
+        raycaster = new THREE.Raycaster();
+        raycaster.near = threePar.cam.near;
+        raycaster.far = threePar.cam.far;
+        raycaster.linePrecision = threePar.rayc.linePrec;
+        mouse = new THREE.Vector2();
+        window.addEventListener('click', onMouseClick, false);
+    }
+    function onMouseClick(event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse, camera);
+
+        let intersects = [];
+        scene.children.forEach(function (ch){
+            intersects.push(raycaster.intersectObject(ch, false))
+        });
+
+        for(let int in intersects){
+            if(intersects[int].length !== 0){
+                const obj = intersects[int][0].object;
+                if(obj.type === 'Line'){
+                    if(obj.material.color.r === 1){
+                        obj.material.color = new THREE.Color(par.tj.clickColor);
+                    } else if(obj.material.color.r === 0){
+                        obj.material.color = new THREE.Color(par.tj.color);
+                    }
+                    obj.material.needsUpdate = true;
+                }
+            }
+        }
+    } //temp code inside
+
+    function initWindowResizeListeners() {
+        window.addEventListener('resize', onWindowResize, false);
+    }
+    function onWindowResize() {
+        updateRenderer();
+        updateCamera();
+    }
+
+    function initBackgroundFileInput() {
+        const buildingFileInput = document.createElement('input');
+        buildingFileInput.id = "buildingFileInput";
+        buildingFileInput.type = "file";
+        buildingFileInput.accept = "image/*";
+        buildingFileInput.style.position = "absolute";
+        buildingFileInput.style.visibility = "hidden";
+        document.body.appendChild(buildingFileInput);
+
+        buildingFileInput.addEventListener('change', function () {
+            const file = buildingFileInput.files[0];
+            const fileName = buildingFileInput.files[0].name;
+            const fileType = /image.*/;
+
+            if(file.type.match(fileType)) {
+                bd.filePath = fileName.slice(0, -5);
+                bd.fileExt = fileName.slice(-4, fileName.length);
+                deleteAll();
+                changeFloors(bd.floor, bd.path);
+            } else {
+                alert("File not supported");
+            }
+        });
+        buildingFileClicker = {
+            loadBuildingFile: function () {
+                document.getElementById("buildingFileInput").click();
+            }
+        };
+    }
+    function initDataFileInput() {
+        const dataFileInput = document.createElement('input');
+        dataFileInput.id = "dataFileInput";
+        dataFileInput.type = "file";
+        dataFileInput.accept = ".csv";
+        dataFileInput.multiple = true;
+        dataFileInput.style.position = "absolute";
+        dataFileInput.style.visibility = "hidden";
+        document.body.appendChild(dataFileInput);
+
+        dataFileInput.addEventListener('change', function () {
+            const fileCount = dataFileInput.files.length;
+            const result = [];
+            for(let file = 0; file < fileCount; file++) {
+                const reader = new FileReader();
+                reader.onload = function () {
+                    result.push(this.result);
+                    if (result.length === fileCount) {
+                        loadNewTrajectories(result);
+                        makeAllTrajectories();
+                        addAllTrajectories();
+                    }
+                };
+                reader.readAsText(dataFileInput.files[file]);
+            }
+            this.value = null; //remove filename from input
+        });
+        trajectoryFileClicker = {
+            loadDataFile: function () {
+                document.getElementById("dataFileInput").click();
+            }
+        };
+    }
+
+    function initDatGUI() {
+        gui = new dat.GUI();
+        gui.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.bgLoader.name);
+        gui.add(bd, 'scale', guiPar.scale.min, guiPar.scale.max).step(guiPar.scale.max).name(guiPar.scale.name);
+        gui.add(bd, 'floor', guiPar.floor.min, guiPar.floor.max).step(guiPar.floor.max).name(guiPar.floor.name);
+        gui.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.dataLoader.name);
+        gui.add(bd, 'lineType', guiPar.lineType.choices).name(guiPar.lineType.name);
+        gui.add(bd, 'maxRadius', guiPar.cMaxRad.min, guiPar.cMaxRad.max).step(guiPar.cMaxRad.step).name(guiPar.cMaxRad.name);
+    }
+
+//--LOAD-BASICS---------------------------------------------------------------------------------------------------------
+
+    function loadNewBgMesh(buildingName, floor) {
+        const buildingPath = par.bg.dir + buildingName;
+        let backgroundMesh;
+        let bgMaterial = new THREE.MeshBasicMaterial();
+
+        const bgLoader = new THREE.TextureLoader();
+        bgLoader.load(
+            buildingPath,
+            function (texture) {
+                bgMaterial = new THREE.MeshBasicMaterial({
+                    map: texture
+                });
+
+                //translate pixels into meters -- ATTENTION! BG-imgs have to have same size!
+                bd.width = texture.image.naturalWidth * bd.scaleFraction;
+                bd.height = texture.image.naturalHeight * bd.scaleFraction;
+
+                //create bgPlane
+                const backgroundPlane = new THREE.Geometry();
+
+                backgroundPlane.vertices.push(new THREE.Vector3(0, 0, floor + par.bg.corrZ));
+                backgroundPlane.vertices.push(new THREE.Vector3(0, -bd.height, floor + par.bg.corrZ));
+                backgroundPlane.vertices.push(new THREE.Vector3(bd.width, -bd.height, floor + par.bg.corrZ));
+                backgroundPlane.vertices.push(new THREE.Vector3(bd.width, 0, floor + par.bg.corrZ));
+
+                backgroundPlane.faces.push(new THREE.Face3(0, 1, 3));
+                backgroundPlane.faces.push(new THREE.Face3(1, 2, 3));//backgroundPlane.computeFaceNormals();
+                backgroundPlane.faceVertexUvs[0] = [];
+                backgroundPlane.faceVertexUvs[0].push([new THREE.Vector2(0, 1),
+                    new THREE.Vector2(0, 0),
+                    new THREE.Vector2(1, 1)
+                ]);
+                backgroundPlane.faceVertexUvs[0].push([
+                    new THREE.Vector2(0, 0),
+                    new THREE.Vector2(1, 0),
+                    new THREE.Vector2(1, 1)
+                ]);
+                backgroundPlane.uvsNeedUpdate = true;
+
+                backgroundMesh = new THREE.Mesh(
+                    backgroundPlane,
+                    bgMaterial
+                );
+
+                draw.bgMs[floor] = backgroundMesh;
+                scene.add(draw.bgMs[floor]);
+
+                genGrid(floor);
+                drawGrid(floor);
+            },
+            function () {
+            },
+            function () {
+                console.log('BG-loading failed');
+            }
+        );
+    } //three.js code inside
+    function genGrid(floor) {
+
+        let coordLines = [];
+
+        for (let i = 0; i < ( bd.height ); i += par.gd.delta) {
+            coordLines.push({
+                p0: {
+                    x: 0,
+                    y: i,
+                    f: floor + par.gd.corrZ,
+                },
+                p1: {
+                    x: bd.width,
+                    y: i,
+                    f: floor + par.gd.corrZ,
+                }
+            });
+        }
+        for (let j = 0; j < ( bd.height ); j += par.gd.delta) {
+            coordLines.push({
+                p0: {
+                    x: j,
+                    y: 0,
+                    f: floor + par.gd.corrZ,
+                },
+                p1: {
+                    x: j,
+                    y: bd.height,
+                    f: floor + par.gd.corrZ,
+                }
+            });
+        }
+        data.grds[floor] = coordLines;
+    }
+    function drawGrid(floor) {
+
+        const coordGeometry = new THREE.Geometry();
+        data.grds[floor].forEach(function(line) {
+            coordGeometry.vertices.push(new THREE.Vector3(line.p0.x, -line.p0.y, line.p0.f));
+            coordGeometry.vertices.push(new THREE.Vector3(line.p1.x, -line.p1.y, line.p1.f));
+        });
+
+        const coordMaterial = new THREE.LineBasicMaterial({
+            color: par.gd.line.color,
+            opacity: par.gd.line.color,
+        });
+
+        draw.grds[floor] = new THREE.LineSegments(coordGeometry, coordMaterial);
+        scene.add(draw.grds[floor]);
+    } //three.js code inside
+
+//--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
+//  ToDo: Implement function for removing first and last locations of recording
+
+    function loadNewTrajectories(readerResult) {
+
+        let pointList = [];
+
+    //--create-Point-Objects--------------------------------------------------------------------------------------------
+
+        readerResult.forEach(function(file){
+            const tempList = parseCSV(file);
+
+            tempList.forEach(function (point) {
+                const p = new Point(point);
+                pointList.push(p);
+                data.pnts.push(p);
+            });
+        });
+
+    //--sort-Points-----------------------------------------------------------------------------------------------------
+
+        pointList = sortPoints(pointList);
+
+        const pointListByDID = groupPointListByDid(pointList);
+        const pointListByDIDByTime = [];
+
+        for (let did1 in pointListByDID) {
+            if(pointListByDID.hasOwnProperty(did1)){
+                pointListByDIDByTime[did1] = groupPointListByTime(pointListByDID[did1]);
+            }
+        }
+
+    //--create-Trajectories---------------------------------------------------------------------------------------------
+
+        for(let did2 in pointListByDIDByTime) {
+            for(let pointGroup in pointListByDIDByTime[did2]) {
+                if (pointListByDIDByTime[did2].hasOwnProperty(pointGroup)) {
+
+                    const tempTrajectory = new Trajectory(pointListByDIDByTime[did2][pointGroup]);
+
+                    if(tempTrajectory.points.length > 1) {
+
+                        let tempPrevPoint = tempTrajectory.points[0];
+                        tempPrevPoint.prevPoint = null;
+
+                        for(let p = 0; p < tempTrajectory.points.length; p++){
+                            tempPrevPoint.nextPoint = tempTrajectory.points[p];
+                            tempTrajectory.points[p].prevPoint = tempPrevPoint;
+                            tempPrevPoint = tempTrajectory.points[p];
+                        }
+                        data.trjs.raw.push(tempTrajectory);
+                    }
+                }
+            }
+        }
+    }
+
+    function parseCSV(csvString) {
+        const parseResult = Papa.parse(csvString, {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            comments: '#',
+            //step: true,
+            beforeFirstChunk: function (chunk) {
+                const rows = chunk.split(/\r\n|\r|\n/);
+                rows[0] = par.csv.header;
+                return rows.join("\r\n");
+            }
+        });
+        return parseResult.data;
+    }
+    function sortPoints(pointList) {
+    pointList.sort(
+        firstBy("did")
+            .thenBy("t")
+    );
+    return pointList;
+}
+
+    function groupPointListByDid(pointList) {
+        return groupBy(pointList, function (item) {
+                return [item.did]; //, item.t
+            }
+        );
+    }
+    function groupPointListByTime(pointList) {
+
+        const pointListByTime = [];
+
+        let tempTime = pointList[0].t;
+        let tempTimeArray = [];
+
+        pointList.forEach(function(point) {
+            if (tempTime + par.tj.cutTime < point.t) {
+                pointListByTime.push(tempTimeArray);
+                tempTimeArray = [];
+                tempTimeArray.push(point);
+                tempTime = point.t;
+            } else {
+                tempTimeArray.push(point);
+                tempTime = point.t;
+            }
+        });
+        pointListByTime.push(tempTimeArray);
+        return pointListByTime;
+    }
+    function groupBy(array, f) {
+
+        const groups = {};
+        array.forEach(
+            function (object) {
+                const group = JSON.stringify(f(object));
+                groups[group] = groups[group] || []; //if groups[group] doesn't exist, [] is assigned
+                groups[group].push(object);
+            }
+        );
+        return groups;
+    }
+
+//--MAKE-(THREE.JS)-----------------------------------------------------------------------------------------------------
+
+    function makeAllTrajectories() {
+
+        if (bd.lineType === 'Point') {
+
+            const tempTrajGeom = makePointGeometry(data.pnts);
+            draw.pnts.push(makeDots(tempTrajGeom, par.pt.color, par.pt.dot.size));
+
+        } else if (bd.lineType === 'Line') {
+
+            data.trjs.raw.forEach(function (traj) {
+                const tempTrajGeom = makePointGeometry(traj.points);
+                draw.trjs.raw.push(makeLine(tempTrajGeom, traj.color));
+            });
+
+        }
+    }
+
+    function makePointGeometry(points) {
+        const pointsGeom = new THREE.Geometry();
+        points.forEach(function (point) {
+            pointsGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
+        });
+        return pointsGeom;
+    }
+
+
+    function makeDots(geom, color, pointSize) {
+        const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
+        return new THREE.Points(geom, mat);
+    }
+    function makeLine(geom, color) {
+        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
+        return new THREE.Line(geom, mat);
+    }
+
+
+
+
+</script>
+</body>
+</html>
