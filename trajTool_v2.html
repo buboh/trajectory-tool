@@ -74,14 +74,12 @@
             name: 'Line type',
         },
         cMaxRad: {
-            min: 1.0,
+            min: 5.0,
             max: 50.0,
             step: 5.0,
             init: 20.0,
             name: 'Radius',
         },
-
-
     };
     const par = {
         tj: {
@@ -148,7 +146,9 @@
             this.wListener = listener;
         },
 
-        ratio: this.w / this.h,
+        get ratio() {
+            return this.w / this.h;
+        },
 
         f: guiPar.floor.init, //building floor
         fListener: function () {},
@@ -220,17 +220,15 @@
         }
     };
     bd.registerWListener(function () {
-        this.ratio = this.w / this.h;
-        initCamera();
+        updateCamera(bd.floor);
         updateRenderer();
     });
     bd.registerHListener(function () {
-        this.ratio = this.w / this.h;
-        initCamera();
+        updateCamera(bd.floor);
         updateRenderer();
     });
     bd.registerFListener(function () {
-        changeFloors(bd.floor, bd.path);
+        changeFloors(bd.floor);
     });
     bd.registerSListener(function () {
         changeScale();
@@ -356,7 +354,7 @@
             camera.bottom = -bd.width / windowRatio;
             camera.near = -(floor + par.gd.corrZ);
         } else {
-            camera.right = bd.height / windowRatio;
+            camera.right = bd.height * windowRatio;
             camera.bottom = -bd.height;
             camera.near = -(floor + par.gd.corrZ);
         }
@@ -431,7 +429,7 @@
                 bd.filePath = fileName.slice(0, -5);
                 bd.fileExt = fileName.slice(-4, fileName.length);
                 deleteAll();
-                changeFloors(bd.floor, bd.path);
+                changeFloors(bd.floor);
             } else {
                 alert("File not supported");
             }
@@ -479,8 +477,8 @@
     function initDatGUI() {
         gui = new dat.GUI();
         gui.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.bgLoader.name);
-        gui.add(bd, 'scale', guiPar.scale.min, guiPar.scale.max).step(guiPar.scale.max).name(guiPar.scale.name);
-        gui.add(bd, 'floor', guiPar.floor.min, guiPar.floor.max).step(guiPar.floor.max).name(guiPar.floor.name);
+        gui.add(bd, 'scale', guiPar.scale.min, guiPar.scale.max).step(guiPar.scale.step).name(guiPar.scale.name);
+        gui.add(bd, 'floor', guiPar.floor.min, guiPar.floor.max).step(guiPar.floor.step).name(guiPar.floor.name);
         gui.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.dataLoader.name);
         gui.add(bd, 'lineType', guiPar.lineType.choices).name(guiPar.lineType.name);
         gui.add(bd, 'maxRadius', guiPar.cMaxRad.min, guiPar.cMaxRad.max).step(guiPar.cMaxRad.step).name(guiPar.cMaxRad.name);
@@ -563,7 +561,7 @@
                 }
             });
         }
-        for (let j = 0; j < ( bd.height ); j += par.gd.delta) {
+        for (let j = 0; j < ( bd.width ); j += par.gd.delta) {
             coordLines.push({
                 p0: {
                     x: j,
@@ -593,8 +591,8 @@
         });
 
         draw.grds[floor] = new THREE.LineSegments(coordGeometry, coordMaterial);
-        scene.add(draw.grds[floor]);
-    } //three.js
+        //scene.add(draw.grds[floor]);
+    } //three.js -- disabled
 
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
 //  ToDo: Implement function for removing first and last locations of recording
@@ -713,6 +711,7 @@
     }
 
 //--CLUSTERING----------------------------------------------------------------------------------------------------------
+//  ToDo: data.clts.points.push(cluster.members) --> change .points. to .members
 
     function cluster(trajs) {
         const vertices = [];
@@ -869,10 +868,6 @@
     }
     function getClosestCentroid(p, G) {
 
-        function getSpatialDistance(p1, p2) {
-            return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
-        }
-
         const gc = getGridPosition(p, G);
         const C = [];
         for (let k = Math.max(gc.i - 1, 1); k < Math.min(gc.i + 1, G.grid.length); k++) {
@@ -954,6 +949,10 @@
         }
     }
 
+    function getSpatialDistance(p1, p2) {
+        return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
+    }
+
     function connectTheDots(centroids) {
         centroids.forEach(function (centroid) {
 
@@ -990,9 +989,10 @@
         return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
     }
     function genBetterTrajs(trajs) {
+
+        data.trjs.better = [];
         trajs.forEach(function (trajectory) {
             let tempTrajs = [];
-
             let tempTraj = new Trajectory([]);
             tempTraj.centroids.push(trajectory.points[0].c);
 
@@ -1016,6 +1016,8 @@
         });
     }
     function genEvenBetterTrajs(betterTrajs) {
+
+        data.trjs.evenbetter = [];
         betterTrajs.forEach(function (trajectory) {
 
             let i = 0;
@@ -1080,59 +1082,83 @@
 
         if (bd.lineType === 'Point') {
 
-            const tempTrajGeom = makePointGeometry(data.pnts);
-            draw.pnts.push(makeDots(tempTrajGeom, par.pt.color, par.pt.dot.size));
+            makePoints();
 
         } else if (bd.lineType === 'Line') {
 
-            data.trjs.raw.forEach(function (traj) {
-                const tempTrajGeom = makePointGeometry(traj.points);
-                draw.trjs.raw.push(makeLine(tempTrajGeom, traj.color));
-            });
-
-
+            makeLine();
 
         } else if (bd.lineType === 'Clusters') {
-            cluster(data.trjs.raw);
-            const drawStuff = makeClusteredGeom(data.clts);
-            drawStuff.cents.forEach(function (centGeom) {
-                draw.clts.centroids.push(centGeom);
-            });
-            drawStuff.points.forEach(function (pointGeom) {
-                draw.clts.points.push(pointGeom);
-            });
+
+            makeClusters();
+
         } else if (bd.lineType === 'Graph') {
-            cluster(data.trjs.raw);
-            connectTheDots(data.clts.centroids);
-            const drawGraphStuff = makeGraphGeom(data.clts, data.grph);
-            drawGraphStuff.cents.forEach(function (centGeom) {
-                draw.clts.centroids.push(centGeom);
-            });
-            drawGraphStuff.edges.forEach(function (edgeGeom) {
-                draw.grph.edges.push(edgeGeom);
-            });
+
+            makeGraph();
+
         } else if (bd.lineType === 'Better') {
-            cluster(data.trjs.raw);
-            genBetterTrajs(data.trjs.subsa);
-            const drawBetterStuff = makeBetterGeom(data.clts, data.trjs.better);
-            drawBetterStuff.cents.forEach(function (centGeom) {
-                draw.clts.centroids.push(centGeom);
-            });
-            drawBetterStuff.trajs.forEach(function (trajGeom) {
-                draw.trjs.better.push(trajGeom);
-            });
+
+            makeBetter();
+
         } else if (bd.lineType === 'EvenBetter') {
-            cluster(data.trjs.raw);
-            genBetterTrajs(data.trjs.subsa);
-            genEvenBetterTrajs(data.trjs.better);
-            const drawBetterStuff = makeEvenBetterGeom(data.clts, data.trjs.evenbetter);
-            drawBetterStuff.cents.forEach(function (centGeom) {
-                draw.clts.centroids.push(centGeom);
-            });
-            drawBetterStuff.trajs.forEach(function (trajGeom) {
-                draw.trjs.evenbetter.push(trajGeom);
-            });
+
+            makeEvenBetter();
         }
+    }
+
+    function makePoints() {
+        const tempTrajGeom = makePointGeometry(data.pnts);
+        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.dot.size));
+    }
+    function makeLine() {
+        data.trjs.raw.forEach(function (traj) {
+            const tempTrajGeom = makePointGeometry(traj.points);
+            draw.trjs.raw.push(createLine(tempTrajGeom, traj.color));
+        });
+    }
+    function makeClusters() {
+        cluster(data.trjs.raw);
+        const drawStuff = makeClusteredGeom(data.clts);
+        drawStuff.cents.forEach(function (centGeom) {
+            draw.clts.centroids.push(centGeom);
+        });
+        drawStuff.points.forEach(function (pointGeom) {
+            draw.clts.points.push(pointGeom);
+        });
+    }
+    function makeGraph() {
+        cluster(data.trjs.raw);
+        connectTheDots(data.clts.centroids);
+        const drawGraphStuff = makeGraphGeom(data.clts, data.grph);
+        drawGraphStuff.cents.forEach(function (centGeom) {
+            draw.clts.centroids.push(centGeom);
+        });
+        drawGraphStuff.edges.forEach(function (edgeGeom) {
+            draw.grph.edges.push(edgeGeom);
+        });
+    }
+    function makeBetter() {
+        cluster(data.trjs.raw);
+        genBetterTrajs(data.trjs.subsa);
+        const drawBetterStuff = makeBetterGeom(data.clts, data.trjs.better);
+        drawBetterStuff.cents.forEach(function (centGeom) {
+            draw.clts.centroids.push(centGeom);
+        });
+        drawBetterStuff.trajs.forEach(function (trajGeom) {
+            draw.trjs.better.push(trajGeom);
+        });
+    }
+    function makeEvenBetter() {
+        cluster(data.trjs.raw);
+        genBetterTrajs(data.trjs.subsa);
+        genEvenBetterTrajs(data.trjs.better);
+        const drawBetterStuff = makeEvenBetterGeom(data.clts, data.trjs.evenbetter);
+        drawBetterStuff.cents.forEach(function (centGeom) {
+            draw.clts.centroids.push(centGeom);
+        });
+        drawBetterStuff.trajs.forEach(function (trajGeom) {
+            draw.trjs.evenbetter.push(trajGeom);
+        });
     }
 
     function makePointGeometry(points) {
@@ -1167,8 +1193,8 @@
         const pointDots = [];
         for (let g in centGeoms) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(makeDots(centGeoms[g], randColor, par.ct.dot.size));
-            pointDots.push(makeDots(pointGeoms[g], randColor, par.pt.dot.size));
+            centDots.push(createDots(centGeoms[g], randColor, par.ct.dot.size));
+            pointDots.push(createDots(pointGeoms[g], randColor, par.pt.dot.size));
         }
 
         return {
@@ -1201,7 +1227,7 @@
         const edgeLines = [];
         for(let cg in centGeoms) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(makeDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
         }
         for(let eg in edgeGeoms) {
             const mat = new THREE.LineBasicMaterial({color: 0x000000, opacity: 1});
@@ -1214,7 +1240,6 @@
         };
     } //three.js
     function makeBetterGeom(clusters, trajs) {
-        const centGeoms = [];
         const trajGeoms = [];
         const centDots = [];
         const trajLines = [];
@@ -1225,7 +1250,7 @@
             centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
             //centGeoms.push(centGeom);
 
-            centDots.push(makeDots(centGeom, cent.color, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cent.color, par.ct.dot.size));
         });
 
         trajs.forEach(function (traj) {
@@ -1243,7 +1268,7 @@
         //edges zeichnen
         /*for(let cg in centGeoms) {
          const randColor = Math.random() * 0xffffff;
-         centDots.push(makeDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+         centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
          }*/
         for(let tg in trajGeoms) {
             const mat = new THREE.LineBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.4});
@@ -1299,7 +1324,7 @@
         const anchorLines = [];
         for(let cg in centGeoms) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(makeDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
         }
         for(let ag in anchorGeoms) {
 
@@ -1317,11 +1342,11 @@
         };
     } //three.js
 
-    function makeDots(geom, color, pointSize) {
+    function createDots(geom, color, pointSize) {
         const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
         return new THREE.Points(geom, mat);
     } //three.js
-    function makeLine(geom, color) {
+    function createLine(geom, color) {
         const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
         return new THREE.Line(geom, mat);
     } //three.js
@@ -1364,8 +1389,24 @@
     }
 
     //--Special-Trajectories--------------------------------------------------------------------------------------------
+    function removeClusterTrajectories() {
+        //draw.pnts = data.pnts;
+        draw.trjs = {
+            raw: data.trjs.raw,
+            subsa: [],
+            better: [],
+            evenbetter: []
+        };
+        draw.clts = {
+            centroids: [],
+            points: []
+        };
+        draw.grph = {
+            edges: []
+        };
+    }
     function deleteClusterTrajectories() {
-
+        removeClusterTrajectories();
         //data.pnts = data.pnts;
         data.trjs = {
             raw: data.trjs.raw,
@@ -1511,16 +1552,15 @@
         loadNewBgMesh(bd.path, bd.floor); //also invokes loadNewGrid();
         addAllTrajectories();
     }
-    function changeFloors(floor, path) {
+    function changeFloors(floor) {
         if (!(draw.bgMs[floor] instanceof THREE.Mesh)) {
-            loadNewBgMesh(path, floor); //also invokes loadGrid()
+            loadNewBgMesh(bd.path, floor); //also invokes loadGrid()
         }
-        updateCamera(floor);
+        updateCamera(bd.floor);
     }
     function changeLineType() {
 
         hideAllTrajectories();
-
         if(bd.lineType === 'Point'){
             if(draw.pnts.length === 0){
                 makeAllTrajectories();
@@ -1530,27 +1570,31 @@
                 makeAllTrajectories();
             }
         } else  if(bd.lineType === 'Clusters') {
-            if((draw.clts.centroids.length === 0) && (draw.clts.points.length === 0)) {
+            if((draw.clts.centroids.length === 0) || (draw.clts.points.length === 0)) {
+                deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'Graph') {
-            if((draw.clts.centroids.length === 0) && (draw.grph.edges.length === 0)) {
+            if((draw.clts.centroids.length === 0) || (draw.grph.edges.length === 0)) {
+                deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'Better') {
-            if((draw.clts.centroids.length === 0) && (draw.trjs.better.length === 0)) {
+            if((draw.clts.centroids.length === 0) || (draw.trjs.better.length === 0)) {
+                deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'EvenBetter') {
-            if((draw.clts.centroids.length === 0) && (draw.trjs.evenbetter.length === 0)) {
+            if((draw.clts.centroids.length === 0) || (draw.trjs.evenbetter.length === 0)) {
+                deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         }
         addAllTrajectories();
     }
     function changeClusterRadius() {
-        deleteClusterTrajectories();
         hideAllTrajectories();
+        deleteClusterTrajectories();
         makeAllTrajectories();
         addAllTrajectories();
     }
