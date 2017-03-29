@@ -349,18 +349,16 @@
     function updateRenderer() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
-    function updateCamera() {
+    function updateCamera(floor) {
         const windowRatio = window.innerWidth / window.innerHeight;
         if( windowRatio < bd.ratio) {
             camera.right = bd.width;
             camera.bottom = -bd.width / windowRatio;
-            camera.near = threePar.cam.near;
-            camera.far = threePar.cam.far;
+            camera.near = -(floor + par.gd.corrZ);
         } else {
             camera.right = bd.height / windowRatio;
             camera.bottom = -bd.height;
-            camera.near = threePar.cam.near;
-            camera.far = threePar.cam.far;
+            camera.near = -(floor + par.gd.corrZ);
         }
         camera.updateProjectionMatrix();
 //        if( camerahelper ) {
@@ -412,7 +410,7 @@
     }
     function onWindowResize() {
         updateRenderer();
-        updateCamera();
+        updateCamera(bd.floor);
     }
 
     function initBackgroundFileInput() {
@@ -755,7 +753,169 @@
         return new THREE.Line(geom, mat);
     }
 
+//--ADD-&-REMOVE-TRAJECTORIES-------------------------------------------------------------------------------------------
+//  ToDo: review lineTypes
 
+    function addAllTrajectories() { //abgesehen von clusters
+        if (bd.lineType === 'Point') {
+            draw.pnts.forEach(function (point) {
+                scene.add(point);
+            });
+        } else if (bd.lineType === 'Line') {
+            draw.trjs.raw.forEach(function (traj) {
+                scene.add(traj);
+            });
+        }
+
+
+
+        else if(bd.lineType === 'Clusters') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.clts.points.forEach(function (point) {
+                scene.add(point);
+            });
+        } else if(bd.lineType === 'Graph') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.grph.edges.forEach(function (edge) {
+                scene.add(edge);
+            });
+        } else if(bd.lineType === 'Better') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.trjs.better.forEach(function (traj) {
+                scene.add(traj);
+            });
+        } else if(bd.lineType === 'EvenBetter') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.trjs.evenbetter.forEach(function (traj) {
+                scene.add(traj);
+            });
+        }
+    }
+
+    function removeAllBgMeshes() {
+        for (let bgMesh in draw.bgMs) {
+            if (draw.bgMs.hasOwnProperty(bgMesh)) {
+                scene.remove(draw.bgMs[bgMesh]);
+            }
+        }
+    }
+    function deleteAllBgMeshes() {
+        removeAllBgMeshes();
+        draw.bgMs = {};
+    }
+    function removeAllGrids() {
+        for (let grid in draw.grds) {
+            if (draw.grds.hasOwnProperty(grid)) {
+                scene.remove(draw.grds[grid]);
+            }
+        }
+    }
+    function deleteAllGrids() {
+        removeAllGrids();
+        data.grds = {};
+        draw.grds = {};
+    }
+
+//  ToDo: review
+    function removeAllTrajectories() {
+        for (let p in draw.pnts) {
+            scene.remove(draw.pnts[p]);
+        }
+        for (let t in draw.trjs.raw) {
+            scene.remove(draw.trjs.raw[t]);
+        }
+        for (let t in draw.trjs.better) {
+            scene.remove(draw.trjs.better[t]);
+        }
+        for (let t in draw.trjs.evenbetter) {
+            scene.remove(draw.trjs.evenbetter[t]);
+        }
+        for (let c in draw.clts.centroids) {
+            scene.remove(draw.clts.centroids[c]);
+        }
+        for (let p in draw.clts.points) {
+            scene.remove(draw.clts.points[p]);
+        }
+        for (let e in draw.grph.edges) {
+            scene.remove(draw.grph.edges[e]);
+        }
+
+        draw.pnts = [];
+        draw.trjs = {
+            raw: [],
+            subsa: [],
+            better: [],
+            evenbetter: []
+        };
+        draw.clts = {
+            centroids: [],
+            points: []
+        };
+        draw.grph = {
+            edges: []
+        }
+    }
+    function deleteAllTrajectories() {
+        removeAllTrajectories();
+        data.pnts = [];
+        data.trjs = {
+            raw: data.trjs.raw,
+            subsa: [],
+            better: [],
+            evenbetter: []
+        };
+        data.clts = {
+            centroids: [],
+            points: []
+        };
+        data.grph = {
+            edges: []
+        };
+    }
+    function removeAll(){
+        removeAllBgMeshes();
+        removeAllGrids();
+        removeAllTrajectories();
+    }
+    function deleteAll() {
+        deleteAllBgMeshes();
+        deleteAllGrids();
+        deleteAllTrajectories();
+    }
+
+    function changeScale() {
+    deleteAllBgMeshes();
+    deleteAllGrids();
+    loadNewBgMesh(bd.path, bd.floor); //also invokes loadNewGrid();
+    addAllTrajectories();
+}
+    function changeFloors(floor, path) {
+        console.log(floor);
+
+        if (!(draw.bgMs[floor] instanceof THREE.Mesh)) {
+            loadNewBgMesh(path, floor); //also invokes loadGrid()
+        }
+        updateCamera(floor);
+    }
+    function changeLineType() {
+        //removeAllTrajectories();
+        deleteAllTrajectories();
+        makeAllTrajectories();
+        addAllTrajectories();
+    }
+    function changeClusterRadius() {
+        deleteAllTrajectories();
+        makeAllTrajectories();
+        addAllTrajectories();
+    }
 
 
 </script>
