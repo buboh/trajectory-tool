@@ -1354,6 +1354,9 @@
         };
     }
 
+
+
+
     function makeLine(geom, color) {
         const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
         return new THREE.Line(geom, mat);
@@ -1362,7 +1365,6 @@
         const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
         return new THREE.Points(geom, mat);
     }
-
 
     function addAllTrajectories() { //abgesehen von clusters
         if ((bd.lineType === 'Line') || (bd.lineType === 'Curve')) {
