@@ -733,7 +733,12 @@
             vertices.push(tempTraj.points);
         });
         //centroid seed
-        const R = seedAndRedistCentroids(vertices);
+        const P = vertices; //Points
+        const G = generateGrid(P); //Grid
+        const R = seedCentroids(P, G); //Results
+        const F = redistributePoints(P, R, G); //Final
+
+
         R.forEach(function(cluster) {
             data.clts.centroids.push(cluster.centroid);
             data.clts.members.push(cluster.members);
@@ -790,11 +795,10 @@
         }
         return vertices;
     }
-    function seedAndRedistCentroids(points) {
+    function generateGrid(points) {
 
         const P = points;
 
-        //grid
         const G = {
             xMin: 0,
             xMax: 0,
@@ -825,6 +829,11 @@
             G.grid.push(gX);
         }
 
+        return G;
+    }
+    function seedCentroids(points, G) {
+
+        const P = points;
         const R = []; //results
 
         for (let i in P) {
@@ -836,10 +845,33 @@
                 }
             }
         }
-        redistributePoints(P, R, G);
-
-        return R; //change to R later
+        return R;
     }
+    function redistributePoints(P, R, G) {
+    for (let r in R) {
+        if(R.hasOwnProperty(r)){
+            R[r].members = [];
+        }
+    }
+    for (let i in P) {
+        if(P.hasOwnProperty(i)){
+            for (let j in P[i]) {
+                if (P[i].hasOwnProperty(j)) {
+                    const c = getClosestCentroid(P[i][j], G);
+                    if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                        const gr = c.g;//---------------------------------------------------
+                        gr.members.forEach(function (point) {
+                            point.c = c;
+                            point.g = gr;
+                        });
+                        gr.members.push(P[i][j]);
+                    }
+                }
+            }
+        }
+    }
+}
+
     function putInProperGroup(p, R, G) {
         const c = getClosestCentroid(p, G);
         let gr = {
@@ -877,7 +909,6 @@
         G.grid[gc.i][gc.j].push(gr.centroid);
     }
     function getClosestCentroid(p, G) {
-
         const gc = getGridPosition(p, G);
         const C = [];
         for (let k = Math.max(gc.i - 1, 1); k < Math.min(gc.i + 1, G.grid.length); k++) {
@@ -913,30 +944,6 @@
             j: Math.floor(( p.y - G.yMin ) / bd.maxRadius)
         };
     }
-    function redistributePoints(P, R, G) {
-        for (let r in R) {
-            if(R.hasOwnProperty(r)){
-                R[r].members = [];
-            }
-        }
-        for (let i in P) {
-            if(P.hasOwnProperty(i)){
-                for (let j in P[i]) {
-                    if (P[i].hasOwnProperty(j)) {
-                        const c = getClosestCentroid(P[i][j], G);
-                        if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
-                            const gr = c.g;//---------------------------------------------------
-                            gr.members.forEach(function (point) {
-                                point.c = c;
-                                point.g = gr;
-                            });
-                            gr.members.push(P[i][j]);
-                        }
-                    }
-                }
-            }
-        }
-    }
     function updateCentroid(centroid, points) {
 
         let sumX = 0;
@@ -958,7 +965,6 @@
             return null;
         }
     }
-
     function getSpatialDistance(p1, p2) {
         return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
@@ -1173,7 +1179,7 @@
 
     function makePointGeometry(points) {
         const pointsGeom = new THREE.Geometry();
-        points.forEach(function (point) {
+        points.forEach(function(point) {
             pointsGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
         });
         return pointsGeom;
@@ -1183,22 +1189,16 @@
         const centGeoms = [];
         const pointGeoms = [];
 
-        for (let c in clusters.centroids) {
-
-            const centGeom = new THREE.Geometry();
-            const cent = clusters.centroids[c];
-            //centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
+        clusters.centroids.forEach(function(cent) {
+            const centGeom = makePointGeometry([cent]);
             centGeoms.push(centGeom);
 
             const pointGeom = new THREE.Geometry();
-            for (let p in clusters.centroids[c].g.members) {
-                const point = clusters.centroids[c].g.members[p];
-                pointGeom.name = point.did;
+            cent.g.members.forEach(function(point) {
                 pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
-            }
+            });
             pointGeoms.push(pointGeom);
-        }
+        });
         const centDots = [];
         const pointDots = [];
         for (let g in centGeoms) {
@@ -1216,33 +1216,29 @@
         const centGeoms = [];
         const edgeGeoms = [];
 
-        for(let c in clusters.centroids) {
-            const centGeom = new THREE.Geometry();
-            const cent = clusters.centroids[c];
-            //centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
+        clusters.centroids.forEach(function(cent) {
+            const centGeom = makePointGeometry([cent]);
             centGeoms.push(centGeom);
-        }
+        });
 
-        for(let e in graph.edges){
+        graph.edges.forEach(function(ge) {
             const edgeGeom = new THREE.Geometry();
-            const edge = graph.edges[e];
-            edgeGeom.vertices.push(new THREE.Vector3(edge.start.x, -edge.start.y, edge.start.f));
-            edgeGeom.vertices.push(new THREE.Vector3(edge.end.x, -edge.end.y, edge.end.f));
+            edgeGeom.vertices.push(new THREE.Vector3(ge.start.x, -ge.start.y, ge.start.f));
+            edgeGeom.vertices.push(new THREE.Vector3(ge.end.x, -ge.end.y, ge.end.f));
             edgeGeoms.push(edgeGeom);
-        }
+        });
 
         //edges zeichnen
         const centDots = [];
         const edgeLines = [];
-        for(let cg in centGeoms) {
+        centGeoms.forEach(function(cg) {
             const randColor = Math.random() * par.ct.color + par.ct.corrColor;
-            centDots.push(createDots(centGeoms[cg], randColor, par.ct.opacity, par.ct.dot.size));
-        }
-        for(let eg in edgeGeoms) {
+            centDots.push(createDots(cg, randColor, par.ct.opacity, par.ct.dot.size));
+        });
+        edgeGeoms.forEach(function(eg) {
             const mat = new THREE.LineBasicMaterial({color: par.ln.color});
-            edgeLines.push(new THREE.LineSegments(edgeGeoms[eg], mat));
-        }
+            edgeLines.push(new THREE.LineSegments(eg, mat));
+        });
 
         return {
             cents: centDots,
@@ -1255,11 +1251,7 @@
         const trajLines = [];
 
         clusters.centroids.forEach(function (cent) {
-            const centGeom = new THREE.Geometry();
-            centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
-            //centGeoms.push(centGeom);
-
+            const centGeom = makePointGeometry([cent]);
             centDots.push(createDots(centGeom, cent.color, par.ct.opacity, par.ct.dot.size));
         });
 
@@ -1275,10 +1267,10 @@
             trajGeoms.push(trajGeom);
         });
 
-        for(let tg in trajGeoms) {
+        trajGeoms.forEach(function(tg) {
             const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
-            trajLines.push(new THREE.Line(trajGeoms[tg], mat));
-        }
+            trajLines.push(new THREE.Line(tg, mat));
+        });
 
         return {
             cents: centDots,
@@ -1290,15 +1282,13 @@
         const anchorGeoms = [];
 
         clusters.centroids.forEach(function (cent) {
-            const centGeom = new THREE.Geometry();
-            centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
+            const centGeom = makePointGeometry([cent]);
             centGeoms.push(centGeom);
         });
 
-        trajs.forEach(function (traj) {
+        trajs.forEach(function(traj) {
             const anchorGeom = new THREE.Geometry();
-            traj.anchors.forEach(function (point) {
+            traj.anchors.forEach(function(point) {
                 anchorGeom.vertices.push(
                     new THREE.Vector3(
                         point.x + traj.deviation * par.tj.deviationFactor,
@@ -1327,19 +1317,18 @@
         //edges zeichnen
         const centDots = [];
         const anchorLines = [];
-        for(let cg in centGeoms) {
+        centGeoms.forEach(function(cg) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(createDots(centGeoms[cg], randColor, par.ct.opacity, par.ct.dot.size));
-        }
-        for(let ag in anchorGeoms) {
-
-            const curve = new THREE.CatmullRomCurve3(anchorGeoms[ag].vertices);
+            centDots.push(createDots(cg, randColor, par.ct.opacity, par.ct.dot.size));
+        });
+        anchorGeoms.forEach(function(ag) {
+            const curve = new THREE.CatmullRomCurve3(ag.vertices);
             let tempTrajGeom = new THREE.Geometry();
             tempTrajGeom.vertices = curve.getPoints(50);
 
             const mat = new THREE.LineBasicMaterial({color: par.ln.color, transparent: par.ln.transparency, opacity: par.ln.opacity});
             anchorLines.push(new THREE.Line(tempTrajGeom, mat));
-        }
+        });
 
         return {
             cents: centDots,
