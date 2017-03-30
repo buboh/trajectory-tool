@@ -42,7 +42,7 @@
     const guiPar = {
         bgLoader: {
             path: {
-                init: 'LUCI-neu-',
+                init: 'white-',
             },
             ext: {
                 init: '.png',
@@ -80,7 +80,14 @@
             init: 20.0,
             name: 'Radius',
         },
-    };
+        redist: {
+            min: 0.0,
+            max: 10.0,
+            step: 1.0,
+            init: 0.0,
+            name: 'Redist count',
+        }
+    }; //ToDo: building path changed-----------------------------------------------------------------
     const par = {
         bg: {
             dir: 'img/',
@@ -132,7 +139,7 @@
 
     const bd = {
         w: window.innerWidth, //building width
-        wListener: function () {},
+        wListener: function() {},
         get width() {
             return this.w;
         },
@@ -140,12 +147,12 @@
             this.w = val;
             this.wListener(val)
         },
-        registerWListener: function (listener) {
+        registerWListener: function(listener) {
             this.hListener = listener;
         },
 
         h: window.innerHeight, //building height
-        hListener: function () {},
+        hListener: function() {},
         get height() {
             return this.h;
         },
@@ -153,7 +160,7 @@
             this.h = val;
             this.hListener(val);
         },
-        registerHListener: function (listener) {
+        registerHListener: function(listener) {
             this.wListener = listener;
         },
 
@@ -162,7 +169,7 @@
         },
 
         f: guiPar.floor.init, //building floor
-        fListener: function () {},
+        fListener: function() {},
         get floor() {
             return this.f;
         },
@@ -172,12 +179,12 @@
                 this.fListener(val);
             }
         },
-        registerFListener: function (listener) {
+        registerFListener: function(listener) {
             this.fListener = listener;
         },
 
         s: guiPar.scale.init, //building scale
-        sListener: function () {},
+        sListener: function() {},
         get scale() {
             return this.s;
         },
@@ -190,7 +197,7 @@
                 this.sListener(val);
             }
         },
-        registerSListener: function (listener) {
+        registerSListener: function(listener) {
             this.sListener = listener;
         },
 
@@ -201,22 +208,22 @@
         },
 
         lt: guiPar.lineType.init, //trajectory linetype
-        ltListener: function () {},
+        ltListener: function() {},
         get lineType() {
             return this.lt;
         },
         set lineType(val) {
-            if (val !== this.lt) {
+            //if (val !== this.lt) {
                 this.lt = val;
                 this.ltListener(val);
-            }
+            //}
         },
-        registerLtListener: function (listener) {
+        registerLtListener: function(listener) {
             this.ltListener = listener;
         },
 
         mR: guiPar.cMaxRad.init, //cluster maxRadius
-        mRListener: function () {},
+        mRListener: function() {},
         get maxRadius() {
             return this.mR;
         },
@@ -226,9 +233,22 @@
                 this.mRListener(val);
             }
         },
-        registerMRListener: function (listener) {
+        registerMRListener: function(listener) {
             this.mRListener = listener;
-        }
+        },
+
+        redi: guiPar.redist.init,
+        rediListener: function() {},
+        get redist() {
+            return this.redi;
+        },
+        set redist(val) {
+            this.redi = val;
+            this.rediListener(val);
+        },
+        registerRediListener: function(listener) {
+            this.rediListener = listener;
+        },
     };
     bd.registerWListener(function() {
         updateCamera(bd.floor);
@@ -250,6 +270,10 @@
     bd.registerMRListener(function() {
         changeClusterRadius();
     });
+    bd.registerRediListener(function() {
+        deleteClusterTrajectories();
+        bd.lineType = 'Clusters';
+    });
 
     const data = {
         grds: {},
@@ -263,7 +287,8 @@
         },
         clts: {
             centroids: [],
-            members: []
+            circles: [],
+            members: [],
         },
         grph: {
             edges: []
@@ -283,7 +308,8 @@
         },
         clts: {
             centroids: [],
-            members: []
+            circles: [],
+            members: [],
         },
         grph: {
             edges: []
@@ -492,6 +518,7 @@
         gui.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.dataLoader.name);
         gui.add(bd, 'lineType', guiPar.lineType.choices).name(guiPar.lineType.name);
         gui.add(bd, 'maxRadius', guiPar.cMaxRad.min, guiPar.cMaxRad.max).step(guiPar.cMaxRad.step).name(guiPar.cMaxRad.name);
+        gui.add(bd, 'redist', guiPar.redist.min, guiPar.redist.max).step(guiPar.redist.step).name(guiPar.redist.name);
     } //dat.gui
 
 //--LOAD-BASICS---------------------------------------------------------------------------------------------------------
@@ -736,8 +763,15 @@
         const P = vertices; //Points
         const G = generateGrid(P); //Grid
         const R = seedCentroids(P, G); //Results
-        const F = redistributePoints(P, R, G); //Final
 
+        let i = 0;
+        while(i < bd.redist) {
+            redistributePoints(P, R, G);
+
+            recalculateCentroids(R, G);
+
+            i++;
+        }
 
         R.forEach(function(cluster) {
             data.clts.centroids.push(cluster.centroid);
@@ -848,29 +882,50 @@
         return R;
     }
     function redistributePoints(P, R, G) {
-    for (let r in R) {
-        if(R.hasOwnProperty(r)){
-            R[r].members = [];
+        for(let r in R) {
+            if(R.hasOwnProperty(r)){
+                R[r].members = [];
+            }
         }
-    }
-    for (let i in P) {
-        if(P.hasOwnProperty(i)){
-            for (let j in P[i]) {
-                if (P[i].hasOwnProperty(j)) {
-                    const c = getClosestCentroid(P[i][j], G);
-                    if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
-                        const gr = c.g;//---------------------------------------------------
-                        gr.members.forEach(function (point) {
-                            point.c = c;
-                            point.g = gr;
-                        });
-                        gr.members.push(P[i][j]);
+        for(let i in P) {
+            if(P.hasOwnProperty(i)){
+                for (let j in P[i]) {
+                    if (P[i].hasOwnProperty(j)) {
+                        const c = getClosestCentroid(P[i][j], G);
+                        if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                            const gr = c.g;//---------------------------------------------------
+                            gr.members.forEach(function(point) {
+                                point.c = c;
+                                point.g = gr;
+                            });
+                            gr.members.push(P[i][j]);
+                        }
                     }
                 }
             }
         }
     }
-}
+
+    function recalculateCentroids(R, G) {
+        for(let r in R) {
+            if(R.hasOwnProperty(r)){
+                const gr = R[r];
+                const c = gr.centroid;
+                let gc = getGridPosition(c, G);
+
+                const index = G.grid[gc.i][gc.j].indexOf(c);
+                G.grid[gc.i][gc.j].splice(index, 1);
+
+                gr.centroid = updateCentroid(gr.centroid, gr.members);
+                gr.members.forEach(function(p) {
+                    p.c = c;
+                });
+
+                gc = getGridPosition(gr.centroid, G);
+                G.grid[gc.i][gc.j].push(gr.centroid);
+            }
+        }
+    }
 
     function putInProperGroup(p, R, G) {
         const c = getClosestCentroid(p, G);
@@ -911,11 +966,11 @@
     function getClosestCentroid(p, G) {
         const gc = getGridPosition(p, G);
         const C = [];
-        for (let k = Math.max(gc.i - 1, 1); k < Math.min(gc.i + 1, G.grid.length); k++) {
-            for (let m = Math.max(gc.j - 1, 1); m < Math.min(gc.j + 1, G.grid[gc.i].length); m++) {
-                for (let c in G.grid[k][m]) {
-                    if (G.grid[k][m].hasOwnProperty(c)) {
-                        if ((getSpatialDistance(p, G.grid[k][m][c]) <= bd.maxRadius )
+        for(let k = Math.max(gc.i - 1, 1); k < Math.min(gc.i + 1, G.grid.length); k++) {
+            for(let m = Math.max(gc.j - 1, 1); m < Math.min(gc.j + 1, G.grid[gc.i].length); m++) {
+                for(let c in G.grid[k][m]) {
+                    if(G.grid[k][m].hasOwnProperty(c)) {
+                        if((getSpatialDistance(p, G.grid[k][m][c]) <= bd.maxRadius)
                             && p.f === G.grid[k][m][c].f) {
                             C.push(G.grid[k][m][c]);
                         }
@@ -923,9 +978,9 @@
                 }
             }
         }
-        if (C.length === 0) {
+        if(C.length === 0) {
             return null;
-        } else if (C.length === 1) {
+        } else if(C.length === 1) {
             return C[0];
         } else {
             let ck = C[0];
@@ -1135,13 +1190,16 @@
     function makeClusters() {
         cluster(data.trjs.raw);
         const drawStuff = makeClusteredGeom(data.clts);
-        drawStuff.cents.forEach(function (centGeom) {
-            draw.clts.centroids.push(centGeom);
+        drawStuff.cents.forEach(function(cent) {
+            draw.clts.centroids.push(cent);
+        });
+        drawStuff.circles.forEach(function(circle) {
+            draw.clts.circles.push(circle);
         });
         drawStuff.points.forEach(function (pointGeom) {
             draw.clts.members.push(pointGeom);
         });
-    }
+    } //ToDo: temp code inside--------------------------------------------------------------
     function makeGraph() {
         cluster(data.trjs.raw);
         connectTheDots(data.clts.centroids);
@@ -1187,11 +1245,16 @@
     function makeClusteredGeom(clusters) {
 
         const centGeoms = [];
+        const circleGeoms = [];
         const pointGeoms = [];
 
         clusters.centroids.forEach(function(cent) {
             const centGeom = makePointGeometry([cent]);
             centGeoms.push(centGeom);
+
+            const circleGeom = new THREE.CircleGeometry(bd.maxRadius / 2, 20);
+            circleGeom.translate(cent.x, -cent.y, cent.f - 0.1);
+            circleGeoms.push(circleGeom);
 
             const pointGeom = new THREE.Geometry();
             cent.g.members.forEach(function(point) {
@@ -1199,17 +1262,22 @@
             });
             pointGeoms.push(pointGeom);
         });
+
         const centDots = [];
+        const circleMeshes = [];
         const pointDots = [];
+
         for (let g in centGeoms) {
             const randColor = Math.random() * par.ct.color + par.ct.corrColor;
             centDots.push(createDots(centGeoms[g], randColor, par.ct.opacity, par.ct.dot.size));
+            circleMeshes.push(createCircle(circleGeoms[g], randColor, 0.2));
             pointDots.push(createDots(pointGeoms[g], randColor, par.pt.opacity, par.pt.dot.size));
         }
 
         return {
             cents: centDots,
-            points: pointDots
+            circles: circleMeshes,
+            points: pointDots,
         };
     } //three.js
     function makeGraphGeom(clusters, graph) {
@@ -1344,6 +1412,10 @@
         const mat = new THREE.LineBasicMaterial({color: color, opacity: opa});
         return new THREE.Line(geom, mat);
     } //three.js
+    function createCircle(geom, color, opa) {
+        const mat = new THREE.MeshBasicMaterial({color: color, opacity: opa, transparent: true});
+        return new THREE.Mesh(geom, mat);
+    } //three.js
 
 //--ADD-&-REMOVE--------------------------------------------------------------------------------------------------------
 //  ToDo: review lineTypes
@@ -1383,7 +1455,29 @@
     }
 
     //--Special-Trajectories--------------------------------------------------------------------------------------------
+    function hideClusterTrajectories() {
+        for(let t in draw.trjs.better) {
+            scene.remove(draw.trjs.better[t]);
+        }
+        for(let t in draw.trjs.evenbetter) {
+            scene.remove(draw.trjs.evenbetter[t]);
+        }
+        for(let c in draw.clts.centroids) {
+            scene.remove(draw.clts.centroids[c]);
+        }
+        for(let ci in draw.clts.circles) {
+            scene.remove(draw.clts.circles[ci]);
+        }
+        for(let m in draw.clts.members) {
+            scene.remove(draw.clts.members[m]);
+        }
+        for(let e in draw.grph.edges) {
+            scene.remove(draw.grph.edges[e]);
+        }
+    }
     function removeClusterTrajectories() {
+        hideClusterTrajectories();
+
         //draw.pnts = data.pnts;
         draw.trjs = {
             raw: draw.trjs.raw,
@@ -1393,7 +1487,8 @@
         };
         draw.clts = {
             centroids: [],
-            members: []
+            circles: [],
+            members: [],
         };
         draw.grph = {
             edges: []
@@ -1410,7 +1505,8 @@
         };
         data.clts = {
             centroids: [],
-            members: []
+            circles: [],
+            members: [],
         };
         data.grph = {
             edges: []
@@ -1420,39 +1516,42 @@
     //--All-Trajectories------------------------------------------------------------------------------------------------
     function addAllTrajectories() { //abgesehen von clusters
         if (bd.lineType === 'Point') {
-            draw.pnts.forEach(function (point) {
+            draw.pnts.forEach(function(point) {
                 scene.add(point);
             });
         } else if (bd.lineType === 'Line') {
-            draw.trjs.raw.forEach(function (traj) {
+            draw.trjs.raw.forEach(function(traj) {
                 scene.add(traj);
             });
         } else if(bd.lineType === 'Clusters') {
-            draw.clts.centroids.forEach(function (cent) {
+            draw.clts.centroids.forEach(function(cent) {
                 scene.add(cent);
             });
-            draw.clts.members.forEach(function (point) {
+            draw.clts.circles.forEach(function(circle) {
+                scene.add(circle);
+            });
+            draw.clts.members.forEach(function(point) {
                 scene.add(point);
             });
         } else if(bd.lineType === 'Graph') {
-            draw.clts.centroids.forEach(function (cent) {
+            draw.clts.centroids.forEach(function(cent) {
                 scene.add(cent);
             });
-            draw.grph.edges.forEach(function (edge) {
+            draw.grph.edges.forEach(function(edge) {
                 scene.add(edge);
             });
         } else if(bd.lineType === 'Better') {
-            draw.clts.centroids.forEach(function (cent) {
+            draw.clts.centroids.forEach(function(cent) {
                 scene.add(cent);
             });
-            draw.trjs.better.forEach(function (traj) {
+            draw.trjs.better.forEach(function(traj) {
                 scene.add(traj);
             });
         } else if(bd.lineType === 'EvenBetter') {
-            draw.clts.centroids.forEach(function (cent) {
+            draw.clts.centroids.forEach(function(cent) {
                 scene.add(cent);
             });
-            draw.trjs.evenbetter.forEach(function (traj) {
+            draw.trjs.evenbetter.forEach(function(traj) {
                 scene.add(traj);
             });
         }
@@ -1474,6 +1573,9 @@
         for(let c in draw.clts.centroids) {
             scene.remove(draw.clts.centroids[c]);
         }
+        for(let ci in draw.clts.circles) {
+            scene.remove(draw.clts.circles[ci]);
+        }
         for(let m in draw.clts.members) {
             scene.remove(draw.clts.members[m]);
         }
@@ -1492,6 +1594,7 @@
         };
         draw.clts = {
             centroids: [],
+            circles: [],
             members: [],
         };
         draw.grph = {
@@ -1509,7 +1612,8 @@
         };
         data.clts = {
             centroids: [],
-            members: []
+            circles: [],
+            members: [],
         };
         data.grph = {
             edges: []
@@ -1559,23 +1663,28 @@
             if(draw.trjs.raw.length === 0){
                 makeAllTrajectories();
             }
-        } else  if(bd.lineType === 'Clusters') {
-            if((draw.clts.centroids.length === 0) || (draw.clts.members.length === 0)) {
+        } else if(bd.lineType === 'Clusters') {
+            if((draw.clts.centroids.length === 0) ||
+                (draw.clts.circles.length === 0) ||
+                (draw.clts.members.length === 0)) {
                 deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'Graph') {
-            if((draw.clts.centroids.length === 0) || (draw.grph.edges.length === 0)) {
+            if((draw.clts.centroids.length === 0) ||
+                (draw.grph.edges.length === 0)) {
                 deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'Better') {
-            if((draw.clts.centroids.length === 0) || (draw.trjs.better.length === 0)) {
+            if((draw.clts.centroids.length === 0) ||
+                (draw.trjs.better.length === 0)) {
                 deleteClusterTrajectories();
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'EvenBetter') {
-            if((draw.clts.centroids.length === 0) || (draw.trjs.evenbetter.length === 0)) {
+            if((draw.clts.centroids.length === 0) ||
+                (draw.trjs.evenbetter.length === 0)) {
                 deleteClusterTrajectories();
                 makeAllTrajectories();
             }
