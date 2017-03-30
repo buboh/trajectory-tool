@@ -82,10 +82,11 @@
         },
         redist: {
             min: 0.0,
-            max: 200.0,
+            max: 50.0,
             step: 5.0,
-            init: 0.0,
+            init: 50.0,
             name: 'Redist count',
+            change: true,
         }
     }; //ToDo: building path changed-----------------------------------------------------------------
     const par = {
@@ -243,8 +244,10 @@
             return this.redi;
         },
         set redist(val) {
-            this.redi = val;
-            this.rediListener(val);
+            if(val !== this.redi) {
+                this.redi = val;
+                this.rediListener(val);
+            }
         },
         registerRediListener: function(listener) {
             this.rediListener = listener;
@@ -764,12 +767,13 @@
         const G = generateGrid(P); //Grid
         const R = seedCentroids(P, G); //Results
 
+        guiPar.redist.change = true;
         let i = 0;
-        while(i < bd.redist) {
+        while((i < bd.redist) && guiPar.redist.change) {
+
             redistributePoints(P, R, G);
-
             recalculateCentroids(R, G);
-
+            console.log(i);
             i++;
         }
 
@@ -882,10 +886,17 @@
         return R;
     }
     function redistributePoints(P, R, G) {
-        for(let r in R) {
+
+        const originList = {};
+        guiPar.redist.change = false;
+
+        let r = 0;
+        while(r < R.length) {
             if(R.hasOwnProperty(r)){
+                originList[r] = R[r].members.length;
                 R[r].members = [];
             }
+            r++;
         }
         for(let i in P) {
             if(P.hasOwnProperty(i)){
@@ -903,6 +914,17 @@
                     }
                 }
             }
+        }
+
+        //test for changes
+        r = 0;
+        while(r < R.length) {
+            if(R.hasOwnProperty(r)){
+                if(originList[r] !== R[r].members.length) {
+                    guiPar.redist.change = true;
+                }
+            }
+            r++;
         }
     }
 
@@ -1268,7 +1290,15 @@
         const pointDots = [];
 
         for (let g in centGeoms) {
-            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
+
+           /* const centVect = centGeoms[g].vertices[0];
+            const rainbowColor = new THREE.Color(
+                (1 / bd.width) * centVect.x, //r
+                (1 / bd.height) * -centVect.y, //g
+                (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
+            );*/
+
+            const randColor = Math.random() * par.ct.color * par.ct.corrColor;
             centDots.push(createDots(centGeoms[g], randColor, par.ct.opacity, par.ct.dot.size));
             circleMeshes.push(createCircle(circleGeoms[g], randColor, 0.2));
             pointDots.push(createDots(pointGeoms[g], randColor, par.pt.opacity, par.pt.dot.size));

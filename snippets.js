@@ -249,3 +249,23 @@ function splitPoints( pointList ) {
 
  let mesh = new THREE.Mesh(line.geometry, mat2);
  edgeLines.push(mesh);*/
+
+function hash(str) {
+    let hash = 0;
+    if (str.length === 0) {
+        return hash;
+    }
+    for (let i = 0; i < str.length; i++) {
+        let char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+}
+
+/* const centVect = centGeoms[g].vertices[0];
+ const rainbowColor = new THREE.Color(
+ (1 / bd.width) * centVect.x, //r
+ (1 / bd.height) * -centVect.y, //g
+ (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
+ );*/
