@@ -36,7 +36,7 @@
             alphaVal: 0.0,
         },
         rayc: {
-            linePrec: 1,
+            linePrec: 0.1,
         },
     };
     const guiPar = {
@@ -82,25 +82,6 @@
         },
     };
     const par = {
-        tj: {
-            color: 0xff0000,
-            clickColor: 0x000000,
-            cutTime: 20000.0,
-            dot: {
-                size: 3.5,
-            },
-        },
-        pt: {
-            color: 0xff0000,
-            dot: {
-                size: 3.5,
-            },
-        },
-        ct: {
-            dot: {
-                size: 10.0,
-            },
-        },
         bg: {
             dir: 'img/',
             corrZ: -0.4,
@@ -112,6 +93,36 @@
                 color: 0x555555,
                 opacity: 1,
             }
+        },
+        pt: {
+            color: 0xff0000,
+            opacity: 1,
+            dot: {
+                size: 3.5,
+            },
+        },
+        tj: {
+            color: 0xff0000,
+            opacity: 1,
+            clickColor: 0x000000,
+            cutTime: 20000.0,
+            dot: {
+                size: 3.5,
+            },
+            deviationFactor: 0.25, //should be changed depending on number of trajectories on connection
+        },
+        ln: {
+            color: 0x000000,
+            opacity: 0.4,
+            transparency: true,
+        },
+        ct: {
+            color: 0xffffff,
+            opacity: 1,
+            corrColor: 0x555555,
+            dot: {
+                size: 10.0,
+            },
         },
         csv: {
             header: 't,x,y,acc,f,did',
@@ -219,24 +230,24 @@
             this.mRListener = listener;
         }
     };
-    bd.registerWListener(function () {
+    bd.registerWListener(function() {
         updateCamera(bd.floor);
         updateRenderer();
     });
-    bd.registerHListener(function () {
+    bd.registerHListener(function() {
         updateCamera(bd.floor);
         updateRenderer();
     });
-    bd.registerFListener(function () {
+    bd.registerFListener(function() {
         changeFloors(bd.floor);
     });
-    bd.registerSListener(function () {
+    bd.registerSListener(function() {
         changeScale();
     });
-    bd.registerLtListener(function () {
+    bd.registerLtListener(function() {
         changeLineType();
     });
-    bd.registerMRListener(function () {
+    bd.registerMRListener(function() {
         changeClusterRadius();
     });
 
@@ -252,7 +263,7 @@
         },
         clts: {
             centroids: [],
-            points: []
+            members: []
         },
         grph: {
             edges: []
@@ -272,7 +283,7 @@
         },
         clts: {
             centroids: [],
-            points: []
+            members: []
         },
         grph: {
             edges: []
@@ -309,7 +320,7 @@
 //--START---------------------------------------------------------------------------------------------------------------
 
     init();
-    initRaycaster();
+    //initRaycaster(); broken for now
     update();
 
 //--INITALIZATION-------------------------------------------------------------------------------------------------------
@@ -320,7 +331,6 @@
         camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
         initRenderer();
         initCamera();
-        initRaycaster();
         initBackgroundFileInput();
         initDataFileInput();
         initDatGUI();
@@ -391,7 +401,7 @@
         for(let int in intersects){
             if(intersects[int].length !== 0){
                 const obj = intersects[int][0].object;
-                if(obj.type === 'Line'){
+                if((obj.type === 'Line')){
                     if(obj.material.color.r === 1){
                         obj.material.color = new THREE.Color(par.tj.clickColor);
                     } else if(obj.material.color.r === 0){
@@ -726,7 +736,7 @@
         const R = seedAndRedistCentroids(vertices);
         R.forEach(function(cluster) {
             data.clts.centroids.push(cluster.centroid);
-            data.clts.points.push(cluster.members);
+            data.clts.members.push(cluster.members);
         });
     }
 
@@ -1108,12 +1118,12 @@
 
     function makePoints() {
         const tempTrajGeom = makePointGeometry(data.pnts);
-        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.dot.size));
+        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.opacity, par.pt.dot.size));
     }
     function makeLine() {
         data.trjs.raw.forEach(function (traj) {
             const tempTrajGeom = makePointGeometry(traj.points);
-            draw.trjs.raw.push(createLine(tempTrajGeom, traj.color));
+            draw.trjs.raw.push(createLine(tempTrajGeom, traj.color, par.tj.opacity));
         });
     }
     function makeClusters() {
@@ -1123,7 +1133,7 @@
             draw.clts.centroids.push(centGeom);
         });
         drawStuff.points.forEach(function (pointGeom) {
-            draw.clts.points.push(pointGeom);
+            draw.clts.members.push(pointGeom);
         });
     }
     function makeGraph() {
@@ -1178,23 +1188,23 @@
             const centGeom = new THREE.Geometry();
             const cent = clusters.centroids[c];
             //centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
             centGeoms.push(centGeom);
 
             const pointGeom = new THREE.Geometry();
             for (let p in clusters.centroids[c].g.members) {
                 const point = clusters.centroids[c].g.members[p];
                 pointGeom.name = point.did;
-                pointGeom.vertices.push(new THREE.Vector3(point.x, point.y * -1, point.f));
+                pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
             }
             pointGeoms.push(pointGeom);
         }
         const centDots = [];
         const pointDots = [];
         for (let g in centGeoms) {
-            const randColor = Math.random() * 0xffffff;
-            centDots.push(createDots(centGeoms[g], randColor, par.ct.dot.size));
-            pointDots.push(createDots(pointGeoms[g], randColor, par.pt.dot.size));
+            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
+            centDots.push(createDots(centGeoms[g], randColor, par.ct.opacity, par.ct.dot.size));
+            pointDots.push(createDots(pointGeoms[g], randColor, par.pt.opacity, par.pt.dot.size));
         }
 
         return {
@@ -1210,15 +1220,15 @@
             const centGeom = new THREE.Geometry();
             const cent = clusters.centroids[c];
             //centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
             centGeoms.push(centGeom);
         }
 
         for(let e in graph.edges){
             const edgeGeom = new THREE.Geometry();
             const edge = graph.edges[e];
-            edgeGeom.vertices.push(new THREE.Vector3(edge.start.x, edge.start.y * -1, edge.start.f));
-            edgeGeom.vertices.push(new THREE.Vector3(edge.end.x, edge.end.y * -1, edge.end.f));
+            edgeGeom.vertices.push(new THREE.Vector3(edge.start.x, -edge.start.y, edge.start.f));
+            edgeGeom.vertices.push(new THREE.Vector3(edge.end.x, -edge.end.y, edge.end.f));
             edgeGeoms.push(edgeGeom);
         }
 
@@ -1226,11 +1236,11 @@
         const centDots = [];
         const edgeLines = [];
         for(let cg in centGeoms) {
-            const randColor = Math.random() * 0xffffff;
-            centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
+            centDots.push(createDots(centGeoms[cg], randColor, par.ct.opacity, par.ct.dot.size));
         }
         for(let eg in edgeGeoms) {
-            const mat = new THREE.LineBasicMaterial({color: 0x000000, opacity: 1});
+            const mat = new THREE.LineBasicMaterial({color: par.ln.color});
             edgeLines.push(new THREE.LineSegments(edgeGeoms[eg], mat));
         }
 
@@ -1247,10 +1257,10 @@
         clusters.centroids.forEach(function (cent) {
             const centGeom = new THREE.Geometry();
             centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
             //centGeoms.push(centGeom);
 
-            centDots.push(createDots(centGeom, cent.color, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cent.color, par.ct.opacity, par.ct.dot.size));
         });
 
         trajs.forEach(function (traj) {
@@ -1258,20 +1268,15 @@
             traj.centroids.forEach(function (point) {
                 trajGeom.vertices.push(
                     new THREE.Vector3(
-                        point.x + traj.deviation * 0.25,
-                        point.y * -1 + traj.deviation * 0.25,
+                        point.x + traj.deviation * par.tj.deviationFactor,
+                        -point.y + traj.deviation * par.tj.deviationFactor,
                         point.f));
             });
             trajGeoms.push(trajGeom);
         });
 
-        //edges zeichnen
-        /*for(let cg in centGeoms) {
-         const randColor = Math.random() * 0xffffff;
-         centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
-         }*/
         for(let tg in trajGeoms) {
-            const mat = new THREE.LineBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.4});
+            const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
             trajLines.push(new THREE.Line(trajGeoms[tg], mat));
         }
 
@@ -1287,7 +1292,7 @@
         clusters.centroids.forEach(function (cent) {
             const centGeom = new THREE.Geometry();
             centGeom.name = cent.did;
-            centGeom.vertices.push(new THREE.Vector3(cent.x, cent.y * -1, cent.f));
+            centGeom.vertices.push(new THREE.Vector3(cent.x, -cent.y, cent.f));
             centGeoms.push(centGeom);
         });
 
@@ -1296,8 +1301,8 @@
             traj.anchors.forEach(function (point) {
                 anchorGeom.vertices.push(
                     new THREE.Vector3(
-                        point.x + traj.deviation * 0.25,
-                        point.y * -1 + traj.deviation * 0.25,
+                        point.x + traj.deviation * par.tj.deviationFactor,
+                        -point.y + traj.deviation * par.tj.deviationFactor,
                         point.f));
             });
             anchorGeoms.push(anchorGeom);
@@ -1324,7 +1329,7 @@
         const anchorLines = [];
         for(let cg in centGeoms) {
             const randColor = Math.random() * 0xffffff;
-            centDots.push(createDots(centGeoms[cg], randColor, par.ct.dot.size));//edgeLines.push( makeLine( edgeGeoms[g], 0x000000 ) );
+            centDots.push(createDots(centGeoms[cg], randColor, par.ct.opacity, par.ct.dot.size));
         }
         for(let ag in anchorGeoms) {
 
@@ -1332,7 +1337,7 @@
             let tempTrajGeom = new THREE.Geometry();
             tempTrajGeom.vertices = curve.getPoints(50);
 
-            const mat = new THREE.LineBasicMaterial({color: 0x000000, transparent: true, opacity: 0.4});
+            const mat = new THREE.LineBasicMaterial({color: par.ln.color, transparent: par.ln.transparency, opacity: par.ln.opacity});
             anchorLines.push(new THREE.Line(tempTrajGeom, mat));
         }
 
@@ -1342,12 +1347,12 @@
         };
     } //three.js
 
-    function createDots(geom, color, pointSize) {
-        const mat = new THREE.PointsMaterial({color: color, opacity: 1, size: pointSize, sizeAttenuation: false});
+    function createDots(geom, color, opa, pointSize) {
+        const mat = new THREE.PointsMaterial({color: color, opacity: opa, size: pointSize, sizeAttenuation: false});
         return new THREE.Points(geom, mat);
     } //three.js
-    function createLine(geom, color) {
-        const mat = new THREE.LineBasicMaterial({color: color, opacity: 1});
+    function createLine(geom, color, opa) {
+        const mat = new THREE.LineBasicMaterial({color: color, opacity: opa});
         return new THREE.Line(geom, mat);
     } //three.js
 
@@ -1392,14 +1397,14 @@
     function removeClusterTrajectories() {
         //draw.pnts = data.pnts;
         draw.trjs = {
-            raw: data.trjs.raw,
+            raw: draw.trjs.raw,
             subsa: [],
             better: [],
             evenbetter: []
         };
         draw.clts = {
             centroids: [],
-            points: []
+            members: []
         };
         draw.grph = {
             edges: []
@@ -1416,7 +1421,7 @@
         };
         data.clts = {
             centroids: [],
-            points: []
+            members: []
         };
         data.grph = {
             edges: []
@@ -1425,48 +1430,44 @@
 
     //--All-Trajectories------------------------------------------------------------------------------------------------
     function addAllTrajectories() { //abgesehen von clusters
-    if (bd.lineType === 'Point') {
-        draw.pnts.forEach(function (point) {
-            scene.add(point);
-        });
-    } else if (bd.lineType === 'Line') {
-        draw.trjs.raw.forEach(function (traj) {
-            scene.add(traj);
-        });
-    }
-
-
-
-    else if(bd.lineType === 'Clusters') {
-        draw.clts.centroids.forEach(function (cent) {
-            scene.add(cent);
-        });
-        draw.clts.points.forEach(function (point) {
-            scene.add(point);
-        });
-    } else if(bd.lineType === 'Graph') {
-        draw.clts.centroids.forEach(function (cent) {
-            scene.add(cent);
-        });
-        draw.grph.edges.forEach(function (edge) {
-            scene.add(edge);
-        });
-    } else if(bd.lineType === 'Better') {
-        draw.clts.centroids.forEach(function (cent) {
-            scene.add(cent);
-        });
-        draw.trjs.better.forEach(function (traj) {
-            scene.add(traj);
-        });
-    } else if(bd.lineType === 'EvenBetter') {
-        draw.clts.centroids.forEach(function (cent) {
-            scene.add(cent);
-        });
-        draw.trjs.evenbetter.forEach(function (traj) {
-            scene.add(traj);
-        });
-    }
-} //three.js
+        if (bd.lineType === 'Point') {
+            draw.pnts.forEach(function (point) {
+                scene.add(point);
+            });
+        } else if (bd.lineType === 'Line') {
+            draw.trjs.raw.forEach(function (traj) {
+                scene.add(traj);
+            });
+        } else if(bd.lineType === 'Clusters') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.clts.members.forEach(function (point) {
+                scene.add(point);
+            });
+        } else if(bd.lineType === 'Graph') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.grph.edges.forEach(function (edge) {
+                scene.add(edge);
+            });
+        } else if(bd.lineType === 'Better') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.trjs.better.forEach(function (traj) {
+                scene.add(traj);
+            });
+        } else if(bd.lineType === 'EvenBetter') {
+            draw.clts.centroids.forEach(function (cent) {
+                scene.add(cent);
+            });
+            draw.trjs.evenbetter.forEach(function (traj) {
+                scene.add(traj);
+            });
+        }
+    } //three.js
 
     function hideAllTrajectories() {
         for(let p in draw.pnts) {
@@ -1484,8 +1485,8 @@
         for(let c in draw.clts.centroids) {
             scene.remove(draw.clts.centroids[c]);
         }
-        for(let p in draw.clts.points) {
-            scene.remove(draw.clts.points[p]);
+        for(let m in draw.clts.members) {
+            scene.remove(draw.clts.members[m]);
         }
         for(let e in draw.grph.edges) {
             scene.remove(draw.grph.edges[e]);
@@ -1502,7 +1503,7 @@
         };
         draw.clts = {
             centroids: [],
-            points: [],
+            members: [],
         };
         draw.grph = {
             edges: [],
@@ -1519,7 +1520,7 @@
         };
         data.clts = {
             centroids: [],
-            points: []
+            members: []
         };
         data.grph = {
             edges: []
@@ -1570,7 +1571,7 @@
                 makeAllTrajectories();
             }
         } else  if(bd.lineType === 'Clusters') {
-            if((draw.clts.centroids.length === 0) || (draw.clts.points.length === 0)) {
+            if((draw.clts.centroids.length === 0) || (draw.clts.members.length === 0)) {
                 deleteClusterTrajectories();
                 makeAllTrajectories();
             }
