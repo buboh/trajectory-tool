@@ -899,16 +899,7 @@
         P.forEach(function(t) {
             t.forEach(function(p) {
 
-                let c = null;
-                let range = 1;
-                while(c === null) {
-                    c = getClosestCentroid(p, G, range);
-                    range++;
-                    if(range > G.grid.length){
-                        break;
-                    }
-                }
-
+                let c = getClosestCentroid(p, G);
                 if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
 
                     const gr = c.g;//---------------------------------------------------
@@ -946,6 +937,8 @@
         const tempR = R;
         R = [];
 
+        let cnt = 0;
+
         for(let r = 0; r < tempR.length; r++) {
             if(tempR.hasOwnProperty(r)){
                 let gr = tempR[r];
@@ -971,30 +964,37 @@
 
                     R.push(gr);
 
-                } /*else if(gr.members.length === 1) {
+                }
+                //trying to remove/merge clusters with only 1 point
+                /*else if(gr.members.length === 1) {
 
                     const p = gr.members[0];
-                    const c = getClosestCentroid(p, G);
-                    if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                    let c = getClosestCentroid(p, G);
+                    if(c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+
                         const gr2 = c.g;//---------------------------------------------------
-                        gr2.members.forEach(function (point) {
+                        gr2.members.push(p);
+                        gr2.members.forEach(function(point) {
                             point.c = c;
                             point.g = gr2;
                         });
-                        gr2.members.push(p);
-                        gr = gr2;
+
+                    } else {
+                        data.clts.errors.push(p);
+                        cnt++;
                     }
+
                 }*/ else {
                     let k = 0;
                 }
             }
         }
-        console.log('end' + R.length);
+        console.log('end ' + R.length + ', Number of merged centroids: ' + cnt);
 
     }
 
     function putInProperGroup(p, R, G) {
-        const c = getClosestCentroid(p, G, 1);
+        const c = getClosestCentroid(p, G);
         let gr = {
             centroid: {},
             members: [],
@@ -1029,10 +1029,13 @@
         gc = getGridPosition(gr.centroid, G);
         G.grid[gc.i][gc.j].push(gr.centroid);
     }
-    function getClosestCentroid(p, G, range) {
+    function getClosestCentroid(p, G) {
 
         const gc = getGridPosition(p, G);
         const C = [];
+        const range = 1;
+
+
         for(let k = Math.max(gc.i - range, 1);
             k < Math.min(gc.i + range, G.grid.length);
             k++) {
@@ -1043,26 +1046,25 @@
 
                 for(let c in G.grid[k][m]) {
                     if(G.grid[k][m].hasOwnProperty(c)) {
-                        if((getSpatialDistance(p, G.grid[k][m][c]) <= bd.maxRadius)
-                            && p.f === G.grid[k][m][c].f) {
+                        if(((getSpatialDistance(p, G.grid[k][m][c])) <= bd.maxRadius) && (p.f === G.grid[k][m][c].f)) {
                             C.push(G.grid[k][m][c]);
                         }
                     }
                 }
             }
         }
+
         if(C.length === 0) {
             return null;
         } else if(C.length === 1) {
             return C[0];
         } else {
             let ck = C[0];
-
-            for (let l in C) {
-                if (getSpatialDistance(C[l], p) <= getSpatialDistance(ck, p)) {
-                    ck = C[l];
+            C.forEach(function(c) {
+                if (getSpatialDistance(c, p) <= getSpatialDistance(ck, p)) {
+                    ck = c;
                 }
-            }
+            });
             return ck;
         }
     }
