@@ -20,23 +20,25 @@
 //--CONSTANTS-&-VARIABLES-----------------------------------------------------------------------------------------------
 
     let camera, scene, renderer;
-    let mouse, raycaster;
+    let mouse, raycaster, INTERSECTED;
     let gui;
     let buildingFileClicker, trajectoryFileClicker;
 
     const threePar = {
         cam: {
-            near: -100.0,
-            far: 100.0,
+            corrNear: -0.1,
+            corrFar: 0.1,
+            corrZ: 100,
+            positionZ: 100,
         },
         rend: {
             aa: true,
             alpha: true,
             color: 0xffffff,
-            alphaVal: 0.0,
+            alphaVal: 0,
         },
         rayc: {
-            linePrec: 0.1,
+            linePrec: 0.2,
         },
     };
     const guiPar = {
@@ -50,17 +52,17 @@
             name: 'Load building',
         },
         scale: {
-            min: 45.0,
-            max: 100.0,
-            step: 1.0,
-            init: 49.0,
+            min: 45,
+            max: 100,
+            step: 1,
+            init: 49,
             name: 'Scale (1:X)',
         },
         floor: {
-            min: -2.0,
-            max: 2.0,
-            step: 1.0,
-            init: 1.0,
+            min: -2,
+            max: 2,
+            step: 1,
+            init: 1,
             name: 'Floor',
         },
         dataLoader: {
@@ -74,17 +76,17 @@
             name: 'Line type',
         },
         cMaxRad: {
-            min: 5.0,
-            max: 50.0,
-            step: 5.0,
-            init: 20.0,
+            min: 5,
+            max: 50,
+            step: 5,
+            init: 20,
             name: 'Radius',
         },
         redist: {
-            min: 0.0,
-            max: 50.0,
-            step: 5.0,
-            init: 50.0,
+            min: 0,
+            max: 50,
+            step: 1,
+            init: 50,
             name: 'Redist count',
             change: true,
         }
@@ -92,11 +94,11 @@
     const par = {
         bg: {
             dir: 'img/',
-            corrZ: -0.4,
+            corrZ: -0.1,
         },
         gd: {
-            delta: 5.0,
-            corrZ: 0.4,
+            delta: 5,
+            corrZ: 0.1,
             line: {
                 color: 0x555555,
                 opacity: 1,
@@ -113,7 +115,7 @@
             color: 0xff0000,
             opacity: 1,
             clickColor: 0x000000,
-            cutTime: 20000.0,
+            cutTime: 20000,
             dot: {
                 size: 3.5,
             },
@@ -129,11 +131,12 @@
             opacity: 1,
             corrColor: 0x555555,
             dot: {
-                size: 10.0,
+                size: 10,
             },
         },
         csv: {
             header: 't,x,y,acc,f,did',
+            removeCount: 5,
         },
         //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
     };
@@ -177,7 +180,7 @@
         set floor(val) {
             if (val !== this.f) {
                 this.f = val;
-                this.fListener(val);
+                this.fListener();
             }
         },
         registerFListener: function(listener) {
@@ -254,15 +257,15 @@
         },
     };
     bd.registerWListener(function() {
-        updateCamera(bd.floor);
+        updateCamera();
         updateRenderer();
     });
     bd.registerHListener(function() {
-        updateCamera(bd.floor);
+        updateCamera();
         updateRenderer();
     });
     bd.registerFListener(function() {
-        changeFloors(bd.floor);
+        changeFloors();
     });
     bd.registerSListener(function() {
         changeScale();
@@ -351,7 +354,7 @@
 //--START---------------------------------------------------------------------------------------------------------------
 
     init();
-    //initRaycaster(); broken for now
+    initRaycaster(); //broken for now
     update();
 
 //--INITALIZATION-------------------------------------------------------------------------------------------------------
@@ -378,78 +381,177 @@
         const windowRatio = window.innerWidth / window.innerHeight;
         if( windowRatio < bd.ratio) {
             camera = new THREE.OrthographicCamera(0, bd.width,
-                0, -bd.width / windowRatio, threePar.cam.near, threePar.cam.far);
+                0, -bd.width / windowRatio, 0, 200);
         } else {
             camera = new THREE.OrthographicCamera(0, bd.height * windowRatio,
-                0, -bd.height, threePar.cam.near, threePar.cam.far);
-        }
+                0, -bd.height, 0, 200);
+        } //Temp code inside
+
+        camera.position.z = 100;
+        camera.lookAt(new THREE.Vector3(0,0,0));
         camera.updateProjectionMatrix();
     } //three.js
+    function initRaycaster() {
+        raycaster = new THREE.Raycaster();
+        raycaster.near = 0; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
+        raycaster.far = 200; //Math.round((bd.floor + par.bg.corrZ + threePar.cam.corrFar) * 100) / 100;
+        raycaster.linePrecision = threePar.rayc.linePrec;
+        mouse = new THREE.Vector2();
+        window.addEventListener('click', onMouseClick, false);
+
+        // when the mouse moves, call the given function
+        //window.addEventListener( 'mousemove', onMouseClick, false );
+    } //three.js
+
     function updateRenderer() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     } //three.js
-    function updateCamera(floor) {
+    function updateCamera() {
         const windowRatio = window.innerWidth / window.innerHeight;
         if( windowRatio < bd.ratio) {
             camera.right = bd.width;
             camera.bottom = -bd.width / windowRatio;
-            camera.near = -(floor + par.gd.corrZ);
+            camera.near = (-bd.floor - par.gd.corrZ + threePar.cam.corrNear) + threePar.cam.corrZ; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
+            camera.far = (-bd.floor - par.bg.corrZ + threePar.cam.corrFar) + threePar.cam.corrZ; //Math.round((bd.floor + par.bg.corrZ + threePar.cam.corrFar) * 100) / 100;
         } else {
             camera.right = bd.height * windowRatio;
             camera.bottom = -bd.height;
-            camera.near = -(floor + par.gd.corrZ);
+            camera.near = (-bd.floor - par.gd.corrZ + threePar.cam.corrNear) + threePar.cam.corrZ; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
+            camera.far = (-bd.floor - par.bg.corrZ + threePar.cam.corrFar) + threePar.cam.corrZ;
         }
         camera.updateProjectionMatrix();
 //        if( camerahelper ) {
 //            camerahelper.update();
 //        }
     } //three.js
+    function updateRaycaster() {
+        raycaster.near = (-bd.floor - par.gd.corrZ + threePar.cam.corrNear) + threePar.cam.corrZ;
+        raycaster.far = (-bd.floor - par.bg.corrZ + threePar.cam.corrFar) + threePar.cam.corrZ;
+    }
 
     function update() {
+        //hoverDetector();
         requestAnimationFrame(update);
         renderer.render(scene, camera);
     } //three.js
 
-    function initRaycaster() {
-        raycaster = new THREE.Raycaster();
-        raycaster.near = threePar.cam.near;
-        raycaster.far = threePar.cam.far;
-        raycaster.linePrecision = threePar.rayc.linePrec;
-        mouse = new THREE.Vector2();
-        window.addEventListener('click', onMouseClick, false);
-    } //three.js
+    function hoverDetector() {
+
+        raycaster.setFromCamera(mouse, camera);
+
+        // create an array containing all objects in the scene with which the ray intersects
+        let intersects = raycaster.intersectObjects(scene.children) ;
+
+        // INTERSECTED = the object in the scene currently closest to the camera
+        //		and intersected by the Ray projected from the mouse position
+
+        // if there is one (or more) intersections
+        if (intersects.length > 0) {
+
+            const obj = intersects[0].object;
+            // if the closest object intersected is not the currently stored intersection object
+            if ((obj !== INTERSECTED) && (obj.type === 'Line')) {
+                // restore previous intersection object (if it exists) to its original color
+                if (INTERSECTED) {
+                    INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+                    INTERSECTED.material.needsUpdate = true;
+                }
+                // store reference to closest object as current intersection object
+                INTERSECTED = intersects[0].object;
+                // store color of closest object (for later restoration)
+                INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+                // set a new color for closest object
+                INTERSECTED.material.color.setHex( 0x00ff00 );
+                INTERSECTED.material.needsUpdate = true;
+            }
+        } else {// there are no intersections
+            // restore previous intersection object (if it exists) to its original color
+            if (INTERSECTED) {
+                INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+                INTERSECTED.material.needsUpdate = true;
+            }
+
+            // remove previous intersection object reference
+            // by setting current intersection object to "nothing"
+            INTERSECTED = null;
+        }
+    }
+
+
+
+
     function onMouseClick(event) {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
         raycaster.setFromCamera(mouse, camera);
 
-        let intersects = [];
-        scene.children.forEach(function (ch){
-            intersects.push(raycaster.intersectObject(ch, false))
-        });
+        // create an array containing all objects in the scene with which the ray intersects
+        let intersects = raycaster.intersectObjects(scene.children) ;
 
-        for(let int in intersects){
-            if(intersects[int].length !== 0){
-                const obj = intersects[int][0].object;
-                if((obj.type === 'Line')){
-                    if(obj.material.color.r === 1){
-                        obj.material.color = new THREE.Color(par.tj.clickColor);
-                    } else if(obj.material.color.r === 0){
-                        obj.material.color = new THREE.Color(par.tj.color);
-                    }
-                    obj.material.needsUpdate = true;
+        // INTERSECTED = the object in the scene currently closest to the camera
+        //		and intersected by the Ray projected from the mouse position
+
+        // if there is one (or more) intersections
+        if (intersects.length > 0) {
+
+            //let obj;
+            intersects.forEach(function(intersect) {
+                if (intersect.object.type === 'Line') {
+                    intersect.object.material.color.setHex(0x00ff00);
+                    intersect.object.material.needsUpdate = true;
+
+                    //obj = intersects[o].object;
+                    //break;
                 }
-            }
+            });
         }
-    } //temp code inside
+
+                /*// if the closest object intersected is not the currently stored intersection object
+            if (obj !== INTERSECTED) {
+                // restore previous intersection object (if it exists) to its original color
+                if (INTERSECTED) {
+                    INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+                    INTERSECTED.material.needsUpdate = true;
+                }
+                // store reference to closest object as current intersection object
+                INTERSECTED = obj;
+                // store color of closest object (for later restoration)
+                INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+                // set a new color for closest object
+                INTERSECTED.material.color.setHex( 0x00ff00 );
+                INTERSECTED.material.needsUpdate = true;
+            }
+        } else {// there are no intersections
+            // restore previous intersection object (if it exists) to its original color
+            if (INTERSECTED) {
+                INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+                INTERSECTED.material.needsUpdate = true;
+            }
+
+            // remove previous intersection object reference
+            // by setting current intersection object to "nothing"
+            INTERSECTED = null;
+        }*/
+
+    }
+    //temp code inside
+    function onDocumentMouseMove(event){
+        // the following line would stop any other event handler from firing
+        // (such as the mouse's TrackballControls)
+        // event.preventDefault();
+
+        // update the mouse variable
+//        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+//        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    }
 
     function initWindowResizeListeners() {
         window.addEventListener('resize', onWindowResize, false);
     }
     function onWindowResize() {
         updateRenderer();
-        updateCamera(bd.floor);
+        updateCamera();
     }
 
     function initBackgroundFileInput() {
@@ -470,7 +572,7 @@
                 bd.filePath = fileName.slice(0, -5);
                 bd.fileExt = fileName.slice(-4, fileName.length);
                 deleteAll();
-                changeFloors(bd.floor);
+                changeFloors();
             } else {
                 alert("File not supported");
             }
@@ -594,12 +696,12 @@
                 p0: {
                     x: 0,
                     y: i,
-                    f: floor + par.gd.corrZ,
+                    f: floor,
                 },
                 p1: {
                     x: bd.width,
                     y: i,
-                    f: floor + par.gd.corrZ,
+                    f: floor,
                 }
             });
         }
@@ -608,12 +710,12 @@
                 p0: {
                     x: j,
                     y: 0,
-                    f: floor + par.gd.corrZ,
+                    f: floor,
                 },
                 p1: {
                     x: j,
                     y: bd.height,
-                    f: floor + par.gd.corrZ,
+                    f: floor,
                 }
             });
         }
@@ -623,8 +725,8 @@
 
         const coordGeometry = new THREE.Geometry();
         data.grds[floor].forEach(function(line) {
-            coordGeometry.vertices.push(new THREE.Vector3(line.p0.x, -line.p0.y, line.p0.f));
-            coordGeometry.vertices.push(new THREE.Vector3(line.p1.x, -line.p1.y, line.p1.f));
+            coordGeometry.vertices.push(new THREE.Vector3(line.p0.x, -line.p0.y, line.p0.f + par.gd.corrZ));
+            coordGeometry.vertices.push(new THREE.Vector3(line.p1.x, -line.p1.y, line.p1.f + par.gd.corrZ));
         });
 
         const coordMaterial = new THREE.LineBasicMaterial({
@@ -633,7 +735,7 @@
         });
 
         draw.grds[floor] = new THREE.LineSegments(coordGeometry, coordMaterial);
-        //scene.add(draw.grds[floor]);
+        scene.add(draw.grds[floor]);
     } //three.js -- disabled
 
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
@@ -646,6 +748,9 @@
     //--create-Point-Objects--------------------------------------------------------------------------------------------
         readerResult.forEach(function(file){
             const tempList = parseCSV(file);
+
+            tempList.splice(0, par.csv.removeCount);
+            tempList.splice(-par.csv.removeCount);
 
             tempList.forEach(function (point) {
                 const p = new Point(point);
@@ -1710,11 +1815,12 @@
         loadNewBgMesh(bd.path, bd.floor); //also invokes loadNewGrid();
         addAllTrajectories();
     }
-    function changeFloors(floor) {
-        if (!(draw.bgMs[floor] instanceof THREE.Mesh)) {
-            loadNewBgMesh(bd.path, floor); //also invokes loadGrid()
+    function changeFloors() {
+        if (!(draw.bgMs[bd.floor] instanceof THREE.Mesh)) {
+            loadNewBgMesh(bd.path, bd.floor); //also invokes loadGrid()
         }
-        updateCamera(bd.floor);
+        updateCamera();
+        updateRaycaster();
     }
     function changeLineType() {
 

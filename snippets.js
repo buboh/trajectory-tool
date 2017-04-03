@@ -269,3 +269,154 @@ function hash(str) {
  (1 / bd.height) * -centVect.y, //g
  (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
  );*/
+
+
+//cam test-----------------------------------------------------------------
+
+renderer = new THREE.WebGLRenderer();
+renderer.setClearColor(0xFFFFFF);
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+$("#webgl-div").append(renderer.domElement);
+
+scene = new THREE.Scene();
+
+var ZCORR = 0;
+var CCORR = 100;
+var camNearCorr = -0.1;
+var camFarCorr = 0.1;
+var bgCorr = -0.1;
+var gdCorr = 0.1;
+var floor = 1;
+
+camera = new THREE.OrthographicCamera(
+    window.innerWidth / -2, // frustum left plane
+    window.innerWidth / 2, // frustum right plane.
+    window.innerHeight / 2, // frustum top plane.
+    window.innerHeight / -2, // frustum bottom plane.
+    (-floor - gdCorr + camNearCorr) + CCORR , // frustum near plane.
+    (-floor - bgCorr + camFarCorr) + CCORR// frustum far plane.
+);
+
+camera.position.z = 100;
+camera.lookAt(new THREE.Vector3(0,0,0));
+camera.updateProjectionMatrix();
+
+//------------------------------------------------------
+
+// far: black plane
+var geometry = new THREE.PlaneGeometry(300, 300);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x000000
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = -camera.far;
+console.log(plane.position.z);
+scene.add(plane);
+
+//------------------------------------------------------
+
+// -1 red: bg
+var geometry = new THREE.PlaneGeometry(210, 210);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x770000
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (-1 + bgCorr);
+console.log(plane.position.z);
+scene.add(plane);
+// -1 red: traj
+var geometry = new THREE.PlaneGeometry(200, 200);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x880000
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (-1);
+console.log(plane.position.z);
+scene.add(plane);
+// -1 red: grid
+var geometry = new THREE.PlaneGeometry(190, 190);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x990000
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (-1 + gdCorr);
+console.log(plane.position.z);
+scene.add(plane);
+
+//------------------------------------------------------
+
+// 0 green: bg
+var geometry = new THREE.PlaneGeometry(160, 160);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x007700
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (0 + bgCorr);
+console.log(plane.position.z);
+scene.add(plane);
+// 0 green: traj
+var geometry = new THREE.PlaneGeometry(150, 150);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x008800
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (0);
+console.log(plane.position.z);
+scene.add(plane);
+// 0 green: grid
+var geometry = new THREE.PlaneGeometry(140, 140);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x009900
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (0 + gdCorr);
+console.log(plane.position.z);
+scene.add(plane);
+
+//----------------------------------------------------
+
+// 1 blue: bg
+var geometry = new THREE.PlaneGeometry(110, 110);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x000077
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (1 + bgCorr);
+console.log(plane.position.z);
+scene.add(plane);
+// 1 blue: traj
+var geometry = new THREE.PlaneGeometry(100, 100);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x000088
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (1);
+console.log(plane.position.z);
+scene.add(plane);
+// 1 blue: grid
+var geometry = new THREE.PlaneGeometry(90, 90);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x000099
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = (1 + gdCorr);
+console.log(plane.position.z);
+scene.add(plane);
+
+//------------------------------------------------------
+
+// near: grey plane
+var geometry = new THREE.PlaneGeometry(10, 10);
+var material = new THREE.MeshBasicMaterial({
+    color: 0x555555
+});
+var plane = new THREE.Mesh(geometry, material);
+plane.position.z = -camera.near;
+console.log(plane.position.z);
+scene.add(plane);
+
+
+camera.lookAt(scene.position);
+renderer.render(scene, camera);
+
