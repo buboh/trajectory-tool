@@ -445,7 +445,6 @@
         }
     }
 
-
 //--START---------------------------------------------------------------------------------------------------------------
 
     init();
@@ -573,8 +572,6 @@
             INTERSECTED = null;
         }
     }
-
-
 
 
     function onMouseClick(event) {
@@ -1009,6 +1006,7 @@
         }
 
         R.forEach(function(cluster) {
+            cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
             data.clts.clusters.push(cluster);
         });
     }
@@ -1312,7 +1310,7 @@
     function connectTheDots(clusters) {
         clusters.forEach(function(cluster) {
             const centroid = cluster.centroid;
-
+            //centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
 //            centroid.prevCents = new Set();
 //            centroid.nextCents = new Set();
 
@@ -1351,17 +1349,17 @@
         trajs.forEach(function (trajectory) {
             let tempTrajs = [];
             let tempTraj = new Trajectory([]);
-            tempTraj.centroids.push(trajectory.points[0].c);
+            tempTraj.centroids.push(trajectory.points[0].centroid);
 
             //Points are not passed on to BetterTrajectories
             for(let i = 1; i < trajectory.points.length; i++) {
-                if(trajectory.points[i-1].c !== trajectory.points[i].c) {
-                    if(trajectory.points[i-1].c.f === trajectory.points[i].c.f) {
-                        tempTraj.centroids.push(trajectory.points[i].c);
+                if(trajectory.points[i-1].centroid !== trajectory.points[i].centroid) {
+                    if(trajectory.points[i-1].centroid.f === trajectory.points[i].centroid.f) {
+                        tempTraj.centroids.push(trajectory.points[i].centroid);
                     } else {
                         tempTrajs.push(tempTraj);
                         tempTraj = new Trajectory([]);
-                        tempTraj.centroids.push(trajectory.points[i].c);
+                        tempTraj.centroids.push(trajectory.points[i].centroid);
                     }
                 }
             }
@@ -1596,15 +1594,18 @@
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
             const randColor = Math.random() * par.ct.color + par.ct.corrColor;
-            centDots.push(createDots(centGeom, randColor, par.ct.opacity, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
         });
 
-        const mat = new THREE.LineBasicMaterial({color: par.ln.color});
+        //const mat = new THREE.LineBasicMaterial({color: par.ln.color});
+        const mat = new THREE.LineBasicMaterial({color: 0xffffff, vertexColors: THREE.VertexColors, shading: THREE.FlatShading});
         graph.edges.forEach(function(ge) {
             const edgeGeom = new THREE.Geometry();
             edgeGeom.vertices.push(new THREE.Vector3(ge.start.x, -ge.start.y, ge.start.f));
             edgeGeom.vertices.push(new THREE.Vector3(ge.end.x, -ge.end.y, ge.end.f));
             edgeLines.push(new THREE.LineSegments(edgeGeom, mat));
+            edgeGeom.colors.push(new THREE.Color(ge.start.color));
+            edgeGeom.colors.push(new THREE.Color(ge.end.color));
         });
 
         return {
@@ -1621,15 +1622,18 @@
             centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
         });
 
-        const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
+        //const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
+        const mat = new THREE.LineBasicMaterial({color: 0xffffff, vertexColors: THREE.VertexColors, shading: THREE.FlatShading,
+            opacity: par.ln.opacity, transparent: par.ln.transparency});
         trajs.forEach(function (traj) {
             const trajGeom = new THREE.Geometry();
-            traj.centroids.forEach(function (point) {
+            traj.centroids.forEach(function(cent) {
                 trajGeom.vertices.push(
                     new THREE.Vector3(
-                        point.x + traj.deviation * par.tj.deviationFactor,
-                        -point.y + traj.deviation * par.tj.deviationFactor,
-                        point.f));
+                        cent.x + traj.deviation * par.tj.deviationFactor,
+                        -cent.y + traj.deviation * par.tj.deviationFactor,
+                        cent.f));
+                trajGeom.colors.push(new THREE.Color(cent.color));
             });
             trajLines.push(new THREE.Line(trajGeom, mat));
         });
