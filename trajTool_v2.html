@@ -17,6 +17,8 @@
 <!--Trajectory viewer-->
 <script>
 
+    //'use strict';
+
 //--CONSTANTS-&-VARIABLES-----------------------------------------------------------------------------------------------
 
     let camera, scene, renderer;
@@ -89,7 +91,7 @@
             init: 50,
             name: 'Redist count',
             change: true,
-        }
+        },
     }; //ToDo: building path changed-----------------------------------------------------------------
     const par = {
         bg: {
@@ -138,6 +140,9 @@
             header: 't,x,y,acc,f,did',
             removeCount: 5,
         },
+
+        subsaRadius: 3,
+
         //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
     };
 
@@ -292,6 +297,7 @@
             evenbetter: []
         },
         clts: {
+            clusters: [],
             centroids: [],
             circles: [],
             members: [],
@@ -300,7 +306,6 @@
         grph: {
             edges: []
         },
-        cnts: [],
     };
     const draw = {
         bgMs: {},
@@ -325,17 +330,109 @@
     };
 
     class Point {
-        constructor(point) {
+        constructor(p) {
             this.color = par.pt.color;
-            this.did = point.did;
-            this.x = point.x;
-            this.y = point.y;
-            this.f = point.f;
-            this.t = point.t;
+            this.did = p.did;
+            this.x = p.x;
+            this.y = p.y;
+            this.f = p.f;
+            this.t = p.t;
             this.c = null;
-            this.g = null;
-            this.prevPoint = null;
-            this.nextPoint = null;
+            this.cl = null;
+            this.pP = null;
+            this.nP = null;
+            data.pnts.push(this);
+        }
+        get centroid() { return this.c; }
+        set centroid(cent) {
+            this.c = cent;
+//            if(this.g && (cent !== this.g.c)) {
+//                this.g = null;
+//            }
+        }
+        get cluster() { return this.cl; }
+        set cluster(clus) {
+            this.cl = clus;
+            this.c = clus.c;
+        }
+        get prevPoint() { return this.pP }
+        set prevPoint(pt) {
+            this.pP = pt;
+            if(pt) pt.nP = this;
+        }
+        get nextPoint() { return this.nP }
+        set nextPoint(pt) {
+            this.nP = pt;
+            if(pt) pt.pP = this;
+        }
+    }
+    class Centroid extends Point {
+        constructor(c) {
+            super(c);
+            this.prevCents = new Set(); // ev. Map mit Cent als key und anzahl als val?
+            this.nextCents = new Set();
+            this.cl = c.cl;
+            this.color = Math.random() * 0xffffff;
+        }
+        get cluster() { return this.cl }
+        set cluster(clus) {
+            this.cl = clus;
+        }
+    }
+    class Cluster {
+        constructor() {
+            this.c = {};
+            this.m = [];
+            //data.clts.push(this);
+        }
+        get centroid() { return this.c }
+        set centroid(cent) {
+            this.c = cent;
+            this.c.cluster = this;
+            this.m.forEach(function(pt) {
+               pt.centroid = cent;
+            });
+        }
+        get members() { return this.m }
+        set members(memb) {
+            this.m = memb;
+            if(this.c) {
+                this.m.forEach(function(pt) {
+                   pt.centroid = this.c;
+                });
+            }
+        }
+        addMember(pt) {
+            pt.cluster = this;
+            this.m.push(pt);
+        }
+        removeMember(pt) {
+            pt.cluster = null;
+            //implement this.m.remove(pt);
+        }
+        updateCentroid() {
+
+            let sumX = 0;
+            let sumY = 0;
+            const points = this.members;
+            const numPoints = this.members.length;
+
+            for (let p in points) {
+                if(points.hasOwnProperty(p)){
+                    sumX += points[p].x;
+                    sumY += points[p].y;
+                }
+            }
+
+            if (numPoints > 0) {
+                const tempCent = this.centroid;
+                tempCent.x = sumX / numPoints;
+                tempCent.y = sumY / numPoints;
+                this.centroid = tempCent;
+            } else {
+                //ToDo: implement: delete cluster --------------------------------------
+                this.centroid = null;
+            }
         }
     }
     class Trajectory {
@@ -347,15 +444,7 @@
             this.deviation = 0;
         }
     }
-    class Centroid {
-        constructor(c) {
-            this.x = c.x;
-            this.y = c.y;
-            this.f = c.f;
-            this.g = c.g;
-            this.color = Math.random() * 0xffffff;
-        }
-    }
+
 
 //--START---------------------------------------------------------------------------------------------------------------
 
@@ -657,6 +746,7 @@
         fDataSettings.add(bd, 'maxRadius', guiPar.cMaxRad.min, guiPar.cMaxRad.max).step(guiPar.cMaxRad.step).name(guiPar.cMaxRad.name);
         fDataSettings.add(bd, 'redist', guiPar.redist.min, guiPar.redist.max).step(guiPar.redist.step).name(guiPar.redist.name);
         const fViewSettings = gui.addFolder('View settings');
+        fViewSettings.add(this, 'hideAllGrids').name('Hide grid');
         fViewSettings.add(bd, 'floor', guiPar.floor.min, guiPar.floor.max).step(guiPar.floor.step).name(guiPar.floor.name);
         fViewSettings.add(bd, 'lineType', guiPar.lineType.choices).name(guiPar.lineType.name);
         fViewSettings.open();
@@ -790,7 +880,6 @@
             tempList.forEach(function (point) {
                 const p = new Point(point);
                 pointList.push(p);
-                data.pnts.push(p);
             });
         });
 
@@ -920,8 +1009,7 @@
         }
 
         R.forEach(function(cluster) {
-            data.clts.centroids.push(cluster.centroid);
-            data.clts.members.push(cluster.members);
+            data.clts.clusters.push(cluster);
         });
     }
 
@@ -929,7 +1017,7 @@
         const vertices = [];//R = Radius for subsampling, r = radius remaining for next segment, i = iterator, p0 = first point of traj, //pA and pB are start and end of segment to be subsampled, D = dist between pA and pB, d = remaining distance
         //p = subsampled point, vh = ratio of _________ (?),
 
-        const R = 3;
+        const R = par.subsaRadius;
         let r = R;
 
         const p0 = new Point({
@@ -953,15 +1041,14 @@
                 const D = getSpatialDistance(pA, pB);
                 let d = D;
                 while (d > r) {
-                    const vh = ( r + ( D - d ) ) / D;// t not interpolated!!
+                    const vh = ( r + ( D - d ) ) / D;// t not interpolated!! f not interpolated
                     const p = new Point({
                         did: pA.did,
-                        x: ( 1 - vh ) * pA.x + vh * pB.x,
-                        y: ( 1 - vh ) * pA.y + vh * pB.y,
+                        x: (1 - vh) * pA.x + vh * pB.x,
+                        y: (1 - vh) * pA.y + vh * pB.y,
                         f: pA.f,
                         t: pA.t
                     });
-                    tempPrevPoint.nextPoint = p;
                     p.prevPoint = tempPrevPoint;
                     tempPrevPoint = p;
 
@@ -1039,17 +1126,13 @@
         P.forEach(function(t) {
             t.forEach(function(p) {
 
-                let c = getClosestCentroid(p, G);
-                if (c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
+                let cent = getClosestCentroid(p, G);
+                if (cent !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
 
-                    const gr = c.g;//---------------------------------------------------
-                    gr.members.push(p);
-                    gr.members.forEach(function(point) {
-                        point.c = c;
-                        point.g = gr;
-                    });
+                    cent.cluster.addMember(p);
 
                 } else {
+
                     data.clts.errors.push(p);
                     cnt++;
                 }
@@ -1081,28 +1164,21 @@
 
         for(let r = 0; r < tempR.length; r++) {
             if(tempR.hasOwnProperty(r)){
-                let gr = tempR[r];
-                const c = gr.centroid;
-                let gc = getGridPosition(c, G);
+                let clus = tempR[r];
+                const cent = clus.centroid;
+                let gc = getGridPosition(cent, G);
 
-                const index = G.grid[gc.i][gc.j].indexOf(c);
+                const index = G.grid[gc.i][gc.j].indexOf(cent);
                 G.grid[gc.i][gc.j].splice(index, 1);
 
-                if(gr.members.length !== 0) {
+                if(clus.members.length !== 0) {
 
-                    gr.centroid = updateCentroid(gr.centroid, gr.members);
-                    gr.members.forEach(function(p) {
-                        p.c = c;
-                    });
+                    clus.updateCentroid();
 
-                    if(gr.centroid === null) {
-                        let k = 0;
-                    }
+                    gc = getGridPosition(clus.centroid, G);
+                    G.grid[gc.i][gc.j].push(clus.centroid);
 
-                    gc = getGridPosition(gr.centroid, G);
-                    G.grid[gc.i][gc.j].push(gr.centroid);
-
-                    R.push(gr);
+                    R.push(clus);
 
                 }
                 //trying to remove/merge clusters with only 1 point
@@ -1134,40 +1210,34 @@
     }
 
     function putInProperGroup(p, R, G) {
-        const c = getClosestCentroid(p, G);
-        let gr = {
-            centroid: {},
-            members: [],
-        };
+        const cent = getClosestCentroid(p, G);
+        let clus = new Cluster();
         let gc;
 
-        if (c === null) {
-            gr.centroid = new Centroid({
+        if (cent === null) {
+            clus.centroid = new Centroid({
                 x: p.x,
                 y: p.y,
                 f: p.f,
-                g: gr,
+                g: clus,
             });
-            p.c = gr.centroid;
-            gr.members.push(p);
-            data.clts.centroids.push(gr.centroid);
+            clus.addMember(p);
+            //data.clts.centroids.push(clus.centroid);
 
-            R.push(gr);
+            R.push(clus);
         } else {
-            gr = c.g; // g is group with centroid c // indices? centroid array? -------------------------------
+            clus = cent.cluster; // g is group with centroid cent // indices? centroid array? -------------------------------
 
-            gc = getGridPosition(c, G);
+            gc = getGridPosition(cent, G);
 
-            const index = G.grid[gc.i][gc.j].indexOf(c);
+            const index = G.grid[gc.i][gc.j].indexOf(cent);
             G.grid[gc.i][gc.j].splice(index, 1);
 
-            gr.centroid = updateCentroid(c, gr.members);
-            gr.centroid.g = gr;
-            p.c = gr.centroid;
-            gr.members.push(p);
+            clus.centroid = updateCentroid(cent, clus.members);
+            clus.addMember(p);
         }
-        gc = getGridPosition(gr.centroid, G);
-        G.grid[gc.i][gc.j].push(gr.centroid);
+        gc = getGridPosition(clus.centroid, G);
+        G.grid[gc.i][gc.j].push(clus.centroid);
     }
     function getClosestCentroid(p, G) {
 
@@ -1239,13 +1309,14 @@
         return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
 
-    function connectTheDots(centroids) {
-        centroids.forEach(function (centroid) {
+    function connectTheDots(clusters) {
+        clusters.forEach(function(cluster) {
+            const centroid = cluster.centroid;
 
-            centroid.prevCents = new Set();
-            centroid.nextCents = new Set();
+//            centroid.prevCents = new Set();
+//            centroid.nextCents = new Set();
 
-            centroid.g.members.forEach(function (point) {
+            cluster.members.forEach(function (point) {
                 if ((point.prevPoint !== null) && (point.prevPoint.c !== null)){
                     if((point.prevPoint.c !== point.c) && (point.prevPoint.c.f === point.c.f)) {
                         centroid.prevCents.add(point.prevPoint.c);
@@ -1258,9 +1329,9 @@
                 }
             });
         });
-
-        centroids.forEach(function (centroid) {
-            centroid.nextCents.forEach(function (nextCentroid) {
+        clusters.forEach(function (cluster) {
+            const centroid = cluster.centroid;
+            centroid.nextCents.forEach(function(nextCentroid) {
                 data.grph.edges.push({
                     start: centroid,
                     end: nextCentroid
@@ -1420,7 +1491,7 @@
     } //ToDo: temp code inside--------------------------------------------------------------
     function makeGraph() {
         cluster(data.trjs.raw);
-        connectTheDots(data.clts.centroids);
+        connectTheDots(data.clts.clusters);
         const drawGraphStuff = makeGraphGeom(data.clts, data.grph);
         drawGraphStuff.cents.forEach(function (centGeom) {
             draw.clts.centroids.push(centGeom);
@@ -1460,13 +1531,14 @@
         });
         return pointsGeom;
     } //three.js
-    function makeClusteredGeom(clusters) {
+    function makeClusteredGeom(clts) {
 
         const centGeoms = [];
         const circleGeoms = [];
         const pointGeoms = [];
 
-        clusters.centroids.forEach(function(cent) {
+        clts.clusters.forEach(function(cluster) {
+            const cent = cluster.centroid;
             const centGeom = makePointGeometry([cent]);
             centGeoms.push(centGeom);
 
@@ -1475,7 +1547,7 @@
             circleGeoms.push(circleGeom);
 
             const pointGeom = new THREE.Geometry();
-            cent.g.members.forEach(function(point) {
+            cluster.members.forEach(function(point) {
                 pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
             });
             pointGeoms.push(pointGeom);
@@ -1503,7 +1575,7 @@
         }
 
         const errorGeom = new THREE.Geometry();
-        clusters.errors.forEach(function(point) {
+        clts.errors.forEach(function(point) {
             errorGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
         }); //temp
 
@@ -1517,32 +1589,22 @@
             errors: errorDots,
         };
     } //three.js
-    function makeGraphGeom(clusters, graph) {
-        const centGeoms = [];
-        const edgeGeoms = [];
+    function makeGraphGeom(clts, graph) {
+        const centDots = [];
+        const edgeLines = [];
 
-        clusters.centroids.forEach(function(cent) {
-            const centGeom = makePointGeometry([cent]);
-            centGeoms.push(centGeom);
+        clts.clusters.forEach(function(cluster) {
+            const centGeom = makePointGeometry([cluster.centroid]);
+            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
+            centDots.push(createDots(centGeom, randColor, par.ct.opacity, par.ct.dot.size));
         });
 
+        const mat = new THREE.LineBasicMaterial({color: par.ln.color});
         graph.edges.forEach(function(ge) {
             const edgeGeom = new THREE.Geometry();
             edgeGeom.vertices.push(new THREE.Vector3(ge.start.x, -ge.start.y, ge.start.f));
             edgeGeom.vertices.push(new THREE.Vector3(ge.end.x, -ge.end.y, ge.end.f));
-            edgeGeoms.push(edgeGeom);
-        });
-
-        //edges zeichnen
-        const centDots = [];
-        const edgeLines = [];
-        centGeoms.forEach(function(cg) {
-            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
-            centDots.push(createDots(cg, randColor, par.ct.opacity, par.ct.dot.size));
-        });
-        edgeGeoms.forEach(function(eg) {
-            const mat = new THREE.LineBasicMaterial({color: par.ln.color});
-            edgeLines.push(new THREE.LineSegments(eg, mat));
+            edgeLines.push(new THREE.LineSegments(edgeGeom, mat));
         });
 
         return {
@@ -1550,16 +1612,16 @@
             edges: edgeLines
         };
     } //three.js
-    function makeBetterGeom(clusters, trajs) {
-        const trajGeoms = [];
+    function makeBetterGeom(clts, trajs) {
         const centDots = [];
         const trajLines = [];
 
-        clusters.centroids.forEach(function (cent) {
-            const centGeom = makePointGeometry([cent]);
-            centDots.push(createDots(centGeom, cent.color, par.ct.opacity, par.ct.dot.size));
+        clts.clusters.forEach(function(cluster) {
+            const centGeom = makePointGeometry([cluster.centroid]);
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
         });
 
+        const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
         trajs.forEach(function (traj) {
             const trajGeom = new THREE.Geometry();
             traj.centroids.forEach(function (point) {
@@ -1569,12 +1631,7 @@
                         -point.y + traj.deviation * par.tj.deviationFactor,
                         point.f));
             });
-            trajGeoms.push(trajGeom);
-        });
-
-        trajGeoms.forEach(function(tg) {
-            const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
-            trajLines.push(new THREE.Line(tg, mat));
+            trajLines.push(new THREE.Line(trajGeom, mat));
         });
 
         return {
@@ -1582,12 +1639,12 @@
             trajs: trajLines
         };
     } //three.js
-    function makeEvenBetterGeom(clusters, trajs) {
+    function makeEvenBetterGeom(clts, trajs) {
         const centGeoms = [];
         const anchorGeoms = [];
 
-        clusters.centroids.forEach(function (cent) {
-            const centGeom = makePointGeometry([cent]);
+        clts.clusters.forEach(function(cluster) {
+            const centGeom = makePointGeometry([cluster.centroid]);
             centGeoms.push(centGeom);
         });
 
@@ -1745,6 +1802,7 @@
             evenbetter: []
         };
         data.clts = {
+            clusters: [],
             centroids: [],
             circles: [],
             members: [],
