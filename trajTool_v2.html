@@ -11,9 +11,11 @@
 <body>
 
 <script src="js/three.js"></script>
+<script src="js/chroma.js"></script>
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
 <script src="js/thenBy.js"></script>
+
 <!--Trajectory viewer-->
 <script>
 
@@ -132,6 +134,8 @@
             color: 0xffffff,
             opacity: 1,
             corrColor: 0x555555,
+            colorScaleType: 'RdYlBu',
+            colorDarkenFactor: 0,
             dot: {
                 size: 10,
             },
@@ -140,7 +144,6 @@
             header: 't,x,y,acc,f,did',
             removeCount: 5,
         },
-
         subsaRadius: 3,
 
         //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
@@ -1004,9 +1007,16 @@
             console.log(i);
             i++;
         }
+        let ml = 0;
+        R.forEach(function(cluster) {
+            if(ml < cluster.members.length) ml = cluster.members.length;
+        });
+
 
         R.forEach(function(cluster) {
-            cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
+            //cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
+            const scale = chroma.scale(par.ct.colorScaleType).domain([0,ml]);
+            cluster.centroid.color = scale(cluster.members.length).darken(par.ct.colorDarkenFactor).hex();
             data.clts.clusters.push(cluster);
         });
     }
@@ -1531,46 +1541,33 @@
     } //three.js
     function makeClusteredGeom(clts) {
 
-        const centGeoms = [];
-        const circleGeoms = [];
-        const pointGeoms = [];
+        const centDots = [];
+        const circleMeshes = [];
+        const pointDots = [];
 
         clts.clusters.forEach(function(cluster) {
             const cent = cluster.centroid;
             const centGeom = makePointGeometry([cent]);
-            centGeoms.push(centGeom);
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
 
             const circleGeom = new THREE.CircleGeometry(bd.maxRadius / 2, 20);
             circleGeom.translate(cent.x, -cent.y, cent.f - 0.1);
-            circleGeoms.push(circleGeom);
+            circleMeshes.push(createCircle(circleGeom, cluster.centroid.color, 0.2));
 
             const pointGeom = new THREE.Geometry();
             cluster.members.forEach(function(point) {
                 pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
             });
-            pointGeoms.push(pointGeom);
+            pointDots.push(createDots(pointGeom, cluster.centroid.color, par.pt.opacity, par.pt.dot.size));
 
         });
 
-        const centDots = [];
-        const circleMeshes = [];
-        const pointDots = [];
-
-
-        for (let g in centGeoms) {
-
-           /* const centVect = centGeoms[g].vertices[0];
-            const rainbowColor = new THREE.Color(
-                (1 / bd.width) * centVect.x, //r
-                (1 / bd.height) * -centVect.y, //g
-                (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
-            );*/
-
-            const randColor = Math.random() * par.ct.color;
-            centDots.push(createDots(centGeoms[g], randColor, par.ct.opacity, par.ct.dot.size));
-            circleMeshes.push(createCircle(circleGeoms[g], randColor, 0.2));
-            pointDots.push(createDots(pointGeoms[g], randColor, par.pt.opacity, par.pt.dot.size));
-        }
+        /* const centVect = centGeoms[g].vertices[0];
+         const rainbowColor = new THREE.Color(
+         (1 / bd.width) * centVect.x, //r
+         (1 / bd.height) * -centVect.y, //g
+         (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
+         );*/
 
         const errorGeom = new THREE.Geometry();
         clts.errors.forEach(function(point) {
@@ -1593,7 +1590,6 @@
 
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
-            const randColor = Math.random() * par.ct.color + par.ct.corrColor;
             centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
         });
 
@@ -1644,12 +1640,12 @@
         };
     } //three.js
     function makeEvenBetterGeom(clts, trajs) {
-        const centGeoms = [];
+        const centDots = [];
         const anchorGeoms = [];
 
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
-            centGeoms.push(centGeom);
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
         });
 
         trajs.forEach(function(traj) {
@@ -1681,12 +1677,7 @@
          });*/
 
         //edges zeichnen
-        const centDots = [];
         const anchorLines = [];
-        centGeoms.forEach(function(cg) {
-            const randColor = Math.random() * 0xffffff;
-            centDots.push(createDots(cg, randColor, par.ct.opacity, par.ct.dot.size));
-        });
         anchorGeoms.forEach(function(ag) {
             const curve = new THREE.CatmullRomCurve3(ag.vertices);
             let tempTrajGeom = new THREE.Geometry();
