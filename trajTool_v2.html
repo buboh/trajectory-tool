@@ -42,6 +42,7 @@
             alphaVal: 0,
         },
         rayc: {
+            clickColor: 0x00ff00,
             linePrec: 1,
         },
     };
@@ -111,9 +112,7 @@
         pt: {
             color: 0xff0000,
             opacity: 1,
-            dot: {
-                size: 3.5,
-            },
+            size: 3.5,
         },
         tj: {
             color: 0xff0000,
@@ -131,14 +130,22 @@
             transparency: true,
         },
         ct: {
-            color: 0xffffff,
+            size: 10,
             opacity: 1,
-            corrColor: 0x555555,
-            colorScaleType: 'RdYlBu',
-            colorDarkenFactor: 0,
-            dot: {
-                size: 10,
+            circles: {
+                opacity: 0.2,
+                segNum: 20,
+                corrZ: -0.1,
             },
+        },
+        cl: {
+            color: 0xffffff,
+            corrColor: 0x555555,
+            colorScaleType: ['darkgreen', 'forestgreen', 'yellowgreen', 'gold', 'orangered', 'crimson', 'darkred'], //'RdYlBu',
+            colorDarkenFactor: 0,
+            errors: {
+                color: 0x0000ff,
+            }
         },
         csv: {
             header: 't,x,y,acc,f,did',
@@ -599,24 +606,46 @@
 
                 const tempObj = intersects[o].object;
 
-                if((!(intersects[o].distance.isNaN)) &&
-                    (tempObj.geometry !== tempGeom) &&
+                if((!(intersects[o].distance.isNaN)) && (tempObj.geometry !== tempGeom) &&
                     ((Math.trunc(intersects[o].point.z * 100) / 100) === bd.floor))
                     outer_if:{
 
                     tempGeom = tempObj.geometry;
 
-                    if((tempObj.type === 'Line') ||
-                        ((tempObj.type === 'LineSegments') && (tempObj !== draw.grds[bd.floor]))) {
-                        obj = tempObj;
+                    if(tempObj.type === 'Points') {
+
+                        if(tempObj.userData instanceof Trajectory) {
+                            obj = {
+                                geom: tempObj,
+                                data: tempObj.userData,
+                            };
+                        } else if(tempObj.userData instanceof Cluster) {
+                            obj = {
+                                geom: tempObj,
+                                data: tempObj.userData,
+                            };
+                        }
                         break outer_if;
-                    } else if(tempObj.type === 'Points') {
-                        obj = tempObj;
+
+                    } else if(tempObj.type === 'Line') {
+                        if(tempObj.userData instanceof Trajectory) {
+                            obj = {
+                                geom: tempObj,
+                                data: tempObj.userData,
+                            };
+                        } else {
+                            obj = {
+                                geom: tempObj,
+                            }; //for [even] better lines
+                        }
+                        break outer_if;
+
+                    } else if((tempObj.type === 'LineSegments') && (tempObj !== draw.grds[bd.floor])) {
+                        obj = {
+                            geom: tempObj,
+                        }; //for graph lines
                         break outer_if;
                     }
-
-
-
                 }
             }
 
@@ -627,22 +656,22 @@
             if (obj !== INTERSECTED) {
                 // restore previous intersection object (if it exists) to its original color
                 if (INTERSECTED) {
-                    INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-                    INTERSECTED.material.needsUpdate = true;
+                    INTERSECTED.geom.material.color.setHex(INTERSECTED.geom.currentHex);
+                    INTERSECTED.geom.material.needsUpdate = true;
                 }
                 // store reference to closest object as current intersection object
                 INTERSECTED = obj;
                 // store color of closest object (for later restoration)
-                INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
+                INTERSECTED.geom.currentHex = INTERSECTED.geom.material.color.getHex();
                 // set a new color for closest object
-                INTERSECTED.material.color.setHex( 0x00ff00 );
-                INTERSECTED.material.needsUpdate = true;
+                INTERSECTED.geom.material.color.setHex( threePar.rayc.clickColor );
+                INTERSECTED.geom.material.needsUpdate = true;
             }
         } else {// there are no intersections
             // restore previous intersection object (if it exists) to its original color
             if (INTERSECTED) {
-                INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-                INTERSECTED.material.needsUpdate = true;
+                INTERSECTED.geom.material.color.setHex(INTERSECTED.geom.currentHex);
+                INTERSECTED.geom.material.needsUpdate = true;
             }
             // remove previous intersection object reference
             // by setting current intersection object to "nothing"
@@ -716,6 +745,7 @@
                     result.push(this.result);
                     if (result.length === fileCount) {
                         loadNewTrajectories(result);
+                        deleteClusterTrajectories();
                         makeAllTrajectories();
                         addAllTrajectories();
                     }
@@ -1015,8 +1045,8 @@
 
         R.forEach(function(cluster) {
             //cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
-            const scale = chroma.scale(par.ct.colorScaleType).domain([0,ml]);
-            cluster.centroid.color = scale(cluster.members.length).darken(par.ct.colorDarkenFactor).hex();
+            const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
+            cluster.centroid.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
             data.clts.clusters.push(cluster);
         });
     }
@@ -1472,13 +1502,20 @@
     }
 
     function makePoints() {
-        const tempTrajGeom = makePointGeometry(data.pnts);
-        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.opacity, par.pt.dot.size));
+        /*const tempTrajGeom = makePointGeometry(data.pnts);
+        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.opacity, par.pt.size, data.pnts));*/
+        data.trjs.raw.forEach(function(traj) {
+            const tempTrajGeom = makePointGeometry(traj.points);
+            draw.pnts.push(createDots(tempTrajGeom, traj.color, par.pt.opacity, par.pt.size, traj));
+        });
     }
     function makeLine() {
-        data.trjs.raw.forEach(function (traj) {
+        data.trjs.raw.forEach(function(traj) {
             const tempTrajGeom = makePointGeometry(traj.points);
-            draw.trjs.raw.push(createLine(tempTrajGeom, traj.color, par.tj.opacity));
+            const mat = new THREE.LineBasicMaterial({color: traj.color, opacity: par.tj.opacity});
+            const line = new THREE.Line(tempTrajGeom, mat);
+            line.userData = traj;
+            draw.trjs.raw.push(line);
         });
     }
     function makeClusters() {
@@ -1493,8 +1530,9 @@
         drawStuff.points.forEach(function (pointGeom) {
             draw.clts.members.push(pointGeom);
         });
-
-        draw.clts.errors.push(drawStuff.errors);
+        drawStuff.errors.forEach(function (error) {
+            draw.clts.errors.push(error);
+        });
 
     } //ToDo: temp code inside--------------------------------------------------------------
     function makeGraph() {
@@ -1548,17 +1586,20 @@
         clts.clusters.forEach(function(cluster) {
             const cent = cluster.centroid;
             const centGeom = makePointGeometry([cent]);
-            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.size, cluster));
 
-            const circleGeom = new THREE.CircleGeometry(bd.maxRadius / 2, 20);
-            circleGeom.translate(cent.x, -cent.y, cent.f - 0.1);
-            circleMeshes.push(createCircle(circleGeom, cluster.centroid.color, 0.2));
+            const circleGeom = new THREE.CircleGeometry(bd.maxRadius / 2, par.ct.circles.segNum);
+            circleGeom.translate(cent.x, -cent.y, cent.f + par.ct.circles.corrZ);
+            const mat = new THREE.MeshBasicMaterial({color: cluster.centroid.color, opacity: par.ct.circles.opacity, transparent: true});
+            const circle = new THREE.Mesh(circleGeom, mat);
+            circle.userData = cluster;
+            circleMeshes.push(circle);
 
             const pointGeom = new THREE.Geometry();
             cluster.members.forEach(function(point) {
                 pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
             });
-            pointDots.push(createDots(pointGeom, cluster.centroid.color, par.pt.opacity, par.pt.dot.size));
+            pointDots.push(createDots(pointGeom, cluster.centroid.color, par.pt.opacity, par.pt.size, cluster));
 
         });
 
@@ -1568,14 +1609,12 @@
          (1 / bd.height) * -centVect.y, //g
          (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
          );*/
-
-        const errorGeom = new THREE.Geometry();
+        const errorDots = [];
         clts.errors.forEach(function(point) {
+            const errorGeom = new THREE.Geometry();
             errorGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
+            errorDots.push(createDots(errorGeom, par.cl.errors.color, par.pt.opacity, par.pt.size, point)); //temp
         }); //temp
-
-        const errorDots = createDots(errorGeom, 0x00ff00, par.pt.opacity, par.pt.dot.size); //temp
-
 
         return {
             cents: centDots,
@@ -1590,7 +1629,7 @@
 
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
-            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.size, cluster));
         });
 
         //const mat = new THREE.LineBasicMaterial({color: par.ln.color});
@@ -1615,11 +1654,11 @@
 
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
-            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.size, cluster));
         });
 
         //const mat = new THREE.LineBasicMaterial({color: par.ln.color, opacity: par.ln.opacity, transparent: par.ln.transparency});
-        const mat = new THREE.LineBasicMaterial({color: 0xffffff, vertexColors: THREE.VertexColors, shading: THREE.FlatShading,
+        const mat = new THREE.LineBasicMaterial({vertexColors: THREE.VertexColors, shading: THREE.FlatShading,
             opacity: par.ln.opacity, transparent: par.ln.transparency});
         trajs.forEach(function (traj) {
             const trajGeom = new THREE.Geometry();
@@ -1645,7 +1684,7 @@
 
         clts.clusters.forEach(function(cluster) {
             const centGeom = makePointGeometry([cluster.centroid]);
-            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.dot.size));
+            centDots.push(createDots(centGeom, cluster.centroid.color, par.ct.opacity, par.ct.size));
         });
 
         trajs.forEach(function(traj) {
@@ -1693,18 +1732,13 @@
         };
     } //three.js
 
-    function createDots(geom, color, opa, pointSize) {
+    function createDots(geom, color, opa, pointSize, userData = {}) {
         const mat = new THREE.PointsMaterial({color: color, opacity: opa, size: pointSize, sizeAttenuation: false});
-        return new THREE.Points(geom, mat);
+        const dots = new THREE.Points(geom, mat);
+        dots.userData = userData;
+        return dots;
     } //three.js
-    function createLine(geom, color, opa) {
-        const mat = new THREE.LineBasicMaterial({color: color, opacity: opa});
-        return new THREE.Line(geom, mat);
-    } //three.js
-    function createCircle(geom, color, opa) {
-        const mat = new THREE.MeshBasicMaterial({color: color, opacity: opa, transparent: true});
-        return new THREE.Mesh(geom, mat);
-    } //three.js
+
 //--ADD-&-REMOVE--------------------------------------------------------------------------------------------------------
 //  ToDo: review lineTypes
 
