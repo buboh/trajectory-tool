@@ -300,12 +300,7 @@
         grds: {},
 
         pnts: [],
-        trjs: {
-            raw: [],
-            subsa: [],
-            better: [],
-            evenbetter: []
-        },
+        trjs: [],
         clts: {
             clusters: [],
             centroids: [],
@@ -400,6 +395,24 @@
         }
 
     }
+    class Anchor extends Point {
+        constructor(a) {
+            super(a);
+            //this.prevAnch = new Set(); // ev. Map mit Cent als key und anzahl als val?
+            //this.nextAnch = new Set();
+            this.tjs = new Set();
+        }
+        get trajectories() {
+            return this.tjs;
+        }
+        addTrajectory(traj) {
+            this.tjs.add(traj);
+        }
+        removeTrajectory(traj) {
+            this.tjs.delete(traj);
+        }
+    }
+
     class Cluster {
         constructor() {
             this.c = {};
@@ -472,25 +485,44 @@
         }
     }
     class Trajectory {
-        constructor(points) {
-            this.points = points;
-            this.centroids = [];
-            this.anchors = [];
+        constructor() {
+            this.points = {
+                raw: [],
+                subsa: [],
+                centroids: [],
+                anchors: [],
+            };
+            this.f = null;
             this.color = Math.random() * 0xffffff; //par.tj.color;
             this.deviation = 0;
             this.drawing = {};
         }
+        get rawPoints() {return this.points.raw}
+        set rawPoints(points) {this.points.raw = points}
+        emptyRawPoints() {this.points.raw = []}
+        get subsaPoints() {return this.points.subsa}
+        set subsaPoints(points) {this.points.subsa = points}
+        emptySubsaPoints() {this.points.subsa = []}
+
+        get centroids() {return this.points.centroids}
+        set centroids(points) {this.points.centroids = points}
         addCentroid(cent) {
-            this.centroids.push(cent);
+            this.points.centroids.push(cent);
             cent.addTrajectory(this);
         }
         removeCentroid(cent) {
             //implement removeal function
             cent.removeTrajectory(this);
         }
+        emptyCentroids() {
+            this.points.centroids = [];
+        }
         addAnchor(anch) {
-            this.anchors.push(anch);
+            this.points.anchors.push(anch);
             //anch. implement if Anchor becomes a class
+        }
+        emptyAnchors() {
+            this.points.anchors = [];
         }
     }
 
@@ -1015,31 +1047,47 @@
 
         const pointListByDID = groupPointListByDid(pointList);
         const pointListByDIDByTime = [];
+        const pointListByDIDByTimeByFloor = [];
 
-        for (let did1 in pointListByDID) {
-            if(pointListByDID.hasOwnProperty(did1)){
-                pointListByDIDByTime[did1] = groupPointListByTime(pointListByDID[did1]);
+        for(let did in pointListByDID) {
+            if(pointListByDID.hasOwnProperty(did)){
+                pointListByDIDByTime[did] = groupPointListByTime(pointListByDID[did]);
+            }
+        }
+
+        for(let did in pointListByDIDByTime) {
+            if(pointListByDIDByTime.hasOwnProperty(did)) {
+                pointListByDIDByTimeByFloor[did] = [];
+                for(let t in pointListByDIDByTime[did]) {
+                    if(pointListByDIDByTime[did].hasOwnProperty(t)) {
+                        pointListByDIDByTimeByFloor[did][t] = groupPointListByFloor(pointListByDIDByTime[did][t]);
+                    }
+                }
             }
         }
 
     //--create-Trajectories---------------------------------------------------------------------------------------------
-        for(let did2 in pointListByDIDByTime) {
-            for(let pointGroup in pointListByDIDByTime[did2]) {
-                if (pointListByDIDByTime[did2].hasOwnProperty(pointGroup)) {
+        for(let did in pointListByDIDByTimeByFloor) {
+            for(let t in pointListByDIDByTimeByFloor[did]) {
+                if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
+                    for (let f in pointListByDIDByTimeByFloor[did][t]) {
+                        if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
+                            const tempTrajectory = new Trajectory();
+                            tempTrajectory.rawPoints = pointListByDIDByTimeByFloor[did][t][f];
+                            tempTrajectory.f = f;
+                            if (tempTrajectory.rawPoints.length > 1) {
 
-                    const tempTrajectory = new Trajectory(pointListByDIDByTime[did2][pointGroup]);
+                                let tempPrevPoint = tempTrajectory.rawPoints[0];
+                                tempPrevPoint.prevPoint = null;
 
-                    if(tempTrajectory.points.length > 1) {
-
-                        let tempPrevPoint = tempTrajectory.points[0];
-                        tempPrevPoint.prevPoint = null;
-
-                        for(let p = 0; p < tempTrajectory.points.length; p++){
-                            tempPrevPoint.nextPoint = tempTrajectory.points[p];
-                            tempTrajectory.points[p].prevPoint = tempPrevPoint;
-                            tempPrevPoint = tempTrajectory.points[p];
+                                for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+                                    tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
+                                    tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
+                                    tempPrevPoint = tempTrajectory.rawPoints[p];
+                                }
+                                data.trjs.push(tempTrajectory);
+                            }
                         }
-                        data.trjs.raw.push(tempTrajectory);
                     }
                 }
             }
@@ -1095,6 +1143,12 @@
         pointListByTime.push(tempTimeArray);
         return pointListByTime;
     }
+    function groupPointListByFloor(pointList) {
+        return groupBy(pointList, function( item )  {
+                return [item.f]; //, item.t
+            }
+        );
+    }
     function groupBy(array, f) {
 
         const groups = {};
@@ -1111,14 +1165,36 @@
 //--CLUSTERING----------------------------------------------------------------------------------------------------------
 //  ToDo: data.clts.points.push(cluster.members) --> change .points. to .members
 
+    function genSubsaTrajs(trajs) {
+
+        const subsaTrajs = trajs.slice();
+
+        trajs.forEach(function(traj) {
+
+            traj.subsaPoints = subsamplePoints(traj.rawPoints);
+
+            let tempTraj = traj;
+            let spliceNum = traj.subsaPoints.length;
+
+            for(let i = 1; i < traj.subsaPoints.length; i++) {
+                if(traj.subsaPoints[i-1].f !== traj.subsaPoints[i].f) {
+                    if (i < spliceNum) spliceNum = i;
+                    tempTraj = new Trajectory();
+                    subsaTrajs.push(tempTraj);
+                    tempTraj.subsaPoints = traj.subsaPoints.slice(i);
+                }
+            }
+            traj.subsaPoints.splice(spliceNum);
+        });
+        return subsaTrajs;
+    }
+
     function cluster(trajs) {
         const vertices = [];
-        trajs.forEach(function(traj) {
-            //subsampling
-            const points = traj.points;
-            const tempTraj = new Trajectory(subsamplePoints(points));
-            data.trjs.subsa.push(tempTraj);
-            vertices.push(tempTraj.points);
+
+        const subsaTrajs = genSubsaTrajs(trajs);
+        subsaTrajs.forEach(function(traj) {
+            vertices.push(traj.subsaPoints);
         });
 
         //centroid seed
@@ -1139,12 +1215,11 @@
             if(ml < cluster.members.length) ml = cluster.members.length;
         });
 
-
         R.forEach(function(cluster) {
             //cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
             const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
             cluster.centroid.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
-            data.clts.clusters.push(cluster);
+            data.clts.clusters.push(cluster); //ToDo
         });
     }
 
@@ -1268,7 +1343,7 @@
 
                 } else {
 
-                    data.clts.errors.push(p);
+                    data.clts.errors.push(p); //ToDo
                     cnt++;
                 }
             });
@@ -1368,7 +1443,7 @@
             const index = G.grid[gc.i][gc.j].indexOf(cent);
             G.grid[gc.i][gc.j].splice(index, 1);
 
-            clus.centroid = updateCentroid(cent, clus.members);
+            clus.updateCentroid();
             clus.addMember(p);
         }
         gc = getGridPosition(clus.centroid, G);
@@ -1419,27 +1494,6 @@
             j: Math.floor(( p.y - G.yMin ) / bd.maxRadius)
         };
     }
-    function updateCentroid(centroid, points) {
-
-        let sumX = 0;
-        let sumY = 0;
-        const numPoints = points.length;
-
-        for (let p in points) {
-            if(points.hasOwnProperty(p)){
-                sumX += points[p].x;
-                sumY += points[p].y;
-            }
-        }
-
-        if (numPoints > 0) {
-            centroid.x = sumX / numPoints;
-            centroid.y = sumY / numPoints;
-            return centroid;
-        } else {
-            return null;
-        }
-    }
     function getSpatialDistance(p1, p2) {
         return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
@@ -1480,32 +1534,43 @@
         const v = 1 - Math.random();
         return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
     }
+
     function genBetterTrajs(trajs) {
 
-        data.trjs.better = [];
-        trajs.forEach(function (trajectory) {
-            let tempTrajs = [];
-            let tempTraj = new Trajectory([]);
-            tempTraj.addCentroid(trajectory.points[0].centroid);
+        //const newTrajs = [];
+
+        trajs.forEach(function (traj) {
+
+            traj.emptyCentroids();
+            traj.addCentroid(traj.subsaPoints[0].centroid);
+
+            let tempTraj = traj;
+            //let spliceNum = traj.subsaPoints.length;
 
             //Points are not passed on to BetterTrajectories
-            for(let i = 1; i < trajectory.points.length; i++) {
-                if(trajectory.points[i-1].centroid !== trajectory.points[i].centroid) {
-                    if(trajectory.points[i-1].centroid.f === trajectory.points[i].centroid.f) {
-                        tempTraj.addCentroid(trajectory.points[i].centroid);
-                    } else {
-                        tempTrajs.push(tempTraj);
-                        tempTraj = new Trajectory([]);
-                        tempTraj.addCentroid(trajectory.points[i].centroid);
-                    }
+            for(let i = 1; i < traj.subsaPoints.length; i++) {
+                if(traj.subsaPoints[i-1].centroid !== traj.subsaPoints[i].centroid) {
+                    //if(traj.subsaPoints[i-1].centroid.f === traj.subsaPoints[i].centroid.f) {
+                        tempTraj.addCentroid(traj.subsaPoints[i].centroid);
+                    /*} else {
+                        //tempTraj.addCentroid(traj.subsaPoints[i].centroid);
+                        if(i < spliceNum) spliceNum = i;
+                        tempTraj = new Trajectory();
+                        newTrajs.push(tempTraj);
+                        tempTraj.subsaPoints = traj.subsaPoints.slice(i);
+                        tempTraj.addCentroid(traj.subsaPoints[i].centroid);
+                        let k = 0; // floors not addressed
+                    }*/
                 }
             }
-            tempTrajs.push(tempTraj);
-            tempTrajs.forEach(function (tempTraj) {
-                tempTraj.deviation = rand_BoxMuller();
-                data.trjs.better.push(tempTraj);
-            });
+            //traj.subsaPoints.splice(spliceNum);
+            traj.deviation = rand_BoxMuller();
         });
+
+        /*newTrajs.forEach(function(traj) {
+            traj.deviation = rand_BoxMuller();
+            data.trjs.push(traj);
+        });*/
     }
     function genEvenBetterTrajs(betterTrajs) {
 
@@ -1601,14 +1666,14 @@
     function makePoints() {
         /*const tempTrajGeom = makePointGeometry(data.pnts);
         draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.opacity, par.pt.size, data.pnts));*/
-        data.trjs.raw.forEach(function(traj) {
-            const tempTrajGeom = makePointGeometry(traj.points);
+        data.trjs.forEach(function(traj) {
+            const tempTrajGeom = makePointGeometry(traj.rawPoints);
             draw.pnts.push(createDots(tempTrajGeom, traj.color, par.pt.opacity, par.pt.size, traj));
         });
     }
     function makeLine() {
-        data.trjs.raw.forEach(function(traj) {
-            const tempTrajGeom = makePointGeometry(traj.points);
+        data.trjs.forEach(function(traj) {
+            const tempTrajGeom = makePointGeometry(traj.rawPoints);
             const mat = new THREE.LineBasicMaterial({color: traj.color, opacity: par.tj.opacity});
             const line = new THREE.Line(tempTrajGeom, mat);
             line.userData = traj;
@@ -1617,7 +1682,7 @@
         });
     }
     function makeClusters() {
-        cluster(data.trjs.raw);
+        cluster(data.trjs);
         const drawStuff = makeClusteredGeom(data.clts);
         drawStuff.cents.forEach(function(cent) {
             draw.clts.centroids.push(cent);
@@ -1634,7 +1699,7 @@
 
     } //ToDo: temp code inside--------------------------------------------------------------
     function makeGraph() {
-        cluster(data.trjs.raw);
+        cluster(data.trjs);
         connectTheDots(data.clts.clusters);
         const drawGraphStuff = makeGraphGeom(data.clts, data.grph);
         drawGraphStuff.cents.forEach(function (centGeom) {
@@ -1645,9 +1710,9 @@
         });
     }
     function makeBetter() {
-        cluster(data.trjs.raw);
-        genBetterTrajs(data.trjs.subsa);
-        const drawBetterStuff = makeBetterGeom(data.clts, data.trjs.better);
+        const clusTrajs = cluster(data.trjs);
+        genBetterTrajs(clusTrajs);
+        const drawBetterStuff = makeBetterGeom(data.clts, data.trjs);
         drawBetterStuff.cents.forEach(function (centGeom) {
             draw.clts.centroids.push(centGeom);
         });
@@ -1656,10 +1721,10 @@
         });
     }
     function makeEvenBetter() {
-        cluster(data.trjs.raw);
-        genBetterTrajs(data.trjs.subsa);
-        genEvenBetterTrajs(data.trjs.better);
-        const drawBetterStuff = makeEvenBetterGeom(data.clts, data.trjs.evenbetter);
+        cluster(data.trjs);
+        genBetterTrajs(data.trjs);
+        genEvenBetterTrajs(data.trjs);
+        const drawBetterStuff = makeEvenBetterGeom(data.clts, data.trjs);
         drawBetterStuff.cents.forEach(function (centGeom) {
             draw.clts.centroids.push(centGeom);
         });
@@ -1928,12 +1993,11 @@
     function deleteClusterTrajectories() {
         removeClusterTrajectories();
         //data.pnts = data.pnts;
-        data.trjs = {
-            raw: data.trjs.raw,
-            subsa: [],
-            better: [],
-            evenbetter: []
-        };
+        data.trjs.forEach(function(traj) {
+            traj.emptySubsaPoints();
+            traj.emptyCentroids();
+            traj.emptyAnchors();
+        });
         data.clts = {
             clusters: [],
             centroids: [],
@@ -2052,11 +2116,11 @@
 
         hideAllTrajectories();
         if(bd.lineType === 'Point'){
-            if(draw.pnts.length === 0){
+            if(draw.pnts.length !== data.trjs.length){
                 makeAllTrajectories();
             }
         } else if (bd.lineType === 'Line') {
-            if(draw.trjs.raw.length === 0){
+            if(draw.trjs.raw.length !== data.trjs.length){
                 makeAllTrajectories();
             }
         } else if(bd.lineType === 'Clusters') {
