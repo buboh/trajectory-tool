@@ -301,13 +301,9 @@
 
         pnts: [],
         trjs: [],
-        clts: {
-            clusters: [],
-            centroids: [],
-            circles: [],
-            members: [],
-            errors: [], //temp
-        },
+        clts: [],
+        errors: [], //temp
+
         grph: {
             edges: []
         },
@@ -517,6 +513,8 @@
         emptyCentroids() {
             this.points.centroids = [];
         }
+        get anchors() {return this.points.anchors}
+        set anchors(anchs) {this.points.anchors = anchs}
         addAnchor(anch) {
             this.points.anchors.push(anch);
             //anch. implement if Anchor becomes a class
@@ -1165,35 +1163,11 @@
 //--CLUSTERING----------------------------------------------------------------------------------------------------------
 //  ToDo: data.clts.points.push(cluster.members) --> change .points. to .members
 
-    function genSubsaTrajs(trajs) {
-
-        const subsaTrajs = trajs.slice();
-
-        trajs.forEach(function(traj) {
-
-            traj.subsaPoints = subsamplePoints(traj.rawPoints);
-
-            let tempTraj = traj;
-            let spliceNum = traj.subsaPoints.length;
-
-            for(let i = 1; i < traj.subsaPoints.length; i++) {
-                if(traj.subsaPoints[i-1].f !== traj.subsaPoints[i].f) {
-                    if (i < spliceNum) spliceNum = i;
-                    tempTraj = new Trajectory();
-                    subsaTrajs.push(tempTraj);
-                    tempTraj.subsaPoints = traj.subsaPoints.slice(i);
-                }
-            }
-            traj.subsaPoints.splice(spliceNum);
-        });
-        return subsaTrajs;
-    }
-
     function cluster(trajs) {
         const vertices = [];
 
-        const subsaTrajs = genSubsaTrajs(trajs);
-        subsaTrajs.forEach(function(traj) {
+        trajs.forEach(function(traj) {
+            traj.subsaPoints = subsamplePoints(traj.rawPoints);
             vertices.push(traj.subsaPoints);
         });
 
@@ -1219,7 +1193,7 @@
             //cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
             const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
             cluster.centroid.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
-            data.clts.clusters.push(cluster); //ToDo
+            data.clts.push(cluster); //ToDo
         });
     }
 
@@ -1343,7 +1317,7 @@
 
                 } else {
 
-                    data.clts.errors.push(p); //ToDo
+                    data.errors.push(p); //ToDo
                     cnt++;
                 }
             });
@@ -1416,7 +1390,6 @@
             }
         }
         console.log('end ' + R.length + ', Number of merged centroids: ' + cnt);
-
     }
 
     function putInProperGroup(p, R, G) {
@@ -1432,7 +1405,6 @@
                 g: clus,
             });
             clus.addMember(p);
-            //data.clts.centroids.push(clus.centroid);
 
             R.push(clus);
         } else {
@@ -1537,59 +1509,37 @@
 
     function genBetterTrajs(trajs) {
 
-        //const newTrajs = [];
-
         trajs.forEach(function (traj) {
 
             traj.emptyCentroids();
             traj.addCentroid(traj.subsaPoints[0].centroid);
 
-            let tempTraj = traj;
-            //let spliceNum = traj.subsaPoints.length;
-
-            //Points are not passed on to BetterTrajectories
             for(let i = 1; i < traj.subsaPoints.length; i++) {
                 if(traj.subsaPoints[i-1].centroid !== traj.subsaPoints[i].centroid) {
-                    //if(traj.subsaPoints[i-1].centroid.f === traj.subsaPoints[i].centroid.f) {
-                        tempTraj.addCentroid(traj.subsaPoints[i].centroid);
-                    /*} else {
-                        //tempTraj.addCentroid(traj.subsaPoints[i].centroid);
-                        if(i < spliceNum) spliceNum = i;
-                        tempTraj = new Trajectory();
-                        newTrajs.push(tempTraj);
-                        tempTraj.subsaPoints = traj.subsaPoints.slice(i);
-                        tempTraj.addCentroid(traj.subsaPoints[i].centroid);
-                        let k = 0; // floors not addressed
-                    }*/
+                    traj.addCentroid(traj.subsaPoints[i].centroid);
                 }
             }
-            //traj.subsaPoints.splice(spliceNum);
             traj.deviation = rand_BoxMuller();
         });
-
-        /*newTrajs.forEach(function(traj) {
-            traj.deviation = rand_BoxMuller();
-            data.trjs.push(traj);
-        });*/
     }
-    function genEvenBetterTrajs(betterTrajs) {
+    function genEvenBetterTrajs(trajs) {
 
-        data.trjs.evenbetter = [];
-        betterTrajs.forEach(function (trajectory) {
+        trajs.forEach(function (traj) {
+            traj.emptyAnchors();
 
             let i = 0;
 
-            trajectory.anchors.push(trajectory.centroids[i]);
+            traj.addAnchor(traj.centroids[i]);
 
             i++;
 
-            if(trajectory.centroids.length > 2) {
+            if(traj.centroids.length > 2) {
 
-                while (i < trajectory.centroids.length - 1) {
+                while (i < traj.centroids.length - 1) {
 
-                    const p0 = trajectory.centroids[i - 1];
-                    const p1 = trajectory.centroids[i];
-                    const p2 = trajectory.centroids[i + 1];
+                    const p0 = traj.centroids[i - 1];
+                    const p1 = traj.centroids[i];
+                    const p2 = traj.centroids[i + 1];
 
                     let p1p0 = {x: p0.x - p1.x, y: p0.y - p1.y};
                     let p1p2 = {x: p2.x - p1.x, y: p2.y - p1.y};
@@ -1619,16 +1569,16 @@
                         f: p1.f
                     });
 
-                    trajectory.anchors.push(p01);
-                    trajectory.anchors.push(p12);
+                    traj.addAnchor(p01);
+                    traj.addAnchor(p12);
 
                     i++;
                 }
             }
 
-            if(trajectory.centroids.length > 1){
-                trajectory.anchors.push(trajectory.centroids[i]);
-                data.trjs.evenbetter.push(trajectory);
+            if(traj.centroids.length > 1){
+                traj.addAnchor(traj.centroids[i]);
+                //data.trjs.evenbetter.push(traj);
             }
         });
     }
@@ -1700,7 +1650,7 @@
     } //ToDo: temp code inside--------------------------------------------------------------
     function makeGraph() {
         cluster(data.trjs);
-        connectTheDots(data.clts.clusters);
+        connectTheDots(data.clts);
         const drawGraphStuff = makeGraphGeom(data.clts, data.grph);
         drawGraphStuff.cents.forEach(function (centGeom) {
             draw.clts.centroids.push(centGeom);
@@ -1710,8 +1660,8 @@
         });
     }
     function makeBetter() {
-        const clusTrajs = cluster(data.trjs);
-        genBetterTrajs(clusTrajs);
+        cluster(data.trjs);
+        genBetterTrajs(data.trjs);
         const drawBetterStuff = makeBetterGeom(data.clts, data.trjs);
         drawBetterStuff.cents.forEach(function (centGeom) {
             draw.clts.centroids.push(centGeom);
@@ -1746,7 +1696,7 @@
         const circleMeshes = [];
         const pointDots = [];
 
-        clts.clusters.forEach(function(cluster) {
+        clts.forEach(function(cluster) {
 
             createCentroidDot(cluster, centDots);
 
@@ -1775,7 +1725,7 @@
          (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
          );*/
         const errorDots = [];
-        clts.errors.forEach(function(point) {
+        data.errors.forEach(function(point) {
             const errorGeom = new THREE.Geometry();
             errorGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
             errorDots.push(createDots(errorGeom, par.cl.errors.color, par.pt.opacity, par.pt.size, point)); //temp
@@ -1792,7 +1742,7 @@
         const centDots = [];
         const edgeLines = [];
 
-        clts.clusters.forEach(function(cluster) {
+        clts.forEach(function(cluster) {
             createCentroidDot(cluster, centDots);
         });
 
@@ -1816,7 +1766,7 @@
         const centDots = [];
         const trajLines = [];
 
-        clts.clusters.forEach(function(cluster) {
+        clts.forEach(function(cluster) {
             createCentroidDot(cluster, centDots);
         });
 
@@ -1847,28 +1797,30 @@
     function makeEvenBetterGeom(clts, trajs) {
         const centDots = [];
         const anchorLines = [];
-        clts.clusters.forEach(function(cluster) {
+        clts.forEach(function(cluster) {
             createCentroidDot(cluster, centDots);
         });
 
         trajs.forEach(function(traj) {
-            const anchorGeom = new THREE.Geometry();
-            traj.anchors.forEach(function(point) {
-                anchorGeom.vertices.push(
-                    new THREE.Vector3(
-                        point.x + traj.deviation * par.tj.deviationFactor,
-                        -point.y + traj.deviation * par.tj.deviationFactor,
-                        point.f));
-            });
+            if(traj.anchors.length > 1) {
+                const anchorGeom = new THREE.Geometry();
+                traj.anchors.forEach(function(point) {
+                    anchorGeom.vertices.push(
+                        new THREE.Vector3(
+                            point.x + traj.deviation * par.tj.deviationFactor,
+                            -point.y + traj.deviation * par.tj.deviationFactor,
+                            point.f));
+                });
 
-            const curve = new THREE.CatmullRomCurve3(anchorGeom.vertices);
-            let tempTrajGeom = new THREE.Geometry();
-            tempTrajGeom.vertices = curve.getPoints(50);
+                const curve = new THREE.CatmullRomCurve3(anchorGeom.vertices);
+                let tempTrajGeom = new THREE.Geometry();
+                tempTrajGeom.vertices = curve.getPoints(50);
 
-            const mat = new THREE.LineBasicMaterial({color: par.ln.color, transparent: par.ln.transparency, opacity: par.ln.opacity});
-            const line = new THREE.Line(tempTrajGeom, mat);
-            anchorLines.push(line);
-            traj.drawing = line;
+                const mat = new THREE.LineBasicMaterial({color: par.ln.color, transparent: par.ln.transparency, opacity: par.ln.opacity});
+                const line = new THREE.Line(tempTrajGeom, mat);
+                anchorLines.push(line);
+                traj.drawing = line;
+            }
         });
 
         //started to implement splines --> continue
@@ -1998,13 +1950,8 @@
             traj.emptyCentroids();
             traj.emptyAnchors();
         });
-        data.clts = {
-            clusters: [],
-            centroids: [],
-            circles: [],
-            members: [],
-            errors: [],
-        };
+        data.clts = [];
+        data.errors = [];
         data.grph = {
             edges: []
         };
@@ -2076,7 +2023,7 @@
         removeAllTrajectories();
         deleteClusterTrajectories();
         data.pnts = [];
-        data.trjs.raw = [];
+        data.trjs = [];
     }
 
     //--All-------------------------------------------------------------------------------------------------------------
