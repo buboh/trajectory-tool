@@ -300,6 +300,7 @@
         grds: {},
 
         pnts: [],
+        subsaPnts: [],
         trjs: [],
         clts: [],
         errors: [], //temp
@@ -330,89 +331,12 @@
         }
     };
 
-    class Point {
-        constructor(p) {
-            this.color = par.pt.color;
-            this.did = p.did;
-            this.x = p.x;
-            this.y = p.y;
-            this.f = p.f;
-            this.t = p.t;
-            this.c = null;
-            this.cl = null;
-            this.pP = null;
-            this.nP = null;
-            data.pnts.push(this);
-        }
-        get centroid() { return this.c; }
-        set centroid(cent) {
-            this.c = cent;
-//            if(this.g && (cent !== this.g.c)) {
-//                this.g = null;
-//            }
-        }
-        get cluster() { return this.cl; }
-        set cluster(clus) {
-            this.cl = clus;
-            this.c = clus.c;
-        }
-        get prevPoint() { return this.pP }
-        set prevPoint(pt) {
-            this.pP = pt;
-            if(pt) pt.nP = this;
-        }
-        get nextPoint() { return this.nP }
-        set nextPoint(pt) {
-            this.nP = pt;
-            if(pt) pt.pP = this;
-        }
-    }
-    class Centroid extends Point {
-        constructor(c) {
-            super(c);
-            this.prevCents = new Set(); // ev. Map mit Cent als key und anzahl als val?
-            this.nextCents = new Set();
-            this.cl = c.cl;
-            this.tjs = new Set();
-            this.color = Math.random() * 0xffffff;
-        }
-        get cluster() { return this.cl }
-        set cluster(clus) {
-            this.cl = clus;
-        }
-        get trajectories() {
-            return this.tjs;
-        }
-        addTrajectory(traj) {
-            this.tjs.add(traj);
-        }
-        removeTrajectory(traj) {
-            this.tjs.delete(traj);
-        }
-
-    }
-    class Anchor extends Point {
-        constructor(a) {
-            super(a);
-            //this.prevAnch = new Set(); // ev. Map mit Cent als key und anzahl als val?
-            //this.nextAnch = new Set();
-            this.tjs = new Set();
-        }
-        get trajectories() {
-            return this.tjs;
-        }
-        addTrajectory(traj) {
-            this.tjs.add(traj);
-        }
-        removeTrajectory(traj) {
-            this.tjs.delete(traj);
-        }
-    }
-
     class Cluster {
         constructor() {
             this.c = {};
             this.m = [];
+            this.tjs = [];
+            this.anch = [];
             this.drawing = {
                 centroid: {},
                 circle: {},
@@ -420,30 +344,13 @@
             }
             //data.clts.push(this);
         }
-        get centroid() { return this.c }
+        get centroid() {return this.c}
         set centroid(cent) {
             this.c = cent;
             this.c.cluster = this;
             this.m.forEach(function(pt) {
-               pt.centroid = cent;
+                pt.centroid = cent;
             });
-        }
-        get members() { return this.m }
-        set members(memb) {
-            this.m = memb;
-            if(this.c) {
-                this.m.forEach(function(pt) {
-                   pt.centroid = this.c;
-                });
-            }
-        }
-        addMember(pt) {
-            pt.cluster = this;
-            this.m.push(pt);
-        }
-        removeMember(pt) {
-            pt.cluster = null;
-            //implement this.m.remove(pt);
         }
         updateCentroid() {
 
@@ -469,6 +376,36 @@
                 this.centroid = null;
             }
         }
+        get members() {return this.m}
+        set members(memb) {
+            this.m = memb;
+            if(this.c) {
+                this.m.forEach(function(pt) {
+                    pt.centroid = this.c;
+                });
+            }
+        }
+        addMember(pt) {
+            pt.cluster = this;
+            this.m.push(pt);
+        }
+        removeMember(pt) {
+            pt.cluster = null;
+            //implement this.m.remove(pt);
+        }
+        get trajectories() {
+            return this.tjs;
+        }
+        addTrajectory(traj) {
+            this.tjs.push(traj);
+        }
+        removeTrajectory(traj) {
+            //this.tjs.delete(traj);
+        }
+        get anchors() {return this.anch}
+        addAnchor(anch) {
+            this.anch.push(anch);
+        }
 
         set ctDot(cent) {
             this.drawing.centroid = cent;
@@ -480,6 +417,80 @@
             this.drawing.members = point;
         }
     }
+
+    class Point {
+        constructor(p) {
+            this.color = par.pt.color;
+            this.did = p.did;
+            this.x = p.x;
+            this.y = p.y;
+            this.f = p.f;
+            this.t = p.t;
+            this.c = null;
+            this.cl = null;
+            this.prev = null;
+            this.next = null;
+        }
+        get centroid() { return this.c; }
+        set centroid(cent) {
+            this.c = cent;
+//            if(this.g && (cent !== this.g.c)) {
+//                this.g = null;
+//            }
+        }
+        get cluster() {return this.cl}
+        set cluster(clus) {
+            this.cl = clus;
+            this.c = clus.c;
+        }
+        get prevPoint() {return this.prev}
+        set prevPoint(pt) {
+            this.prev = pt;
+            if(pt) pt.next = this;
+        }
+        get nextPoint() {return this.next}
+        set nextPoint(pt) {
+            this.next = pt;
+            if(pt) pt.prev = this;
+        }
+    }
+    class Centroid extends Point {
+        constructor(p) {
+            super(p);
+            this.prev = new Set(); // ev. Map mit Cent als key und anzahl als val?
+            this.next = new Set();
+            this.cl = p.cl;
+            this.color = Math.random() * 0xffffff;
+        }
+        get prevCentroids() {return this.prev}
+        set prevCentroids(set) {this.prev = set}
+        addPrevCentroid(cent) {
+            this.prev.add(cent);
+            if(cent) cent.next.add(this);
+        }
+        get nextCentroids() {return this.next}
+        set nextCentroids(set) {this.next = set}
+        addNextCentroid(cent) {
+            this.next.add(cent);
+            if(cent) cent.prev.add(this);
+        }
+    }
+    class Anchor extends Point {
+        constructor(p) {
+            super(p);
+        }
+        get prevAnchor() {return this.prev}
+        set prevAnchor(anch) {
+            this.prev = anch;
+            if(anch) anch.next = this;
+        }
+        get nextAnchor() {return this.next}
+        set nextAnchor(anch) {
+            this.next = anch;
+            if(anch) anch.prev = this;
+        }
+    }
+
     class Trajectory {
         constructor() {
             this.points = {
@@ -504,11 +515,11 @@
         set centroids(points) {this.points.centroids = points}
         addCentroid(cent) {
             this.points.centroids.push(cent);
-            cent.addTrajectory(this);
+            cent.cluster.addTrajectory(this);
         }
         removeCentroid(cent) {
             //implement removeal function
-            cent.removeTrajectory(this);
+            cent.cluster.removeTrajectory(this);
         }
         emptyCentroids() {
             this.points.centroids = [];
@@ -1036,6 +1047,7 @@
 
             tempList.forEach(function (point) {
                 const p = new Point(point);
+                data.pnts.push(p);
                 pointList.push(p);
             });
         });
@@ -1211,6 +1223,8 @@
             f: points[0].f,
             t: points[0].t
         });
+        data.subsaPnts.push(p0); //testing
+
         p0.prevPoint = null;
         vertices.push(p0);
 
@@ -1233,6 +1247,8 @@
                         f: pA.f,
                         t: pA.t
                     });
+                    data.subsaPnts.push(p); //testing
+
                     p.prevPoint = tempPrevPoint;
                     tempPrevPoint = p;
 
@@ -1398,13 +1414,8 @@
         let gc;
 
         if (cent === null) {
-            clus.centroid = new Centroid({
-                x: p.x,
-                y: p.y,
-                f: p.f,
-                g: clus,
-            });
             clus.addMember(p);
+            clus.centroid = new Centroid(p);
 
             R.push(clus);
         } else {
@@ -1474,25 +1485,25 @@
         clusters.forEach(function(cluster) {
             const centroid = cluster.centroid;
             //centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
-//            centroid.prevCents = new Set();
-//            centroid.nextCents = new Set();
+//            centroid.prev = new Set();
+//            centroid.next = new Set();
 
             cluster.members.forEach(function (point) {
-                if ((point.prevPoint !== null) && (point.prevPoint.c !== null)){
-                    if((point.prevPoint.c !== point.c) && (point.prevPoint.c.f === point.c.f)) {
-                        centroid.prevCents.add(point.prevPoint.c);
+                if ((point.prevPoint !== null) && (point.prevPoint.centroid !== null)){
+                    if((point.prevPoint.centroid !== point.centroid) && (point.prevPoint.centroid.f === point.centroid.f)) {
+                        centroid.addPrevCentroid(point.prevPoint.centroid);
                     }
                 }
-                if ((point.nextPoint !== null) && (point.nextPoint.c !== null)){
-                    if((point.nextPoint.c !== point.c) && (point.nextPoint.c.f === point.c.f)) {
-                        centroid.nextCents.add(point.nextPoint.c);
+                if ((point.nextPoint !== null) && (point.nextPoint.centroid !== null)){
+                    if((point.nextPoint.centroid !== point.centroid) && (point.nextPoint.centroid.f === point.centroid.f)) {
+                        centroid.addNextCentroid(point.nextPoint.centroid);
                     }
                 }
             });
         });
         clusters.forEach(function (cluster) {
             const centroid = cluster.centroid;
-            centroid.nextCents.forEach(function(nextCentroid) {
+            centroid.nextCentroids.forEach(function(nextCentroid) {
                 data.grph.edges.push({
                     start: centroid,
                     end: nextCentroid
@@ -1529,7 +1540,7 @@
 
             let i = 0;
 
-            traj.addAnchor(traj.centroids[i]);
+            traj.addAnchor(new Anchor(traj.centroids[i]));
 
             i++;
 
@@ -1553,17 +1564,17 @@
                     let alpha = (cos_p0p2 + 1.0) / 2.0;
 
                     //boundaries
-                    let beta = Math.max(alpha, 0.5);
+                    let beta = Math.max(alpha, 0.6); //changed to 0.6 to prevent hard edges
                     //beta = Math.min(beta, 0.95);
 
                     //beta = alpha;
 
-                    const p01 = new Point({
+                    const p01 = new Anchor({
                         x: (1 - beta) * p0.x + beta * p1.x,
                         y: (1 - beta) * p0.y + beta * p1.y,
-                        f: p0.f
+                        f: p1.f,
                     });
-                    const p12 = new Point({
+                    const p12 = new Anchor({
                         x: beta * p1.x + (1 - beta) * p2.x,
                         y: beta * p1.y + (1 - beta) * p2.y,
                         f: p1.f
@@ -1577,8 +1588,7 @@
             }
 
             if(traj.centroids.length > 1){
-                traj.addAnchor(traj.centroids[i]);
-                //data.trjs.evenbetter.push(traj);
+                traj.addAnchor(new Anchor(traj.centroids[i]));
             }
         });
     }
@@ -1614,25 +1624,27 @@
     }
 
     function makePoints() {
-        /*const tempTrajGeom = makePointGeometry(data.pnts);
-        draw.pnts.push(createDots(tempTrajGeom, par.pt.color, par.pt.opacity, par.pt.size, data.pnts));*/
         data.trjs.forEach(function(traj) {
             const tempTrajGeom = makePointGeometry(traj.rawPoints);
-            draw.pnts.push(createDots(tempTrajGeom, traj.color, par.pt.opacity, par.pt.size, traj));
+            const dots = createDots(tempTrajGeom, traj.color, par.pt.opacity, par.pt.size, traj);
+            draw.pnts.push(dots);
+            traj.drawing = dots;
         });
     }
     function makeLine() {
         data.trjs.forEach(function(traj) {
             const tempTrajGeom = makePointGeometry(traj.rawPoints);
-            const mat = new THREE.LineBasicMaterial({color: traj.color, opacity: par.tj.opacity});
-            const line = new THREE.Line(tempTrajGeom, mat);
-            line.userData = traj;
+            const line = createLine(tempTrajGeom, traj.color, par.tj.opacity, traj);
             draw.trjs.raw.push(line);
             traj.drawing = line;
         });
     }
     function makeClusters() {
         cluster(data.trjs);
+        /*data.clts.forEach(function(clus) {
+            const tempClusGeom = makeClusteredGeom(clus);
+            const
+        });*/
         const drawStuff = makeClusteredGeom(data.clts);
         drawStuff.cents.forEach(function(cent) {
             draw.clts.centroids.push(cent);
@@ -1709,10 +1721,7 @@
             circleMeshes.push(circle);
             cluster.ciMesh = circle;
 
-            const pointGeom = new THREE.Geometry();
-            cluster.members.forEach(function(point) {
-                pointGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f));
-            });
+            const pointGeom = makePointGeometry(cluster.members);
             const ptDots = createDots(pointGeom, cluster.centroid.color, par.pt.opacity, par.pt.size, cluster);
             pointDots.push(ptDots);
             cluster.meDots = ptDots;
@@ -1860,6 +1869,12 @@
         dots.userData = userData;
         return dots;
     } //three.js
+    function createLine(geom, color, opa, userData = {}) {
+        const mat = new THREE.LineBasicMaterial({color: color, opacity: opa});
+        const line = new THREE.Line(geom, mat);
+        line.userData = userData;
+        return line;
+    }
 
 //--ADD-&-REMOVE--------------------------------------------------------------------------------------------------------
 //  ToDo: review lineTypes
@@ -1945,6 +1960,7 @@
     function deleteClusterTrajectories() {
         removeClusterTrajectories();
         //data.pnts = data.pnts;
+        data.subsaPnts = [];
         data.trjs.forEach(function(traj) {
             traj.emptySubsaPoints();
             traj.emptyCentroids();
