@@ -420,3 +420,12 @@ scene.add(plane);
 camera.lookAt(scene.position);
 renderer.render(scene, camera);
 
+//--------------------------
+
+//rainbow color:
+/* const centVect = centGeoms[g].vertices[0];
+ const rainbowColor = new THREE.Color(
+ (1 / bd.width) * centVect.x, //r
+ (1 / bd.height) * -centVect.y, //g
+ (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
+ );*/
