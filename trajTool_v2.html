@@ -639,6 +639,30 @@
                 this.addAnchor(new Anchor(this.centroids[i]));
             }
         }
+        findBezAnchors() {
+            this.emptyAnchors();
+
+            let i = 0;
+            while( i < this.centroids.length - 1) {
+
+                const cA = this.centroids[i];
+                const cB = this.centroids[i+1];
+
+                const alpha = 0.5;
+
+                const p = new Anchor({
+                    x: alpha * cA.x + (1 - alpha) * cB.x,
+                    y: alpha * cA.y + (1 - alpha) * cB.y,
+                    f: cA.f,
+                });
+
+                this.addAnchor(new Anchor(cA));
+                this.addAnchor(p);
+
+                i++;
+            }
+            this.addAnchor(new Anchor(this.centroids[i]));
+        }
         emptyAnchors() {
             this.data.anchors = [];
         }
@@ -1776,8 +1800,10 @@
     }
     function makeEvenBetter(traj) {
         traj.findCentroids();
-        traj.findAnchors();
-        const trajGeom = makeTrajCurveGeom(traj);
+        //traj.findAnchors();
+        traj.findBezAnchors();
+        //const trajGeom = makeTrajCurveGeom(traj);
+        const trajGeom = makeTrajBezCurveGeom(traj);
         if(trajGeom && (traj.anchors.length !== 0)) {
             traj.anchLine = createLine(trajGeom, par.ln.color, par.ln.opacity, par.ln.transparency,
                                         THREE.NoColors, THREE.FlatShading, traj);
@@ -1830,16 +1856,6 @@
             let curveGeom = new THREE.Geometry();
             curveGeom.vertices = curve.getPoints(50);
 
-            /*const curveGeom = new THREE.CurvePath();
-
-            for(let c = 0; c < traj.anchors.length - 1; c++) {
-                const anchorGeom = new THREE.QuadraticBezierCurve3(
-
-
-            }
-
-            );*/
-
             return curveGeom;
         } else {
             return false;
@@ -1860,6 +1876,45 @@
          anchorGeoms.push(anchorGeom);
          });*/
     } //three.js
+    function makeTrajBezCurveGeom(traj) {
+        if(traj.anchors.length > 2) {
+            const a = traj.anchors;
+
+            const geom = new THREE.CurvePath();
+
+            let i = 0;
+            const curveS = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f)
+            );
+            geom.add(curveS);
+
+            i++;
+            while (i < traj.anchors.length - 2) {
+
+                const curve = new THREE.QuadraticBezierCurve3(
+                    new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                    new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f),
+                    new THREE.Vector3(a[i + 2].x, -a[i + 2].y, a[i + 2].f)
+                );
+                geom.add(curve);
+
+                i += 2;
+            }
+
+            const curveE = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f),
+                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f)
+            );
+            geom.add(curveE);
+
+            return geom.createPointsGeometry(50);
+        } else {
+            return false;
+        }
+    }
 
     function createDots(geom, color, opa, pointSize, userData = {}) {
         const mat = new THREE.PointsMaterial({color: color, opacity: opa, size: pointSize, sizeAttenuation: false});

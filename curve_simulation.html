@@ -79,7 +79,6 @@
         changeAlpha();
     });
 
-
     const Trajectory = function(points) {
         this.color = TRAJ_COLOR;
         this.points = points;
@@ -194,6 +193,8 @@
             genBetter();
         } else if(params.lineType === 'splineCurves') {
             genBetter();
+        } else if(params.lineType === 'betterBezier') {
+            genBetterBezier();
         }
     }
 
@@ -223,6 +224,7 @@
         gui.add(this, 'genSplineCurves').name('Spline Curves');
         gui.add(this, 'genBetterLines').name('Better Lines');
         gui.add(this, 'genBetterCurves').name('Better Curves');
+        gui.add(this, 'genBezierCurves').name('Better Bezier');
     }
 
     function makePoint(point) {
@@ -254,19 +256,44 @@
         } else if(params.lineType === 'betterCurves'){
 
             const curve = new THREE.CatmullRomCurve3(vertices);
-            //const curve = new THREE.CubicBezierCurve3(vertices[0], vertices[1], vertices[2], vertices[3]);
-
-            /*let p = traj.points;
-            const curve = new THREE.QuadraticBezierCurve3(
-                new THREE.Vector3(p[0].x, p[0].y, p[0].f),
-                new THREE.Vector3(p[1].x, p[1].y, p[1].f),
-                new THREE.Vector3(p[2].x, p[2].y, p[2].f)
-            );*/
             tempTrajGeom.vertices = curve.getPoints(50);
 
-            /*const curve = new THREE.SplineCurve(vertices);
-            const path = new THREE.Path(curve.getPoints(50));
-            tempTrajGeom = path.createPointsGeometry(50);*/
+        } else if(params.lineType === 'betterBezier'){
+            //const curve = new THREE.CubicBezierCurve3(vertices[0], vertices[1], vertices[2], vertices[3]);
+
+            const a = traj.anchors;
+
+            const geom = new THREE.CurvePath();
+
+            let i = 0;
+            const curveS = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i+1].x, -a[i+1].y, a[i+1].f)
+            );
+            geom.add(curveS);
+
+            i++;
+            while( i < traj.anchors.length - 2) {
+
+                const curve = new THREE.QuadraticBezierCurve3(
+                    new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                    new THREE.Vector3(a[i+1].x, -a[i+1].y, a[i+1].f),
+                    new THREE.Vector3(a[i+2].x, -a[i+2].y, a[i+2].f)
+                );
+                geom.add(curve);
+
+                i+=2;
+            }
+
+            const curveE = new THREE.QuadraticBezierCurve3(
+                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
+                new THREE.Vector3(a[i+1].x, -a[i+1].y, a[i+1].f),
+                new THREE.Vector3(a[i+1].x, -a[i+1].y, a[i+1].f)
+            );
+            geom.add(curveE);
+
+            tempTrajGeom = geom.createPointsGeometry(50);
         }
         scene.add(makeLine(tempTrajGeom, TRAJ_COLOR));
     }
@@ -312,8 +339,9 @@
 
     function genLines() {
 
-        removeLines();
+        params.lineType = 'lines';
 
+        removeLines();
         image.points.forEach(function(point) {
             if(point.prevPoint === image.secondPoint){
                 let tempTraj = new Trajectory([
@@ -325,8 +353,7 @@
                 image.trajs.push(tempTraj);
             }
         });
-
-        image.trajs.forEach(function (trajectory) {
+        image.trajs.forEach(function(trajectory) {
             trajectory.anchors.push(trajectory.points[0]);
             for(let i = 1; i < trajectory.points.length; i++) {
 
@@ -347,7 +374,6 @@
     function genBetter() {
 
         removeLines();
-
         image.points.forEach(function(point) {
             if(point.prevPoint === image.secondPoint){
                 let tempTraj = new Trajectory([
@@ -359,14 +385,10 @@
                 image.trajs.push(tempTraj);
             }
         });
+        image.trajs.forEach(function(trajectory) {
+            trajectory.anchors.push(trajectory.points[0]);
 
-        image.trajs.forEach(function (trajectory) {
-
-            let i = 0;
-
-            trajectory.anchors.push(trajectory.points[i]);
-
-            i++;
+            let i = 1;
 
             while(i < trajectory.points.length - 1) {
 
@@ -411,6 +433,41 @@
             makeTraj(trajectory);
         });
     }
+    function genBetterBezier() {
+        removeLines();
+        image.points.forEach(function(point) {
+            if(point.prevPoint === image.secondPoint){
+                let tempTraj = new Trajectory([
+                    image.startPoint,
+                    image.secondPoint,
+                    point,
+                    point.nextPoint
+                ]);
+                image.trajs.push(tempTraj);
+            }
+        });
+        image.trajs.forEach(function(trajectory) {
+            let i = 0;
+            while( i < trajectory.points.length - 1) {
+
+                const cA = trajectory.points[i];
+                const cB = trajectory.points[i+1];
+
+                const p = new Point({
+                    x: params.alpha * cA.x + (1 - params.alpha) * cB.x,
+                    y: params.alpha * cA.y + (1 - params.alpha) * cB.y,
+                });
+
+                trajectory.anchors.push(cA);
+                trajectory.anchors.push(p);
+
+                i++;
+            }
+            trajectory.anchors.push(trajectory.points[i]);
+            image.betterTrajs.push(trajectory);
+            makeTraj(trajectory);
+        });
+    }
 
     function genBetterLines(){
         params.lineType = 'betterLines';
@@ -423,6 +480,10 @@
     function genSplineCurves(){
         params.lineType = 'splineCurves';
         genBetter();
+    }
+    function genBezierCurves() {
+        params.lineType = 'betterBezier';
+        genBetterBezier();
     }
 
     function  getSpatialDistance(p1, p2) {
