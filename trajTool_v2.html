@@ -380,21 +380,23 @@
 
     class Cluster {
         constructor() {
-            this.c = {};
-            this.m = [];
-            this.tjs = [];
-            this.anch = [];
+            this.data = {
+                centroid: {},
+                members: [],
+                trajs: [],
+                anchors: [],
+            };
             this.drawing = {
                 centroid: null,
                 circle: null,
                 members: null,
             }
         }
-        get centroid() {return this.c}
+        get centroid() {return this.data.centroid}
         set centroid(cent) {
-            this.c = cent;
-            this.c.cluster = this;
-            this.m.forEach(function(pt) {
+            this.data.centroid = cent;
+            this.data.centroid.cluster = this;
+            this.data.members.forEach(function(pt) {
                 pt.centroid = cent;
             });
         }
@@ -422,28 +424,28 @@
                 this.centroid = null;
             }
         }
-        get members() {return this.m}
+        get members() {return this.data.members}
         set members(memb) {
-            this.m = memb;
-            if(this.c) {
-                this.m.forEach(function(pt) {
+            this.data.members = memb;
+            if(this.data.centroid) {
+                this.data.members.forEach(function(pt) {
                     pt.centroid = this.c;
                 });
             }
         }
         addMember(pt) {
             pt.cluster = this;
-            this.m.push(pt);
+            this.data.members.push(pt);
         }
         get trajectories() {
-            return this.tjs;
+            return this.data.trajs;
         }
         addTrajectory(traj) {
-            this.tjs.push(traj);
+            this.data.trajs.push(traj);
         }
-        get anchors() {return this.anch}
+        get anchors() {return this.data.anchors}
         addAnchor(anch) {
-            this.anch.push(anch);
+            this.data.anchors.push(anch);
         }
 
         get centDot() {return this.drawing.centroid}
@@ -462,7 +464,7 @@
 
     class Point {
         constructor(p) {
-            this.color = par.pt.color;
+            this.col = par.pt.color;
             this.did = p.did;
             this.x = p.x;
             this.y = p.y;
@@ -473,6 +475,8 @@
             this.prev = null;
             this.next = null;
         }
+        get color() {return this.col}
+        set color(val) {this.col = val}
         get centroid() { return this.c; }
         set centroid(cent) {
             this.c = cent;
@@ -502,7 +506,7 @@
             this.prev = new Set(); // ev. Map mit Cent als key und anzahl als val?
             this.next = new Set();
             this.cl = p.cl;
-            this.color = Math.random() * 0xffffff;
+            this.col = Math.random() * 0xffffff;
         }
         get prevCentroids() {return this.prev}
         set prevCentroids(set) {this.prev = set}
@@ -805,7 +809,7 @@
         let intersects = raycaster.intersectObjects(scene.children) ;
 
         // INTERSECTED = the object in the scene currently closest to the camera
-        //		and intersected by the Ray projected from the mouse position
+        // and intersected by the Ray projected from the mouse position
 
         // if there is one (or more) intersections
         if (intersects.length > 0) {
@@ -824,131 +828,95 @@
                     tempGeom = tempObj.geometry;
 
                     if(tempObj.userData instanceof Trajectory) {
-
-                    } else if(tempObj.userData instanceof Centroid) {
-
-                    } else if(tempObj.userData instanceof Array) {
-
-                    }
-
-
-
-                    if(tempObj.type === 'Points') {
-
-                        if(tempObj.userData instanceof Trajectory) {
-                            obj = {
-                                geom: tempObj,
-                                //trajectory: tempObj.userData,
-                            };
-                        } else if(tempObj.userData instanceof Cluster) {
-                            obj = {
-                                geom: tempObj,
-                                cluster: tempObj.userData,
-                            };
-                        }
+                        obj = {
+                            type: 'trajectory',
+                            userData: tempObj.userData,
+                        };
                         break outer_if;
-
-                    } else if(tempObj.type === 'Mesh') {
-                        /*if(tempObj.userData instanceof Cluster) {
+                    } else if(tempObj.userData instanceof Centroid) {
+                        obj = {
+                            type: 'centroid',
+                            userData: tempObj.userData,
+                        };
+                        break outer_if;
+                    } else if(tempObj.userData instanceof Array) {
+                        if(tempObj.userData[0].centroid !== null) {
                             obj = {
-                                geom: tempObj,
-                                cluster: tempObj.userData,
-                            }; //for Circles
-                        }
-                        break outer_if;*/
-
-                    } else if(tempObj.type === 'Line') {
-                        if(tempObj.userData instanceof Trajectory) {
-                            obj = {
-                                geom: tempObj,
-                                //trajectory: tempObj.userData,
+                                type: 'member',
+                                userData: tempObj.userData,
                             };
                         } else {
                             obj = {
-                                geom: tempObj,
-                            }; //for [even] better lines
+                                type: 'error',
+                                userData: tempObj.userData,
+                            };
                         }
-                        break outer_if;
 
-                    } else if((tempObj.type === 'LineSegments') && (tempObj !== draw.grds[bd.floor])) {
-                        obj = {
-                            geom: tempObj,
-                        }; //for graph lines
                         break outer_if;
                     }
                 }
             }
-
-//      intersects[0].object.material.color.setHex(0x00ff00);
-//      intersects[0].object.material.needsUpdate = true;
 
         // if the closest object intersected is not the currently stored intersection object
             if(obj) {
                 if (obj !== INTERSECTED) {
                     // restore previous intersection object (if it exists) to its original color
                     if (INTERSECTED) {
-                        if (INTERSECTED.hasOwnProperty('cluster')) {
-                            const drawing = INTERSECTED.cluster.drawing;
-                            drawing.centroid.material.color.setHex(drawing.centroid.currentHex);
-                            drawing.centroid.material.needsUpdate = true;
-
-                            if(bd.lineType === 'Clusters') {
-                                drawing.circle.material.color.setHex(drawing.circle.currentHex);
-                                drawing.circle.material.needsUpdate = true;
-                                drawing.members.material.color.setHex(drawing.circle.currentHex);
-                                drawing.members.material.needsUpdate = true;
-                            } else if(bd.lineType === 'Graph') {
-
-                            } else if(bd.lineType === 'Better') {
-                                const centroid = INTERSECTED.cluster.centroid;
-                                centroid.trajectories.forEach(function(traj) {
-                                    //traj.
-                                });
-                            } else if(bd.lineType === 'EvenBetter') {
-
+                        switch(INTERSECTED.type) {
+                            case 'trajectory': {
+                                unClickTrajectory(INTERSECTED.userData);
+                                break;
                             }
-
-                        } else {
-                            INTERSECTED.geom.material.color.setHex(INTERSECTED.geom.currentHex);
-                            INTERSECTED.geom.material.needsUpdate = true;
+                            case 'centroid': {
+                                unClickCluster(INTERSECTED.userData.cluster);
+                                break;
+                            }
+                            case 'member': {
+                                unClickCluster(INTERSECTED.userData[0].cluster);
+                                break;
+                            }
+                            case 'error':
+                                break;
                         }
                     }
                     // store reference to closest object as current intersection object
                     INTERSECTED = obj;
 
-                    if (INTERSECTED.hasOwnProperty('cluster')) {
-                        const drawing = INTERSECTED.cluster.drawing;
-                        drawing.centroid.currentHex = drawing.centroid.material.color.getHex();
-                        drawing.centroid.material.color.setHex(threePar.rayc.clickColor);
-                        drawing.centroid.material.needsUpdate = true;
-                        drawing.circle.currentHex = drawing.circle.material.color.getHex();
-                        drawing.circle.material.color.setHex(threePar.rayc.clickColor);
-                        drawing.circle.material.needsUpdate = true;
-                        drawing.members.currentHex = drawing.members.material.color.getHex();
-                        drawing.members.material.color.setHex(threePar.rayc.clickColor);
-                        drawing.members.material.needsUpdate = true;
-                    } else {
-                        // store color of closest object (for later restoration)
-                        INTERSECTED.geom.currentHex = INTERSECTED.geom.material.color.getHex();
-                        // set a new color for closest object
-                        INTERSECTED.geom.material.color.setHex(threePar.rayc.clickColor);
-                        INTERSECTED.geom.material.needsUpdate = true;
+                    switch(INTERSECTED.type) {
+                        case 'trajectory': {
+                            clickTrajectory(INTERSECTED.userData);
+                            break;
+                        }
+                        case 'centroid': {
+                            clickCluster(INTERSECTED.userData.cluster);
+                            break;
+                        }
+                        case 'member': {
+                            clickCluster(INTERSECTED.userData[0].cluster);
+                            break;
+                        }
+                        case 'error':
+                            break;
                     }
                 }
             } else { // there are no useful intersections
                 // restore previous intersection object (if it exists) to its original color
                 if (INTERSECTED) {
-                    if(INTERSECTED.hasOwnProperty('cluster')) {
-                        const drawing = INTERSECTED.cluster.drawing;
-                        drawing.centroid.material.color.setHex(drawing.centroid.currentHex);
-                        drawing.centroid.material.needsUpdate = true;
-                        drawing.circle.material.color.setHex(drawing.circle.currentHex);
-                        drawing.circle.material.needsUpdate = true;
-                        drawing.members.material.color.setHex(drawing.members.currentHex);
-                        drawing.members.material.needsUpdate = true;
-                    } else {
-                        INTERSECTED.geom.material.color.setHex(INTERSECTED.geom.currentHex);
-                        INTERSECTED.geom.material.needsUpdate = true;
+                    switch(INTERSECTED.type) {
+                        case 'trajectory': {
+                            unClickTrajectory(INTERSECTED.userData);
+                            break;
+                        }
+                        case 'centroid': {
+                            unClickCluster(INTERSECTED.userData.cluster);
+                            break;
+                        }
+                        case 'member': {
+                            unClickCluster(INTERSECTED.userData[0].cluster);
+                            break;
+                        }
+                        case 'error':
+                            break;
                     }
                     // remove previous intersection object reference
                     // by setting current intersection object to "nothing"
@@ -957,6 +925,98 @@
             }
         }
     }
+
+    function clickTrajectory(traj) {
+        if(traj.dots) {
+            traj.dots.material.color.set(threePar.rayc.clickColor);
+            traj.dots.material.needsUpdate = true;
+        }
+        if(traj.line) {
+            traj.line.material.color.set(threePar.rayc.clickColor);
+            traj.line.material.needsUpdate = true;
+        }
+        if(traj.centLine) {
+            traj.centLine.material.vertexColors = THREE.NoColors;
+            traj.centLine.material.color.set(threePar.rayc.clickColor);
+            traj.centLine.material.needsUpdate = true;
+        }
+        if(traj.anchLine) {
+            //traj.drawing.anchLine.material.vertexColors = THREE.NoColors;
+            traj.anchLine.material.color.set(threePar.rayc.clickColor);
+            traj.anchLine.material.needsUpdate = true;
+        }
+        if(traj.centroids.length !== 0) {
+            traj.centroids.forEach(function(cent) {
+                cent.cluster.centDot.material.color.set(threePar.rayc.clickColor);
+                cent.cluster.centDot.material.needsUpdate = true;
+            });
+        }
+    }
+    function unClickTrajectory(traj) {
+        if (traj.dots) {
+            traj.dots.material.color.set(traj.color);
+            traj.dots.material.needsUpdate = true;
+        }
+        if (traj.line) {
+            traj.line.material.color.set(traj.color);
+            traj.line.material.needsUpdate = true;
+        }
+        if (traj.centLine) {
+            traj.centLine.material.vertexColors = THREE.VertexColors;
+            traj.centLine.material.color.set(0xffffff);
+            traj.centLine.material.needsUpdate = true;
+        }
+        if (traj.anchLine) {
+            //traj.anchLine.material.vertexColors = THREE.VertexColors;
+            traj.anchLine.material.color.set(par.ln.color);
+            traj.anchLine.material.needsUpdate = true;
+        }
+        if(traj.centroids.length !== 0) {
+            traj.centroids.forEach(function(cent) {
+                cent.cluster.centDot.material.color.set(cent.color);
+                cent.cluster.centDot.material.needsUpdate = true;
+            });
+        }
+    }
+    function clickCluster(clus) {
+        if (clus.centDot) {
+            clus.centDot.material.color.set(threePar.rayc.clickColor);
+            clus.centDot.material.needsUpdate = true;
+        }
+        if (clus.circMesh) {
+            clus.circMesh.material.color.set(threePar.rayc.clickColor);
+            clus.circMesh.material.needsUpdate = true;
+        }
+        if (clus.membDots) {
+            clus.membDots.material.color.set(threePar.rayc.clickColor);
+            clus.membDots.material.needsUpdate = true;
+        }
+        if (clus.trajectories) {
+            clus.trajectories.forEach(function (traj) {
+                clickTrajectory(traj);
+            });
+        }
+    }
+    function unClickCluster(clus) {
+        if (clus.centDot) {
+            clus.centDot.material.color.set(clus.centroid.color);
+            clus.centDot.material.needsUpdate = true;
+        }
+        if (clus.circMesh) {
+            clus.circMesh.material.color.set(clus.centroid.color);
+            clus.circMesh.material.needsUpdate = true;
+        }
+        if (clus.membDots) {
+            clus.membDots.material.color.set(clus.centroid.color);
+            clus.membDots.material.needsUpdate = true;
+        }
+        if (clus.trajectories) {
+            clus.trajectories.forEach(function (traj) {
+                unClickTrajectory(traj)
+            });
+        }
+    }
+
     //temp code inside
     function onDocumentMouseMove(event){
         // the following line would stop any other event handler from firing
@@ -1346,7 +1406,7 @@
         while((i < bd.redist) && guiPar.redist.change) {
             redistributePoints(P, R, G);
             recalculateCentroids(R, G);
-            console.log(i);
+            //console.log(i);
             i++;
         }
         let ml = 0;
@@ -1509,7 +1569,7 @@
 
     function recalculateCentroids(R, G) {
 
-        console.log('start' + R.length);
+        //console.log('start' + R.length);
 
         const tempR = R;
         R = [];
@@ -1559,7 +1619,7 @@
                 }
             }
         }
-        console.log('end ' + R.length + ', Number of merged centroids: ' + cnt);
+        //console.log('end ' + R.length + ', Number of merged centroids: ' + cnt);
     }
 
     function putInProperGroup(p, R, G) {
@@ -1684,18 +1744,15 @@
     }
     function makeCentroid(clus) {
         const centGeom = makePointGeometry([clus.centroid]);
-        const ctDot = createDots(centGeom, clus.centroid.color, par.ct.opacity, par.ct.size, clus.centroid);
-        clus.centDot = ctDot;
+        clus.centDot = createDots(centGeom, clus.centroid.color, par.ct.opacity, par.ct.size, clus.centroid);
     }
     function makeCircle(clus) {
         const circleGeom = makeCircleGeometry(clus);
-        const circleMesh = createCircle(circleGeom, clus.centroid.color, par.ct.circles.opacity, true, clus.centroid);
-        clus.circMesh = circleMesh;
+        clus.circMesh = createCircle(circleGeom, clus.centroid.color, par.ct.circles.opacity, true, null);//clus.centroid);
     }
     function makeCluster(clus) {
         const pointsGeom = makePointGeometry(clus.members);
-        const ptDots = createDots(pointsGeom, clus.centroid.color, par.pt.opacity, par.pt.size, clus.members);
-        clus.membDots = ptDots;
+        clus.membDots = createDots(pointsGeom, clus.centroid.color, par.pt.opacity, par.pt.size, clus.members);
     }
     function makeErrors() {
         const errorGeom = makePointGeometry(data.errors.val);
@@ -1705,7 +1762,8 @@
         connectTheDots(data.clts.val);
         data.grph.edges.val.forEach(function(edge) {
             const edgeGeom = makeLineSegGeom(edge);
-            const edgeLine = createLineSegment(edgeGeom, 0xffffff, 1.0, false, THREE.VertexColors, THREE.FlatShading, data.grph.edges);
+            const edgeLine = createLineSegment(edgeGeom, 0xffffff, 1.0, false,
+                                                THREE.VertexColors, THREE.FlatShading, data.grph.edges);
             draw.grph.edges.push(edgeLine);
             //
         });
@@ -1713,14 +1771,16 @@
     function makeBetter(traj) {
         traj.findCentroids();
         const trajGeom = makeTrajLineGeom(traj);
-        traj.centLine = createLine(trajGeom, 0xffffff, par.ln.opacity, par.ln.transparency, THREE.VertexColors, THREE.FlatShading, traj);
+        traj.centLine = createLine(trajGeom, 0xffffff, par.ln.opacity, par.ln.transparency,
+                                    THREE.VertexColors, THREE.FlatShading, traj);
     }
     function makeEvenBetter(traj) {
         traj.findCentroids();
         traj.findAnchors();
         const trajGeom = makeTrajCurveGeom(traj);
         if(trajGeom && (traj.anchors.length !== 0)) {
-            traj.anchLine = createLine(trajGeom, par.ln.color, par.ln.opacity, par.ln.transparency, THREE.NoColors, THREE.FlatShading, traj);
+            traj.anchLine = createLine(trajGeom, par.ln.color, par.ln.opacity, par.ln.transparency,
+                                        THREE.NoColors, THREE.FlatShading, traj);
         }
     }
 
@@ -1769,6 +1829,17 @@
             const curve = new THREE.CatmullRomCurve3(anchorGeom.vertices);
             let curveGeom = new THREE.Geometry();
             curveGeom.vertices = curve.getPoints(50);
+
+            /*const curveGeom = new THREE.CurvePath();
+
+            for(let c = 0; c < traj.anchors.length - 1; c++) {
+                const anchorGeom = new THREE.QuadraticBezierCurve3(
+
+
+            }
+
+            );*/
+
             return curveGeom;
         } else {
             return false;
@@ -2123,14 +2194,12 @@
     }
 
     //--Meshes----------------------------------------------------------------------------------------------------------
-
     function deleteAllBgMeshes() {
         hideDrawing(['bgMs']);
         removeDrawing(['bgMs']);
     }
 
     //--Grids-----------------------------------------------------------------------------------------------------------
-
     function hideAllGrids() {
         hideDrawing(['grds']);
     }
@@ -2148,7 +2217,6 @@
         deleteAllGrids();
         loadNewBgMesh(bd.path, bd.floor); //also invokes loadNewGrid();
         showCheckedDrawings();
-        //remoev Trajs missing?
     }
     function changeFloors() {
         if (!(draw.bgMs[bd.floor] instanceof THREE.Mesh)) {
