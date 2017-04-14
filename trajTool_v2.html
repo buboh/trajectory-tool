@@ -538,12 +538,12 @@
     }
 
     class Trajectory {
-        constructor() {
-            this.f = null;
+        constructor(rawData, floor) {
+            this.f = floor;
             this.color = Math.random() * 0xffffff; //par.tj.color;
             this.deviation = rand_BoxMuller();
             this.data = {
-                raw: [],
+                raw: rawData,
                 subsa: [],
                 centroids: [],
                 anchors: [],
@@ -1318,9 +1318,9 @@
                 if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
                     for (let f in pointListByDIDByTimeByFloor[did][t]) {
                         if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
-                            const tempTrajectory = new Trajectory();
-                            tempTrajectory.rawPoints = pointListByDIDByTimeByFloor[did][t][f];
-                            tempTrajectory.f = f;
+
+                            const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
+
                             if (tempTrajectory.rawPoints.length > 1) {
 
                                 let tempPrevPoint = tempTrajectory.rawPoints[0];
