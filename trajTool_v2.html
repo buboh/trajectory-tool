@@ -406,6 +406,7 @@
             } else {
                 //ToDo: implement: delete cluster --------------------------------------
                 this.centroid = null;
+                console.error("updateCentroid: cluster has no members");
             }
         }
         get members() {return this.data.members}
@@ -419,6 +420,7 @@
         }
         addMember(pt) {
             pt.cluster = this;
+            pt.centroid = this.centroid;
             this.data.members.push(pt);
         }
         get trajectories() {
@@ -464,9 +466,6 @@
         get centroid() { return this.c; }
         set centroid(cent) {
             this.c = cent;
-//            if(this.g && (cent !== this.g.c)) {
-//                this.g = null;
-//            }
         }
         get cluster() {return this.cl}
         set cluster(clus) {
@@ -489,6 +488,7 @@
             super(p);
             this.prev = new Set(); // ev. Map mit Cent als key und anzahl als val?
             this.next = new Set();
+            this.c = p.c;
             this.cl = p.cl;
             this.col = Math.random() * 0xffffff;
         }
@@ -553,13 +553,26 @@
         }
         findCentroids() {
             this.emptyCentroids();
-            this.addCentroid(this.subsaPoints[0].centroid);
+
+            if(this.subsaPoints[0].centroid){
+                this.addCentroid(this.subsaPoints[0].centroid);
+            } else {
+                const k = 0;
+            }//ToDo: find cause of missing centroids
 
             let i = 1;
             while(i < this.subsaPoints.length) {
-                if(this.subsaPoints[i-1].centroid !== this.subsaPoints[i].centroid) {
-                    this.addCentroid(this.subsaPoints[i].centroid);
+                if(this.subsaPoints[i].centroid){
+                    if(this.subsaPoints[i-1].centroid !== this.subsaPoints[i].centroid) {
+                        if(!this.subsaPoints[i].centroid) {
+                            const k = 0;
+                        }
+                        this.addCentroid(this.subsaPoints[i].centroid);
+                    }
+                } else {
+                    console.log("no Centroid found");
                 }
+
                 i++;
             }
         }
@@ -1636,8 +1649,8 @@
         let gc;
 
         if (cent === null) {
-            clus.addMember(p);
             clus.centroid = new Centroid(p);
+            clus.addMember(p);
 
             R.push(clus);
         } else {
