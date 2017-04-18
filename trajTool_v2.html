@@ -47,60 +47,78 @@
         },
     };
     const guiPar = {
-        bgLoader: {
-            path: {
-                init: 'white-',
+        folders: {
+            load: {
+                name: "Load things",
             },
-            ext: {
-                init: '.png',
+            del: {
+                name: "Delete things",
             },
-            name: 'Load building',
-        },
-        scale: {
-            min: 45,
-            max: 100,
-            step: 1,
-            init: 49,
-            name: 'Scale (1:X)',
-        },
-        floor: {
-            min: -2,
-            max: 2,
-            step: 1,
-            init: 1,
-            name: 'Floor',
-        },
-        dataLoader: {
-            name: 'Load trajectories',
-        },
-        lineType: {
-            init: 'Point',
-            name: 'Line type',
-            choices: {
-                points: {name: 'Dots', init: true},
-                lines: {name: 'Lines', init: false},
-                centroids: {name: 'Centroids', init: false},
-                circles: {name: 'Circles', init: false},
-                clusters: {name: 'Clusters', init: false},
-                graph: {name: 'Graph', init: false},
-                curves: {name: 'Curves', init: false},
+            bdSettings: {
+                name: "Building settings",
+            },
+            dataSettings: {
+                name: "Data settings",
+            },
+            viewSettings: {
+                name: "View settings",
+            },
+            lineTypes: {
+                name: "Line types",
+                init: 'Point',
+                choices: {
+                    points: {name: 'Dots', init: true},
+                    lines: {name: 'Lines', init: false},
+                    centroids: {name: 'Centroids', init: false},
+                    circles: {name: 'Circles', init: false},
+                    clusters: {name: 'Clusters', init: false},
+                    graph: {name: 'Graph', init: false},
+                    curves: {name: 'Curves', init: false},
+                },
             },
         },
-        cMaxRad: {
-            min: 5,
-            max: 50,
-            step: 5,
-            init: 20,
-            name: 'Radius',
+        buttons: {
+            bgLoader: {
+                name: 'Load building',
+                initPath: 'white-',
+                intiExt: '.png',
+            },
+            dataLoader: {
+                name: 'Load trajectories',
+            },
+
         },
-        redist: {
-            min: 0,
-            max: 50,
-            step: 1,
-            init: 50,
-            name: 'Redist count',
-            change: true,
+        sliders: {
+            scale: {
+                name: 'Scale (1:X)',
+                min: 45,
+                max: 100,
+                step: 1,
+                init: 49,
+            },
+            floor: {
+                name: 'Floor',
+                min: -2,
+                max: 2,
+                step: 1,
+                init: 1,
+            },
+            maxClusterRad: {
+                name: 'Radius',
+                min: 5,
+                max: 50,
+                step: 5,
+                init: 20,
+            },
+            redist: {
+                name: 'Redist count',
+                min: 0,
+                max: 50,
+                step: 1,
+                init: 50,
+            },
         },
+
     }; //ToDo: building path changed-----------------------------------------------------------------
     const par = {
         bg: {
@@ -161,6 +179,13 @@
 
         //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
     };
+
+    const flags = {
+        clustering: {
+            redistChange: true,
+        }
+    };
+
 
     const bd = {
         w: window.innerWidth, //building width
@@ -226,20 +251,20 @@
             this.sListener = listener;
         },
 
-        filePath: guiPar.bgLoader.path.init,
-        fileExt: guiPar.bgLoader.ext.init,
+        filePath: guiPar.buttons.bgLoader.initPath.init,
+        fileExt: guiPar.buttons.bgLoader.initExt,
         get path() {
             return this.filePath + this.f + this.fileExt;
         },
 
         lt: {
-            pt: guiPar.lineType.choices.points.init,
-            ln: guiPar.lineType.choices.lines.init,
-            ct: guiPar.lineType.choices.centroids.init,
-            ci: guiPar.lineType.choices.circles.init,
-            cl: guiPar.lineType.choices.clusters.init,
-            bt: guiPar.lineType.choices.graph.init,
-            eb: guiPar.lineType.choices.curves.init,
+            pt: guiPar.folders.lineTypes.choices.points.init,
+            ln: guiPar.folders.lineTypes.choices.lines.init,
+            ct: guiPar.folders.lineTypes.choices.centroids.init,
+            ci: guiPar.folders.lineTypes.choices.circles.init,
+            cl: guiPar.folders.lineTypes.choices.clusters.init,
+            bt: guiPar.folders.lineTypes.choices.graph.init,
+            eb: guiPar.folders.lineTypes.choices.curves.init,
 
             ltListener: function() {},
 
@@ -286,7 +311,7 @@
             this.lt.ltListener = listener;
         },
 
-        mR: guiPar.cMaxRad.init, //cluster maxRadius
+        mR: guiPar.sliders.maxClusterRad.init, //cluster maxRadius
         mRListener: function() {},
         get maxRadius() {
             return this.mR;
@@ -301,7 +326,7 @@
             this.mRListener = listener;
         },
 
-        redi: guiPar.redist.init,
+        redi: guiPar.sliders.redist.init,
         rediListener: function() {},
         get redist() {
             return this.redi;
@@ -1152,26 +1177,29 @@
         //gui = new dat.GUI({autoPlace: false});
         gui = new dat.GUI({autoPlace: false, right: 0});
         const fLoad = gui.addFolder('Load things');
-        fLoad.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.bgLoader.name);
-        fLoad.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.dataLoader.name);
+        fLoad.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.buttons.bgLoader.name);
+        fLoad.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.buttons.dataLoader.name);
         fLoad.open();
         const fDelete = gui.addFolder('Delete things');
         fDelete.add(this, 'deleteEverything').name('Delete everything');
         fDelete.add(this, 'deleteTrajectoryData').name('Delete trajectories');
         const fBdSettings = gui.addFolder('Building settings');
-        fBdSettings.add(bd, 'scale', guiPar.scale.min, guiPar.scale.max).step(guiPar.scale.step).name(guiPar.scale.name);
+        fBdSettings.add(bd, 'scale', guiPar.sliders.scale.min, guiPar.sliders.scale.max)
+                        .step(guiPar.sliders.scale.step).name(guiPar.sliders.scale.name);
         const fDataSettings = gui.addFolder('Data settings');
-        fDataSettings.add(bd, 'maxRadius', guiPar.cMaxRad.min, guiPar.cMaxRad.max).step(guiPar.cMaxRad.step).name(guiPar.cMaxRad.name);
-        fDataSettings.add(bd, 'redist', guiPar.redist.min, guiPar.redist.max).step(guiPar.redist.step).name(guiPar.redist.name);
+        fDataSettings.add(bd, 'maxRadius', guiPar.sliders.maxClusterRad.min, guiPar.sliders.maxClusterRad.max)
+                            .step(guiPar.sliders.maxClusterRad.step).name(guiPar.sliders.maxClusterRad.name);
+        fDataSettings.add(bd, 'redist', guiPar.sliders.redist.min, guiPar.sliders.redist.max)
+                            .step(guiPar.sliders.redist.step).name(guiPar.sliders.redist.name);
         const fViewSettings = gui.addFolder('View settings');
         fViewSettings.add(this, 'hideAllGrids').name('Hide grid');
-        fViewSettings.add(bd, 'floor', guiPar.floor.min, guiPar.floor.max).step(guiPar.floor.step).name(guiPar.floor.name);
+        fViewSettings.add(bd, 'floor', guiPar.sliders.floor.min, guiPar.sliders.floor.max)
+                            .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
         fViewSettings.open();
         const fLineTypes = fViewSettings.addFolder('Line types');
-        //fLineTypes.add(bd, 'lineType', guiPar.lineType.choices).name(guiPar.lineType.name);
-        for(let ch in guiPar.lineType.choices) {
-            if(guiPar.lineType.choices.hasOwnProperty(ch)) {
-                fLineTypes.add(bd.lt, ch).name(guiPar.lineType.choices[ch].name);
+        for(let ch in guiPar.folders.lineTypes.choices) {
+            if(guiPar.folders.lineTypes.choices.hasOwnProperty(ch)) {
+                fLineTypes.add(bd.lt, ch).name(guiPar.folders.lineTypes.choices[ch].name);
             }
         }
         fLineTypes.open();
@@ -1454,9 +1482,9 @@
         const G = generateGrid(P); //Grid
         const R = seedCentroids(P, G); //Results
 
-        guiPar.redist.change = true;
+        flags.clustering.redistChange = true;
         let i = 0;
-        while((i < bd.redist) && guiPar.redist.change) {
+        while((i < bd.redist) && flags.clustering.redistChange) {
             redistributePoints(P, R, G);
             recalculateCentroids(R, G);
             //console.log(i);
@@ -1575,7 +1603,7 @@
     }
     function redistributePoints(P, R, G) {
         const originList = {};
-        guiPar.redist.change = false;
+        flags.clustering.redistChange = false;
 
         //--Remember number of members of each group, them remove members from group
         let r = 0;
@@ -1613,7 +1641,7 @@
         while(r < R.length) {
             if(R.hasOwnProperty(r)){
                 if(originList[r] !== R[r].members.length) {
-                    guiPar.redist.change = true;
+                    flags.clustering.redistChange = true;
                 }
             }
             r++;
@@ -1647,27 +1675,7 @@
 
                     R.push(clus);
 
-                }
-                //trying to remove/merge clusters with only 1 point
-                /*else if(gr.members.length === 1) {
-
-                    const p = gr.members[0];
-                    let c = getClosestCentroid(p, G);
-                    if(c !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
-
-                        const gr2 = c.g;//---------------------------------------------------
-                        gr2.members.push(p);
-                        gr2.members.forEach(function(point) {
-                            point.c = c;
-                            point.g = gr2;
-                        });
-
-                    } else {
-                        data.clts.errors.push(p);
-                        cnt++;
-                    }
-
-                }*/ else {
+                } else {
                     let k = 0;
                 }
             }
@@ -2027,8 +2035,8 @@
     } //three.js
 */
     function showCheckedDrawings() {
-        for(let ch in guiPar.lineType.choices) {
-            if(guiPar.lineType.choices.hasOwnProperty(ch)) {
+        for(let ch in guiPar.folders.lineTypes.choices) {
+            if(guiPar.folders.lineTypes.choices.hasOwnProperty(ch)) {
                 if(bd.lineType[ch]) show(ch);
             }
         }
