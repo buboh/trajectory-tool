@@ -82,7 +82,6 @@
                 centroids: {name: 'Centroids', init: false},
                 circles: {name: 'Circles', init: false},
                 clusters: {name: 'Clusters', init: false},
-                graph: {name: 'Graph', init: false},
                 better: {name: 'Better', init: false},
                 evenBetter: {name: 'Even Better', init: false},
             },
@@ -239,7 +238,6 @@
             ct: guiPar.lineType.choices.centroids.init,
             ci: guiPar.lineType.choices.circles.init,
             cl: guiPar.lineType.choices.clusters.init,
-            gr: guiPar.lineType.choices.graph.init,
             bt: guiPar.lineType.choices.better.init,
             eb: guiPar.lineType.choices.evenBetter.init,
 
@@ -269,11 +267,6 @@
             set clusters (val) {
                 this.cl = val;
                 this.ltListener('clusters');
-            },
-            get graph() {return this.gr},
-            set graph (val) {
-                this.gr = val;
-                this.ltListener('graph');
             },
             get better() {return this.bt},
             set better (val) {
@@ -362,20 +355,11 @@
             valid: false,
             val: [],
         }, //temp
-        grph: {
-            edges: {
-                valid: false,
-                val: [],
-            },
-        },
     };
     const draw = {
         bgMs: [],
         grds: [],
         errors: null,
-        grph: {
-            edges: []
-        }
     };
 
     class Cluster {
@@ -1782,16 +1766,6 @@
         const errorGeom = makePointGeometry(data.errors.val);
         draw.errors = createDots(errorGeom, par.cl.errors.color, par.pt.opacity, par.pt.size, data.errors.val); //temp
     }
-    function makeGraph() {
-        connectTheDots(data.clts.val);
-        data.grph.edges.val.forEach(function(edge) {
-            const edgeGeom = makeLineSegGeom(edge);
-            const edgeLine = createLineSegment(edgeGeom, 0xffffff, 1.0, false,
-                                                THREE.VertexColors, THREE.FlatShading, data.grph.edges);
-            draw.grph.edges.push(edgeLine);
-            //
-        });
-    }
     function makeBetter(traj) {
         traj.findCentroids();
         const trajGeom = makeTrajLineGeom(traj);
@@ -1969,10 +1943,6 @@
             draw.errors.forEach(function(error) {
                 scene.add(error);
             }); //temp
-        } else if(bd.lineType.graph) {
-            draw.grph.edges.forEach(function(edge) {
-                scene.add(edge);
-            });
         } else if(bd.lineType.better) {
             data.trjs.val.forEach(function(traj) {
                 scene.add(traj.centLine);
@@ -2036,14 +2006,6 @@
                     if(!draw.errors) makeErrors();
                     scene.add(draw.errors);
                 }
-                break;
-            }
-            case 'graph': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                if(draw.grph.edges.length === 0) makeGraph();
-                draw.grph.edges.forEach(function(edge) {
-                    scene.add(edge);
-                });
                 break;
             }
             case 'better': {
@@ -2117,12 +2079,6 @@
                     scene.remove(draw.errors);
                     break;
                 }
-                case 'graph': {
-                    draw.grph.edges.forEach(function(edge) {
-                        scene.remove(edge);
-                    });
-                    break;
-                }
                 case 'better': {
                     data.trjs.val.forEach(function(traj) {
                         scene.remove(traj.centLine);
@@ -2169,12 +2125,6 @@
                     draw.errors = null;
                     break;
                 }
-                case 'grph': {
-                    draw.grph = {
-                        edges: []
-                    };
-                    break;
-                }
             }
         });
     }
@@ -2203,34 +2153,22 @@
                     draw.errors = null;
                     break;
                 }
-                case 'grph': {
-                    data.grph = {
-                        edges: {
-                            valid: false,
-                            val: [],
-                        },
-                    };
-                    draw.grph = {
-                        edges: []
-                    };
-                    break;
-                }
             }
         });
     }
 
     //--All-Trajectories------------------------------------------------------------------------------------------------
     function hideTrajectoryDrawings() {
-        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'graph', 'better', 'evenBetter']);
+        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'better', 'evenBetter']);
     } //three.js
     function deleteTrajectoryData() {
         hideTrajectoryDrawings();
-        deleteData(['trjs', 'clts', 'errors', 'grph']);
+        deleteData(['trjs', 'clts', 'errors']);
     }
 
     //--Special-Trajectories--------------------------------------------------------------------------------------------
     function hideClusterTrajectories() {
-        hideDrawing(['centroids', 'circles', 'clusters', 'graph', 'better', 'evenBetter']);
+        hideDrawing(['centroids', 'circles', 'clusters', 'better', 'evenBetter']);
     }
     function deleteClusterTrajectories() {
         hideClusterTrajectories();
@@ -2238,7 +2176,7 @@
             traj.emptyClusterData();
         });
         data.clts.valid = false;
-        deleteData(['clts', 'errors', 'grph']);
+        deleteData(['clts', 'errors']);
     }
 
     //--Everything------------------------------------------------------------------------------------------------------
