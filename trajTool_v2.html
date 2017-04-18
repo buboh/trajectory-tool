@@ -82,8 +82,8 @@
                 centroids: {name: 'Centroids', init: false},
                 circles: {name: 'Circles', init: false},
                 clusters: {name: 'Clusters', init: false},
-                better: {name: 'Better', init: false},
-                evenBetter: {name: 'Even Better', init: false},
+                graph: {name: 'Graph', init: false},
+                curves: {name: 'Curves', init: false},
             },
         },
         cMaxRad: {
@@ -238,8 +238,8 @@
             ct: guiPar.lineType.choices.centroids.init,
             ci: guiPar.lineType.choices.circles.init,
             cl: guiPar.lineType.choices.clusters.init,
-            bt: guiPar.lineType.choices.better.init,
-            eb: guiPar.lineType.choices.evenBetter.init,
+            bt: guiPar.lineType.choices.graph.init,
+            eb: guiPar.lineType.choices.curves.init,
 
             ltListener: function() {},
 
@@ -268,15 +268,15 @@
                 this.cl = val;
                 this.ltListener('clusters');
             },
-            get better() {return this.bt},
-            set better (val) {
+            get graph() {return this.bt},
+            set graph (val) {
                 this.bt = val;
-                this.ltListener('better');
+                this.ltListener('graph');
             },
-            get evenBetter() {return this.eb},
-            set evenBetter (val) {
+            get curves() {return this.eb},
+            set curves (val) {
                 this.eb = val;
-                this.ltListener('evenBetter');
+                this.ltListener('curves');
             },
         }, //trajectory linetype
         get lineType() {
@@ -1779,13 +1779,13 @@
         const errorGeom = makePointGeometry(data.errors.val);
         draw.errors = createDots(errorGeom, par.cl.errors.color, par.pt.opacity, par.pt.size, data.errors.val); //temp
     }
-    function makeBetter(traj) {
+    function makeGraph(traj) {
         traj.findCentroids();
         const trajGeom = makeTrajLineGeom(traj);
         traj.centLine = createLine(trajGeom, 0xffffff, par.ln.opacity, par.ln.transparency,
                                     THREE.VertexColors, THREE.FlatShading, traj);
     }
-    function makeEvenBetter(traj) {
+    function makeAnchorCurve(traj) {
         traj.findCentroids();
         //traj.findAnchors();
         traj.findBezAnchors();
@@ -1956,11 +1956,11 @@
             draw.errors.forEach(function(error) {
                 scene.add(error);
             }); //temp
-        } else if(bd.lineType.better) {
+        } else if(bd.lineType.graph) {
             data.trjs.val.forEach(function(traj) {
                 scene.add(traj.centLine);
             });
-        } else if(bd.lineType.evenBetter) {
+        } else if(bd.lineType.curves) {
             data.trjs.val.forEach(function(traj) {
                 scene.add(traj.anchLine);
             });
@@ -2021,18 +2021,18 @@
                 }
                 break;
             }
-            case 'better': {
+            case 'graph': {
                 if(!data.clts.valid) cluster(data.trjs.val);
                 data.trjs.val.forEach(function(traj) {
-                    if(!traj.centLine) makeBetter(traj);
+                    if(!traj.centLine) makeGraph(traj);
                     scene.add(traj.centLine);
                 });
                 break;
             }
-            case 'evenBetter': {
+            case 'curves': {
                 if(!data.clts.valid) cluster(data.trjs.val);
                 data.trjs.val.forEach(function(traj) {
-                    if(!traj.anchLine) makeEvenBetter(traj);
+                    if(!traj.anchLine) makeAnchorCurve(traj);
                     if(traj.anchLine instanceof THREE.Line) {
                         scene.add(traj.anchLine);
                     }
@@ -2092,13 +2092,13 @@
                     scene.remove(draw.errors);
                     break;
                 }
-                case 'better': {
+                case 'graph': {
                     data.trjs.val.forEach(function(traj) {
                         scene.remove(traj.centLine);
                     });
                     break;
                 }
-                case 'evenBetter': {
+                case 'curves': {
                     data.trjs.val.forEach(function(traj) {
                         scene.remove(traj.anchLine);
                     });
@@ -2172,7 +2172,7 @@
 
     //--All-Trajectories------------------------------------------------------------------------------------------------
     function hideTrajectoryDrawings() {
-        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'better', 'evenBetter']);
+        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'graph', 'curves']);
     } //three.js
     function deleteTrajectoryData() {
         hideTrajectoryDrawings();
@@ -2181,7 +2181,7 @@
 
     //--Special-Trajectories--------------------------------------------------------------------------------------------
     function hideClusterTrajectories() {
-        hideDrawing(['centroids', 'circles', 'clusters', 'better', 'evenBetter']);
+        hideDrawing(['centroids', 'circles', 'clusters', 'graph', 'curves']);
     }
     function deleteClusterTrajectories() {
         hideClusterTrajectories();
