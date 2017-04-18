@@ -286,7 +286,6 @@
             this.lt.ltListener = listener;
         },
 
-
         mR: guiPar.cMaxRad.init, //cluster maxRadius
         mRListener: function() {},
         get maxRadius() {
@@ -703,12 +702,41 @@
     function init() {
         scene = new THREE.Scene();
         camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
+        initDOM();
         initRenderer();
         initCamera();
         initBackgroundFileInput();
         initDataFileInput();
         initDatGUI();
         initWindowResizeListeners();
+    }
+
+    function initDOM() {
+        const guiDiv = document.createElement('div');
+        guiDiv.id = "guiDiv";
+        guiDiv.style.position = "absolute";
+        guiDiv.style.right = "0px";
+        guiDiv.style.height = "auto";
+        guiDiv.overflow = "hidden";
+        document.body.appendChild(guiDiv);
+        const infoDiv = document.createElement('div');
+        infoDiv.id = "infoDiv";
+        infoDiv.style.position = "absolute";
+        infoDiv.style.right = "0px";
+        infoDiv.style.bottom = "0px";
+        infoDiv.style.width = "250px";
+        infoDiv.style.height = "250px";
+        infoDiv.style.backgroundColor = "rgba(20, 20, 20, 1)";
+
+        infoDiv.style.paddingLeft = "10px";
+        infoDiv.style.color = "white";
+        infoDiv.style.font = "11px 'Lucida Grande', sans-serif";
+
+        const infoPara = document.createElement('p');
+        const testText = document.createTextNode("Test text test");
+        infoPara.appendChild(testText);
+        infoDiv.appendChild(infoPara);
+        document.body.appendChild(infoDiv);
     }
 
     function initRenderer() {
@@ -1121,7 +1149,8 @@
     }
 
     function initDatGUI() {
-        gui = new dat.GUI();
+        //gui = new dat.GUI({autoPlace: false});
+        gui = new dat.GUI({autoPlace: false, right: 0});
         const fLoad = gui.addFolder('Load things');
         fLoad.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.bgLoader.name);
         fLoad.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.dataLoader.name);
@@ -1146,6 +1175,9 @@
             }
         }
         fLineTypes.open();
+
+        const guiDiv = document.getElementById('guiDiv');
+        guiDiv.appendChild(gui.domElement);
 
     } //dat.gui
 
