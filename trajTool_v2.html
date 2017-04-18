@@ -724,8 +724,8 @@
         infoDiv.style.position = "absolute";
         infoDiv.style.right = "0px";
         infoDiv.style.bottom = "0px";
-        infoDiv.style.width = "250px";
-        infoDiv.style.height = "250px";
+        infoDiv.style.width = "235px";
+        infoDiv.style.height = "235px";
         infoDiv.style.backgroundColor = "rgba(20, 20, 20, 1)";
 
         infoDiv.style.paddingLeft = "10px";
@@ -1903,9 +1903,18 @@
 
             let i = 0;
             const curveS = new THREE.QuadraticBezierCurve3(
-                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
-                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
-                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f)
+                new THREE.Vector3(
+                    a[i].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i].y + traj.deviation * par.tj.deviationFactor,
+                    a[i].f),
+                new THREE.Vector3(
+                    a[i].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i].y + traj.deviation * par.tj.deviationFactor,
+                    a[i].f),
+                new THREE.Vector3(
+                    a[i + 1].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
+                    a[i + 1].f)
             );
             geom.add(curveS);
 
@@ -1913,9 +1922,18 @@
             while (i < traj.anchors.length - 2) {
 
                 const curve = new THREE.QuadraticBezierCurve3(
-                    new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
-                    new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f),
-                    new THREE.Vector3(a[i + 2].x, -a[i + 2].y, a[i + 2].f)
+                    new THREE.Vector3(
+                        a[i].x + traj.deviation * par.tj.deviationFactor,
+                        -a[i].y + traj.deviation * par.tj.deviationFactor,
+                        a[i].f),
+                    new THREE.Vector3(
+                        a[i + 1].x + traj.deviation * par.tj.deviationFactor,
+                        -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
+                        a[i + 1].f),
+                    new THREE.Vector3(
+                        a[i + 2].x + traj.deviation * par.tj.deviationFactor,
+                        -a[i + 2].y + traj.deviation * par.tj.deviationFactor,
+                        a[i + 2].f)
                 );
                 geom.add(curve);
 
@@ -1923,9 +1941,18 @@
             }
 
             const curveE = new THREE.QuadraticBezierCurve3(
-                new THREE.Vector3(a[i].x, -a[i].y, a[i].f),
-                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f),
-                new THREE.Vector3(a[i + 1].x, -a[i + 1].y, a[i + 1].f)
+                new THREE.Vector3(
+                    a[i].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i].y + traj.deviation * par.tj.deviationFactor,
+                    a[i].f),
+                new THREE.Vector3(
+                    a[i + 1].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
+                    a[i + 1].f),
+                new THREE.Vector3(
+                    a[i + 1].x + traj.deviation * par.tj.deviationFactor,
+                    -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
+                    a[i + 1].f)
             );
             geom.add(curveE);
 
