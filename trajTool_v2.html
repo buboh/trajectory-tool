@@ -2200,6 +2200,7 @@
                         valid: false,
                         val: [],
                     };
+                    draw.errors = null;
                     break;
                 }
                 case 'grph': {
@@ -2208,6 +2209,9 @@
                             valid: false,
                             val: [],
                         },
+                    };
+                    draw.grph = {
+                        edges: []
                     };
                     break;
                 }
@@ -2285,8 +2289,8 @@
         showCheckedDrawings();
     }
     function changeClusterRadius() {
-        hideTrajectoryDrawings();
         deleteClusterTrajectories();
+        hideTrajectoryDrawings();
         showCheckedDrawings();
     }
     function changeMaxRedist() {
