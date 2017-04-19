@@ -25,7 +25,7 @@
 
     let camera, scene, renderer;
     let mouse, raycaster, INTERSECTED;
-    let gui;
+    let gui, infoDiv;
     let buildingFileClicker, trajectoryFileClicker;
 
     const threePar = {
@@ -181,11 +181,79 @@
     };
 
     const flags = {
+        dom: {
+            infoDivCount: 0,
+        },
         clustering: {
             redistChange: true,
         }
     };
 
+    class infoCont {
+        constructor(cont) {
+            this.div = null;
+            this.id = "infoCont_" + flags.dom.infoDivCount;
+            flags.dom.infoDivCount++;
+            this.style = {
+                position: "relative",
+                width: "auto",
+                height: "auto",
+                backgroundColor: "rgba(30, 30, 30, 1)",
+                margin: "0px",
+                padding: "5px",
+                marginBottom: "5px",
+            };
+
+            this.contBlocks = cont || [];
+        }
+
+        createDiv() {
+            const tempDiv = document.createElement('div');
+            tempDiv.id = this.id;
+            for(let key in this.style) {
+                tempDiv.style[key] = this.style[key];
+            }
+
+            const table = document.createElement('table');
+            table.style.borderSpacing = "0px";
+            const heading = document.createElement('tr');
+            heading.style.fontWeight = "bold";
+            heading.style.height = "1.8em";
+            const desCol = document.createElement('td');
+            desCol.style.width = "35%";
+            desCol.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+            const valCol = document.createElement('td');
+            valCol.style.width = "65%";
+            valCol.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+            desCol.appendChild(document.createTextNode('Description'));
+            valCol.appendChild(document.createTextNode('Value'));
+            heading.appendChild(desCol);
+            heading.appendChild(valCol);
+            table.appendChild(heading);
+
+            this.contBlocks.forEach(function(content) {
+                const tr = document.createElement('tr');
+                const desCol = document.createElement('td');
+                desCol.style.verticalAlign = "top";
+                const valCol = document.createElement('td');
+                valCol.style.verticalAlign = "top";
+                desCol.appendChild(document.createTextNode(content.desc));
+                valCol.appendChild(document.createTextNode(content.cont));
+                tr.appendChild(desCol);
+                tr.appendChild(valCol);
+                table.appendChild(tr);
+            });
+
+            tempDiv.appendChild(table);
+            infoDiv.appendChild(tempDiv);
+            this.div = tempDiv;
+        }
+
+        removeDiv() {
+            document.body.removeChild(this.div);
+        }
+
+    }
 
     const bd = {
         w: window.innerWidth, //building width
@@ -218,7 +286,7 @@
             return this.w / this.h;
         },
 
-        f: guiPar.floor.init, //building floor
+        f: guiPar.sliders.floor.init, //building floor
         fListener: function() {},
         get floor() {
             return this.f;
@@ -233,7 +301,7 @@
             this.fListener = listener;
         },
 
-        s: guiPar.scale.init, //building scale
+        s: guiPar.sliders.scale.init, //building scale
         sListener: function() {},
         get scale() {
             return this.s;
@@ -742,26 +810,70 @@
         guiDiv.style.position = "absolute";
         guiDiv.style.right = "0px";
         guiDiv.style.height = "auto";
-        guiDiv.overflow = "hidden";
         document.body.appendChild(guiDiv);
-        const infoDiv = document.createElement('div');
+
+        infoDiv = document.createElement('div');
         infoDiv.id = "infoDiv";
         infoDiv.style.position = "absolute";
         infoDiv.style.right = "0px";
         infoDiv.style.bottom = "0px";
-        infoDiv.style.width = "235px";
-        infoDiv.style.height = "235px";
+        infoDiv.style.width = "240px";
+        infoDiv.style.height = "240px";
         infoDiv.style.backgroundColor = "rgba(20, 20, 20, 1)";
 
-        infoDiv.style.paddingLeft = "10px";
+        infoDiv.style.overflowY = "auto";
+        infoDiv.style.overflowX = "hidden";
+        infoDiv.style.padding = "0px";
         infoDiv.style.color = "white";
         infoDiv.style.font = "11px 'Lucida Grande', sans-serif";
 
-        const infoPara = document.createElement('p');
-        const testText = document.createTextNode("Test text test");
-        infoPara.appendChild(testText);
-        infoDiv.appendChild(infoPara);
+
+        const style = {
+            position: "relative",
+            width: "100%",
+            height: "auto",
+            margin: "0px",
+            padding: "3px",
+        };
+        const tempDiv = document.createElement('div');
+        tempDiv.id = "infoCont_heading";
+        for(let key in style) {
+            tempDiv.style[key] = style[key];
+        }
+
+        const table = document.createElement('table');
+        table.style.width = "100%";
+        table.style.borderSpacing = "2px";
+        const heading = document.createElement('tr');
+        const desCol = document.createElement('td');
+        desCol.style.textAlign = "center";
+        desCol.appendChild(document.createTextNode('Info'));
+        heading.appendChild(desCol);
+        table.appendChild(heading);
+        tempDiv.appendChild(table);
+        infoDiv.appendChild(tempDiv);
         document.body.appendChild(infoDiv);
+
+        let test = new infoCont([
+            {desc: "Trajectory", cont: "wtf"},
+            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
+        ]);
+        test.createDiv();
+        let test2 = new infoCont([
+            {desc: "Trajectory", cont: "wtf"},
+            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
+        ]);
+        test2.createDiv();
+        let test3 = new infoCont([
+            {desc: "Trajectory", cont: "wtf"},
+            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
+        ]);
+        test3.createDiv();
+        let test4 = new infoCont([
+            {desc: "Trajectory", cont: "wtf"},
+            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
+        ]);
+        test4.createDiv();
     }
 
     function initRenderer() {
@@ -1025,6 +1137,8 @@
                 cent.cluster.centDot.material.needsUpdate = true;
             });
         }
+
+        showTrajectoryInfo(traj);
     }
     function unClickTrajectory(traj) {
         if (traj.dots) {
@@ -1090,6 +1204,15 @@
             });
         }
     }
+
+    function showTrajectoryInfo(traj) {
+
+    }
+
+    function hideAllInfo() {
+
+    }
+
 
     //temp code inside
     function onDocumentMouseMove(event){
