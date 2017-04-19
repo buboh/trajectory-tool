@@ -81,7 +81,7 @@
             bgLoader: {
                 name: 'Load building',
                 initPath: 'white-',
-                intiExt: '.png',
+                initExt: '.png',
             },
             dataLoader: {
                 name: 'Load trajectories',
@@ -190,69 +190,89 @@
     };
 
     class infoCont {
-        constructor(cont) {
+        constructor(heading, cont) {
             this.div = null;
             this.id = "infoCont_" + flags.dom.infoDivCount;
             flags.dom.infoDivCount++;
             this.style = {
-                position: "relative",
-                width: "auto",
-                height: "auto",
-                backgroundColor: "rgba(30, 30, 30, 1)",
-                margin: "0px",
-                padding: "5px",
-                marginBottom: "5px",
+                contDiv: {
+                    position: "relative",
+                    width: "auto",
+                    height: "auto",
+                    backgroundColor: "rgba(30, 30, 30, 1)",
+                    margin: "0px",
+                    paddingLeft: "4px",
+                    paddingRight: "4px",
+                    paddingTop: "1px",
+                    paddingBottom: "2px",
+                    borderBottom: "1px solid rgba(255,255,255,0.1)"
+                },
+                table: {},
+                heading: {
+                    fontWeight: "bold",
+                    height: "1.8em",
+                },
+                columns: {
+                    1: "35%",
+                }
             };
 
-            this.contBlocks = cont || [];
+            this.heading = heading || ["Description", "Value"];
+            this.contBlocks = cont || [["Trajectory", ""]];
         }
 
         createDiv() {
-            const tempDiv = document.createElement('div');
-            tempDiv.id = this.id;
-            for(let key in this.style) {
-                tempDiv.style[key] = this.style[key];
+            const contDiv = document.createElement('div');
+            contDiv.id = this.id;
+            for(let key in this.style.contDiv) {
+                if(this.style.contDiv.hasOwnProperty(key)) {
+                    contDiv.style[key] = this.style.contDiv[key];
+                }
             }
-
             const table = document.createElement('table');
-            table.style.borderSpacing = "0px";
+            table.style.borderSpacing = "5px";
+
             const heading = document.createElement('tr');
-            heading.style.fontWeight = "bold";
-            heading.style.height = "1.8em";
-            const desCol = document.createElement('td');
-            desCol.style.width = "35%";
-            desCol.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
-            const valCol = document.createElement('td');
-            valCol.style.width = "65%";
-            valCol.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
-            desCol.appendChild(document.createTextNode('Description'));
-            valCol.appendChild(document.createTextNode('Value'));
-            heading.appendChild(desCol);
-            heading.appendChild(valCol);
+            for(let key in this.style.heading) {
+                if(this.style.heading.hasOwnProperty(key)) {
+                    heading.style[key] = this.style.heading[key];
+                }
+            }
+            let first;
+            if(this.heading.length < 3) first = true;
+            this.heading.forEach(function(col) {
+                const tempCol = document.createElement('td');
+                tempCol.style.borderBottom = "1px dotted rgba(255,255,255,0.1)";
+
+                if(first) {
+                    tempCol.style.width = "35%";
+                }
+                first = false;
+
+                tempCol.appendChild(document.createTextNode(col));
+                heading.appendChild(tempCol);
+            });
             table.appendChild(heading);
 
             this.contBlocks.forEach(function(content) {
                 const tr = document.createElement('tr');
-                const desCol = document.createElement('td');
-                desCol.style.verticalAlign = "top";
-                const valCol = document.createElement('td');
-                valCol.style.verticalAlign = "top";
-                desCol.appendChild(document.createTextNode(content.desc));
-                valCol.appendChild(document.createTextNode(content.cont));
-                tr.appendChild(desCol);
-                tr.appendChild(valCol);
+                content.forEach(function(col) {
+                    const tempCol =  document.createElement('td');
+                    tempCol.style.verticalAlign = "top";
+                    tempCol.appendChild(document.createTextNode(col));
+                    tr.appendChild(tempCol);
+                });
                 table.appendChild(tr);
             });
 
-            tempDiv.appendChild(table);
-            infoDiv.appendChild(tempDiv);
-            this.div = tempDiv;
+            contDiv.appendChild(table);
+            infoDiv.appendChild(contDiv);
+            this.div = contDiv;
         }
 
         removeDiv() {
             document.body.removeChild(this.div);
         }
-
     }
 
     const bd = {
@@ -319,7 +339,7 @@
             this.sListener = listener;
         },
 
-        filePath: guiPar.buttons.bgLoader.initPath.init,
+        filePath: guiPar.buttons.bgLoader.initPath,
         fileExt: guiPar.buttons.bgLoader.initExt,
         get path() {
             return this.filePath + this.f + this.fileExt;
@@ -781,6 +801,31 @@
             this.dots = null;
             this.line = null;
         }
+
+        generateDigest() {
+            const lM = this.getLengthInMeters();
+            const lP = this.rawPoints.length;
+            const dur = this.getDurationInS();
+            const speed = (lM / dur) * 3.6;
+            return [
+                ["Length", lM + " m"],
+                ["Length", lP + " pts"],
+                ["Duration", dur + " s"],
+                ["Speed", speed + " m/s"]
+            ];
+        }
+        getLengthInMeters() {
+            const rp = this.rawPoints;
+            let l = 0;
+            for(let i = 0; i < rp.length - 1; i++) {
+                l += Math.sqrt((rp[i].x - rp[i+1].x) * (rp[i].x - rp[i+1].x) +
+                                (rp[i].y - rp[i+1].y) * (rp[i].y - rp[i+1].y));
+            }
+            return l;
+        }
+        getDurationInS() {
+            return Math.trunc((this.rawPoints[this.rawPoints.length - 1].t - this.rawPoints[0].t) / 1000);
+        }
     }
 
 //--START---------------------------------------------------------------------------------------------------------------
@@ -817,16 +862,15 @@
         infoDiv.style.position = "absolute";
         infoDiv.style.right = "0px";
         infoDiv.style.bottom = "0px";
-        infoDiv.style.width = "240px";
-        infoDiv.style.height = "240px";
+        infoDiv.style.width = "245px";
+        infoDiv.style.height = "auto";
+        infoDiv.style.maxHeight = "330px";
         infoDiv.style.backgroundColor = "rgba(20, 20, 20, 1)";
-
         infoDiv.style.overflowY = "auto";
         infoDiv.style.overflowX = "hidden";
         infoDiv.style.padding = "0px";
         infoDiv.style.color = "white";
         infoDiv.style.font = "11px 'Lucida Grande', sans-serif";
-
 
         const style = {
             position: "relative",
@@ -834,6 +878,7 @@
             height: "auto",
             margin: "0px",
             padding: "3px",
+            borderBottom: "1px solid rgba(255,255,255,0.1)"
         };
         const tempDiv = document.createElement('div');
         tempDiv.id = "infoCont_heading";
@@ -854,26 +899,19 @@
         infoDiv.appendChild(tempDiv);
         document.body.appendChild(infoDiv);
 
-        let test = new infoCont([
-            {desc: "Trajectory", cont: "wtf"},
-            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
-        ]);
-        test.createDiv();
-        let test2 = new infoCont([
-            {desc: "Trajectory", cont: "wtf"},
-            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
-        ]);
-        test2.createDiv();
-        let test3 = new infoCont([
-            {desc: "Trajectory", cont: "wtf"},
-            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
-        ]);
-        test3.createDiv();
-        let test4 = new infoCont([
-            {desc: "Trajectory", cont: "wtf"},
-            {desc: "Cluster", cont: "lorem ipsum, braindead ofofofofofofofoofofofo"}
-        ]);
-        test4.createDiv();
+        createTestInfo(0);
+    }
+    function createTestInfo(num) {
+        for(let i = 1; i <= num; i++) {
+            let test = new infoCont(
+                ["Col 1", "Col 2"],
+                [
+                    ["Trajectory " + i,"wtf"],
+                    ["Cluster " + i, "lorem ipsum, braindead ofofofofofofofoofofofo"]
+                ]
+            );
+            test.createDiv();
+        }
     }
 
     function initRenderer() {
@@ -1071,6 +1109,7 @@
                     switch(INTERSECTED.type) {
                         case 'trajectory': {
                             clickTrajectory(INTERSECTED.userData);
+                            showTrajectoryInfo(INTERSECTED.userData);
                             break;
                         }
                         case 'centroid': {
@@ -1137,8 +1176,6 @@
                 cent.cluster.centDot.material.needsUpdate = true;
             });
         }
-
-        showTrajectoryInfo(traj);
     }
     function unClickTrajectory(traj) {
         if (traj.dots) {
@@ -1206,11 +1243,15 @@
     }
 
     function showTrajectoryInfo(traj) {
-
+        const trajInfo = new infoCont(
+            ["Description", "Content"],
+            traj.generateDigest()
+        );
+        trajInfo.createDiv();
     }
 
-    function hideAllInfo() {
-
+    function unShowTrajectoryInfo(traj) {
+        document.getElementById('infoDiv').removeChild(traj)
     }
 
 
