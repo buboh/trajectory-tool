@@ -142,18 +142,14 @@
                 opacity: 1,
             }
         },
-        pt: {
-            color: 0xff0000,
-            opacity: 1,
-            size: 3.5,
-        },
         tj: {
             color: 0xff0000,
             opacity: 1,
             clickColor: 0x000000,
             cutTime: 20000,
             dot: {
-                size: 3.5,
+                opacity: 1,
+                size: .4,
             },
             deviationFactor: 0.25, //should be changed depending on number of trajectories on connection
         },
@@ -163,8 +159,9 @@
             transparency: true,
         },
         ct: {
-            size: 10,
+            size: 1,
             opacity: 1,
+            corrZ: 0.1,
             circles: {
                 opacity: 0.2,
                 segNum: 20,
@@ -195,6 +192,8 @@
         },
         clustering: {
             redistChange: true,
+            centID: 0,
+            subsaPoints: 0,
         },
         raycaster: {
             shiftDown: false,
@@ -487,7 +486,7 @@
 
     class Point {
         constructor(p) {
-            this.col = par.pt.color;
+            this.col = par.tj.color;
             this.did = p.did;
             this.x = p.x;
             this.y = p.y;
@@ -497,6 +496,8 @@
             this.cl = null;
             this.prev = null;
             this.next = null;
+            this.traj = p.traj;
+            this.ID = p.ID;
         }
         get color() {return this.col}
         set color(val) {this.col = val}
@@ -509,6 +510,10 @@
             this.cl = clus;
             this.c = clus.c;
         }
+        clearCluster() {
+            this.cl = null;
+            this.c = null;
+        }
         get prevPoint() {return this.prev}
         set prevPoint(pt) {
             this.prev = pt;
@@ -519,6 +524,8 @@
             this.next = pt;
             if(pt) pt.prev = this;
         }
+        get trajectory() {return this.traj}
+        set trajectory(tj) {this.traj = tj}
     }
     class Centroid extends Point {
         constructor(p) {
@@ -528,6 +535,8 @@
             this.c = p.c;
             this.cl = p.cl;
             this.col = Math.random() * 0xffffff;
+            this.ID = flags.clustering.centID;
+            flags.clustering.centID++;
         }
         get prevCentroids() {return this.prev}
         set prevCentroids(set) {this.prev = set}
@@ -575,6 +584,9 @@
                 centLine: null,
                 anchLine: null,
             };
+            rawData.forEach(function(pt) {
+               pt.trajectory = this;
+            });
         }
         get rawPoints() {return this.data.raw}
         set rawPoints(points) {this.data.raw = points}
@@ -757,7 +769,7 @@
             this.data = {
                 centroid: {},
                 members: [],
-                trajs: [],
+                trajs: new Set(),
                 anchors: [],
             };
             this.drawing = {
@@ -812,12 +824,23 @@
             pt.cluster = this;
             pt.centroid = this.centroid;
             this.data.members.push(pt);
+            this.addTrajectory(pt.trajectory);
+        }
+        clearMembers() {
+            this.data.members.forEach(function(pt) {
+                pt.clearCluster();
+            });
+            this.data.members = [];
+            this.clearTrajectories();
         }
         get trajectories() {
             return this.data.trajs;
         }
         addTrajectory(traj) {
-            this.data.trajs.push(traj);
+            this.data.trajs.add(traj);
+        }
+        clearTrajectories() {
+            this.data.trajs.clear();
         }
         get anchors() {return this.data.anchors}
         addAnchor(anch) {
@@ -839,7 +862,7 @@
 
         generateDigest() {
             const mem = this.members.length;
-            const trajs = this.trajectories.length;
+            const trajs = this.trajectories.size;
             return [
                 ["Members", mem],
                 ["Ts Passing", trajs],
@@ -1053,7 +1076,7 @@
         raycaster.setFromCamera(mouse, camera);
 
         // create an array containing all objects in the scene with which the ray intersects
-        let intersects = raycaster.intersectObjects(scene.children) ;
+        let intersects = raycaster.intersectObjects(scene.children, true) ;
 
         // INTERSECTED = the object in the scene currently closest to the camera
         // and intersected by the Ray projected from the mouse position
@@ -1087,7 +1110,7 @@
                         };
                         break outer_if;
                     } else if(tempObj.userData instanceof Array) {
-                        if(tempObj.userData[0].centroid !== null) {
+                        if(tempObj.userData[0].centroid) {
                             obj = {
                                 type: 'member',
                                 userData: tempObj.userData,
@@ -1140,20 +1163,22 @@
         switch(o.type) {
             case 'trajectory': {
                 clickTrajectory(o.userData);
-                showTrajectoryInfo(o);
+                showInfo(o);
                 break;
             }
             case 'centroid': {
                 clickCluster(o.userData.cluster);
-                showClusterInfo(o);
+                showInfo(o);
                 break;
             }
             case 'member': {
                 clickCluster(o.userData[0].cluster);
-                showClusterInfo(o);
+                showInfo(o);
                 break;
             }
             case 'error':
+                clickErrors();
+                showInfo(o);
                 break;
         }
     }
@@ -1175,14 +1200,18 @@
                 break;
             }
             case 'error':
+                unClickErrors();
+                unShowInfo(o);
                 break;
         }
     }
 
     function clickTrajectory(traj) {
         if(traj.dots) {
-            traj.dots.material.color.set(threePar.rayc.clickColor);
-            traj.dots.material.needsUpdate = true;
+            traj.dots.children.forEach(function(dot) {
+                dot.material.color.set(threePar.rayc.clickColor);
+                dot.material.needsUpdate = true;
+            });
         }
         if(traj.line) {
             traj.line.material.color.set(threePar.rayc.clickColor);
@@ -1209,8 +1238,10 @@
     }
     function unClickTrajectory(traj) {
         if (traj.dots) {
-            traj.dots.material.color.set(traj.color);
-            traj.dots.material.needsUpdate = true;
+            traj.dots.children.forEach(function(dot) {
+                dot.material.color.set(traj.color);
+                dot.material.needsUpdate = true;
+            });
         }
         if (traj.line) {
             traj.line.material.color.set(traj.color);
@@ -1245,10 +1276,12 @@
             clus.circMesh.material.needsUpdate = true;
         }
         if (clus.membDots) {
-            clus.membDots.material.color.set(threePar.rayc.clickColor);
-            clus.membDots.material.needsUpdate = true;
+            clus.membDots.children.forEach(function(dot) {
+                dot.material.color.set(threePar.rayc.clickColor);
+                dot.material.needsUpdate = true;
+            });
         }
-        if (clus.trajectories) {
+        if (clus.trajectories.size !== 0) {
             clus.trajectories.forEach(function (traj) {
                 clickTrajectory(traj);
             });
@@ -1264,35 +1297,80 @@
             clus.circMesh.material.needsUpdate = true;
         }
         if (clus.membDots) {
-            clus.membDots.material.color.set(clus.centroid.color);
-            clus.membDots.material.needsUpdate = true;
+            clus.membDots.children.forEach(function(dot) {
+                dot.material.color.set(clus.centroid.color);
+                dot.material.needsUpdate = true;
+            });
         }
-        if (clus.trajectories) {
+        if (clus.trajectories.size !== 0) {
             clus.trajectories.forEach(function (traj) {
                 unClickTrajectory(traj)
             });
         }
     }
-
-    function showTrajectoryInfo(o) {
-        if(!o.hasOwnProperty('info')) {
-            o.info = new infoCont(
-                ["Description", "Content"],
-                o.userData.generateDigest()
-            );
-            o.info.createDiv();
+    function clickErrors() {
+        if (draw.errors) {
+            draw.errors.children.forEach(function(dot) {
+                dot.material.color.set(threePar.rayc.clickColor);
+                dot.material.needsUpdate = true;
+            });
         }
-        infoDiv.appendChild(o.info.div);
     }
-    function showClusterInfo(o) {
-        if(!o.hasOwnProperty('info')) {
-            o.info = new infoCont(
-                ["Description", "Content"],
-                o.userData[0].cluster.generateDigest()
-            );
-            o.info.createDiv();
+    function unClickErrors() {
+        if (draw.errors) {
+            draw.errors.children.forEach(function(dot) {
+                dot.material.color.set(par.cl.errors.color);
+                dot.material.needsUpdate = true;
+            });
         }
-        infoDiv.appendChild(o.info.div);
+    }
+
+    function showInfo(o) {
+        switch(o.type) {
+            case 'trajectory': {
+                if(!o.hasOwnProperty('info')) {
+                    o.info = new infoCont(
+                        ["Description", "Content"],
+                        o.userData.generateDigest()
+                    );
+                    o.info.createDiv();
+                }
+                infoDiv.appendChild(o.info.div);
+                break;
+            }
+            case 'centroid': {
+                if(!o.hasOwnProperty('info')) {
+                    o.info = new infoCont(
+                        ["Description", "Content"],
+                        o.userData.cluster.generateDigest()
+                    );
+                    o.info.createDiv();
+                }
+                infoDiv.appendChild(o.info.div);
+                break;
+            }
+            case 'member': {
+                if(!o.hasOwnProperty('info')) {
+                    o.info = new infoCont(
+                        ["Description", "Content"],
+                        o.userData[0].cluster.generateDigest()
+                    );
+                    o.info.createDiv();
+                }
+                infoDiv.appendChild(o.info.div);
+                break;
+            }
+            case 'error':
+                if(!o.hasOwnProperty('info')) {
+                    o.info = new infoCont(
+                        ["Description", "Content"],
+                        [["Number of Errors: ", o.userData.length]]
+                    );
+                    o.info.createDiv();
+                }
+                infoDiv.appendChild(o.info.div);
+                break;
+        }
     }
     function unShowInfo(o) {
         document.getElementById('infoDiv').removeChild(o.info.div);
@@ -1693,10 +1771,14 @@
     function cluster(trajs) {
         const vertices = [];
 
+        flags.clustering.subsaPoints = 0;
+
         trajs.forEach(function(traj) {
-            traj.subsaPoints = subsamplePoints(traj.rawPoints);
+            traj.subsaPoints = subsamplePoints(traj);
             vertices.push(traj.subsaPoints);
         });
+
+        console.log("subsaP: " + flags.clustering.subsaPoints);
 
         //centroid seed
         const P = vertices; //Points
@@ -1725,9 +1807,10 @@
         data.clts.valid = true;
     }
 
-    function subsamplePoints(points) {
+    function subsamplePoints(traj) {
         const vertices = [];//R = Radius for subsampling, r = radius remaining for next segment, i = iterator, p0 = first point of traj, //pA and pB are start and end of segment to be subsampled, D = dist between pA and pB, d = remaining distance
         //p = subsampled point, vh = ratio of _________ (?),
+        const points = traj.rawPoints;
 
         const R = par.subsaRadius;
         let r = R;
@@ -1737,8 +1820,13 @@
             x: points[0].x,
             y: points[0].y,
             f: points[0].f,
-            t: points[0].t
+            t: points[0].t,
+            traj: traj,
+            ID: flags.clustering.subsaPoints,
         });
+        flags.clustering.subsaPoints++;
+
+
         //data.subsaPnts.push(p0); //testing
 
         p0.prevPoint = null;
@@ -1761,8 +1849,13 @@
                         x: (1 - vh) * pA.x + vh * pB.x,
                         y: (1 - vh) * pA.y + vh * pB.y,
                         f: pA.f,
-                        t: pA.t
+                        t: pA.t,
+                        traj: traj,
+                        ID: flags.clustering.subsaPoints,
                     });
+                    flags.clustering.subsaPoints++;
+
+
                     //data.subsaPnts.push(p); //testing
 
                     p.prevPoint = tempPrevPoint;
@@ -1831,10 +1924,13 @@
         while(r < R.length) {
             if(R.hasOwnProperty(r)){
                 originList[r] = R[r].members.length;
-                R[r].members = [];
+                //R[r].members = [];
+                R[r].clearMembers();
             }
             r++;
         }
+        data.errors.val = [];
+        data.errors.valid = false;
 
         let cnt = 0;
 
@@ -1855,7 +1951,7 @@
             });
         });
 
-        if(cnt !== 0) console.log('redistPoints: No Centroid found in ' + cnt + ' cases!');
+        console.log('redistPoints: No Centroid found in ' + cnt + ' cases!');
 
         //test for changes
         r = 0;
@@ -1867,6 +1963,8 @@
             }
             r++;
         }
+
+        data.errors.valid = true;
     }
 
     function recalculateCentroids(R, G) {
@@ -2017,28 +2115,49 @@
 //--MAKE-(THREE.JS)-----------------------------------------------------------------------------------------------------
 
     function makePoints(traj) {
-        const trajGeom = makePointGeometry(traj.rawPoints);
-        traj.dots = createDots(trajGeom, traj.color, par.pt.opacity, par.pt.size, traj);
+        //const trajGeom = makePointGeometry(traj.rawPoints);
+        //traj.dots = createDots(trajGeom, traj.color, par.tj.dot.opacity, par.tj.dot.size, traj);
+        const dots = new THREE.Group();
+        traj.rawPoints.forEach(function(point) {
+            const pointGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
+            dots.add(createCircle(pointGeom, traj.color, par.tj.opacity, par.tj.dot.size, traj));
+        });
+        traj.dots = dots;
     }
     function makeLine(traj) {
         const trajGeom = makePointGeometry(traj.rawPoints);
         traj.line = createLine(trajGeom, traj.color, par.tj.opacity, false, THREE.NoColors, THREE.FlatShading, traj);
     }
     function makeCentroid(clus) {
-        const centGeom = makePointGeometry([clus.centroid]);
-        clus.centDot = createDots(centGeom, clus.centroid.color, par.ct.opacity, par.ct.size, clus.centroid);
+        //const centGeom = makePointGeometry([clus.centroid]);
+        //clus.centDot = createDots(centGeom, clus.centroid.color, par.ct.opacity, par.ct.size, clus.centroid);
+        const centGeom = makeCircleGeometry(par.ct.size, clus.centroid, 0); // par.ct.corrZ);
+        clus.centDot = createCircle(centGeom, clus.centroid.color, par.ct.opacity, false, clus.centroid);//clus.centroid);
     }
     function makeCircle(clus) {
-        const circleGeom = makeCircleGeometry(clus);
+        const circleGeom = makeCircleGeometry(bd.maxRadius / 2, clus.centroid, par.ct.circles.corrZ);
         clus.circMesh = createCircle(circleGeom, clus.centroid.color, par.ct.circles.opacity, true, null);//clus.centroid);
     }
     function makeCluster(clus) {
-        const pointsGeom = makePointGeometry(clus.members);
-        clus.membDots = createDots(pointsGeom, clus.centroid.color, par.pt.opacity, par.pt.size, clus.members);
+        //const pointsGeom = makePointGeometry(clus.members);
+        //clus.membDots = createDots(pointsGeom, clus.centroid.color, par.tj.dot.opacity, par.tj.dot.size, clus.members);
+        const members = new THREE.Group();
+        clus.members.forEach(function(point) {
+            const pointGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
+            members.add(createCircle(pointGeom, clus.centroid.color, par.tj.dot.opacity, par.tj.dot.size, clus.members));
+        });
+        clus.membDots = members;
     }
     function makeErrors() {
-        const errorGeom = makePointGeometry(data.errors.val);
-        draw.errors = createDots(errorGeom, par.cl.errors.color, par.pt.opacity, par.pt.size, data.errors.val); //temp
+        //const errorGeom = makePointGeometry(data.errors.val);
+        //draw.errors = createDots(errorGeom, par.cl.errors.color, par.tj.dot.opacity, par.tj.dot.size, data.errors.val); //temp
+        const errors = new THREE.Group();
+        data.errors.val.forEach(function(point) {
+            const errorGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
+            errors.add(createCircle(errorGeom, par.cl.errors.color, par.tj.dot.opacity, par.tj.dot.size, data.errors.val)); //data.errors.val));
+            point.isError = true;
+        });
+        draw.errors = errors;
     }
     function makeGraph(traj) {
         traj.findCentroids();
@@ -2065,9 +2184,9 @@
         });
         return pointsGeom;
     } //three.js
-    function makeCircleGeometry(clus) {
-        const circleGeom = new THREE.CircleGeometry(bd.maxRadius / 2, par.ct.circles.segNum);
-        circleGeom.translate(clus.centroid.x, -clus.centroid.y, clus.centroid.f + par.ct.circles.corrZ);
+    function makeCircleGeometry(radius, point, corrZ) {
+        const circleGeom = new THREE.CircleGeometry(radius, par.ct.circles.segNum);
+        circleGeom.translate(point.x, -point.y, point.f + corrZ);
         return circleGeom;
     } //three.js
     function makeLineSegGeom(lineSeg) {
@@ -2220,41 +2339,7 @@
 //  ToDo: review lineTypes
 
     //--All-Trajectories------------------------------------------------------------------------------------------------
-    /*function addAllTrajectories() { //abgesehen von clusters
-        if (bd.lineType.points) {
-            data.trjs.val.forEach(function(traj) {
-                scene.add(traj.dots);
-            });
-        } else if (bd.lineType.lines) {
-            data.trjs.val.forEach(function(traj) {
-                scene.add(traj.line);
-            });
-        } else if(bd.lineType.centroids) {
-            data.clts.forEach(function(clus) {
-                scene.add(clus.centDot);
-            });
-        } else if(bd.lineType.circles) {
-            data.clts.forEach(function(clus) {
-                scene.add(clus.circMesh);
-            });
-        } else if(bd.lineType.clusters) {
-            data.clts.forEach(function(clus) {
-                scene.add(clus.membDots);
-            });
-            draw.errors.forEach(function(error) {
-                scene.add(error);
-            }); //temp
-        } else if(bd.lineType.graph) {
-            data.trjs.val.forEach(function(traj) {
-                scene.add(traj.centLine);
-            });
-        } else if(bd.lineType.curves) {
-            data.trjs.val.forEach(function(traj) {
-                scene.add(traj.anchLine);
-            });
-        }
-    } //three.js
-*/
+
     function showCheckedDrawings() {
         for(let ch in guiPar.folders.lineTypes.choices) {
             if(guiPar.folders.lineTypes.choices.hasOwnProperty(ch)) {
