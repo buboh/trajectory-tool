@@ -70,7 +70,7 @@
                 name: "View settings",
             },
             lineTypes: {
-                name: "Line types",
+                name: "Visible data",
             },
             dataSettings: {
                 name: "Clustering settings",
@@ -135,7 +135,7 @@
                 min: 1,
                 max: 2,
                 step: 0.1,
-                init: 1.3,
+                init: 1.2,
             },
             floor: {
                 func: 'floor',
@@ -473,17 +473,17 @@
             get basic() {return this.ba},
             set basic(val) {
                 this.ba = val;
-                this.iTListener();
+                this.itListener();
             },
             get analysis() {return this.an},
             set analysis(val) {
                 this.an = val;
-                this.iTListener();
+                this.itListener();
             },
             get extensive() {return this.ex},
             set extensive(val) {
                 this.ex = val;
-                this.iTListener();
+                this.itListener();
             },
         },
         get infoType() {
@@ -691,7 +691,10 @@
         findCentroids() {
             this.emptyCentroids();
 
+            let tc;
+
             if(this.subsaPoints[0].centroid){
+                tc = this.subsaPoints[0].centroid;
                 this.addCentroid(this.subsaPoints[0].centroid);
             } else {
                 const k = 0;
@@ -704,7 +707,11 @@
                         if(!this.subsaPoints[i].centroid) {
                             const k = 0;
                         }
-                        this.addCentroid(this.subsaPoints[i].centroid);
+
+                        let c = this.subsaPoints[i].centroid;
+                        tc.addNextCentroid(c);
+                        this.addCentroid(c);
+                        tc = c;
                     }
                 } else {
                     console.log("no Centroid found");
@@ -833,7 +840,7 @@
             this.line = null;
         }
 
-        generateDigest() {
+        getBasicInfo() {
             const lM = Math.round(this.getLengthInMeters() * 100) / 100;
             const lP = this.rawPoints.length;
             const dur = this.getDurationInS();
@@ -842,7 +849,8 @@
                 ["Length", lM + " m"],
                 ["Length", lP + " pts"],
                 ["Duration", dur + " s"],
-                ["Speed", speed + " km/h"]
+                ["Speed", speed + " km/h"],
+                ["Connections", ]
             ];
         }
         getLengthInMeters() {
@@ -857,6 +865,9 @@
         getDurationInS() {
             return Math.trunc((this.rawPoints[this.rawPoints.length - 1].t - this.rawPoints[0].t) / 1000);
         }
+
+        getAnalysisInfo() {return [['Hi', 'dude!']]}
+        getExtensiveInfo() {return [['Hey', 'guy!']]}
     }
     class Cluster {
         constructor() {
@@ -954,11 +965,15 @@
             this.membDots = null;
         }
 
-        generateDigest() {
+        getBasicInfo() {
             const mem = this.members.length;
             const trajs = this.trajectories.size;
+            const conns = this.centroid.prevCentroids;
+            conns.add(...this.centroid.nextCentroids);
+
             return [
                 ["Members", mem],
+                ["Connections", conns.size],
                 ["Ts Passing", trajs],
             ];
         }
@@ -1424,9 +1439,15 @@
         switch(o.type) {
             case 'trajectory': {
                 if(!o.hasOwnProperty('info')) {
+
+                    const tempInfo = [];
+                    if(bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo());
+                    if(bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo());
+                    if(bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo());
+
                     o.info = new infoCont(
                         ["Description", "Content"],
-                        o.userData.generateDigest()
+                        tempInfo
                     );
                     o.info.createDiv();
                 }
@@ -1437,7 +1458,7 @@
                 if(!o.hasOwnProperty('info')) {
                     o.info = new infoCont(
                         ["Description", "Content"],
-                        o.userData.cluster.generateDigest()
+                        o.userData.cluster.getBasicInfo()
                     );
                     o.info.createDiv();
                 }
@@ -1448,7 +1469,7 @@
                 if(!o.hasOwnProperty('info')) {
                     o.info = new infoCont(
                         ["Description", "Content"],
-                        o.userData[0].cluster.generateDigest()
+                        o.userData[0].cluster.getBasicInfo()
                     );
                     o.info.createDiv();
                 }
@@ -1469,6 +1490,7 @@
     }
     function unShowInfo(o) {
         document.getElementById('infoDiv').removeChild(o.info.div);
+        delete o.info;
     }
 
 
@@ -1589,11 +1611,10 @@
         fViewSettings.add(this, guiPar.buttons.hideGrid.func).name(guiPar.buttons.hideGrid.name);
         fViewSettings.add(bd, guiPar.sliders.zoom.func, guiPar.sliders.zoom.min, guiPar.sliders.zoom.max)
                             .step(guiPar.sliders.zoom.step).name(guiPar.sliders.zoom.name);
-        fViewSettings.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
-                            .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
-        fViewSettings.open();
 
-        const fLineTypes = fViewSettings.addFolder(guiPar.folders.lineTypes.name);
+        const fLineTypes = gui.addFolder(guiPar.folders.lineTypes.name);
+        fLineTypes.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
+            .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
         for(let ch in guiPar.checkboxes.lineTypes.choices) {
             if(guiPar.checkboxes.lineTypes.choices.hasOwnProperty(ch)) {
                 fLineTypes.add(bd.lt, ch).name(guiPar.checkboxes.lineTypes.choices[ch].name);
@@ -1613,6 +1634,7 @@
                 fInfoSettings.add(bd.iT, ch).name(guiPar.checkboxes.infoTypes.choices[ch].name);
             }
         }
+        fInfoSettings.open();
 
         const guiDiv = document.getElementById('guiDiv');
         guiDiv.appendChild(gui.domElement);
@@ -2726,7 +2748,10 @@
         showCheckedDrawings();
     }
     function changeInfoType() {
-        //Todo
+        INTERSECTED.forEach(function(o) {
+            unShowInfo(o);
+            showInfo(o);
+        });
     }
     function changeClusterRadius() {
         deleteClusterTrajectories();
