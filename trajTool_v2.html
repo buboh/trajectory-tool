@@ -66,15 +66,88 @@
             bdSettings: {
                 name: "Building settings",
             },
-            dataSettings: {
-                name: "Data settings",
-            },
             viewSettings: {
                 name: "View settings",
             },
             lineTypes: {
                 name: "Line types",
-                init: 'Point',
+            },
+            dataSettings: {
+                name: "Clustering settings",
+            },
+            infoSettings: {
+                name: "Infobox settings"
+            }
+        },
+        buttons: {
+            bgLoader: {
+                func: 'loadBuildingFile',
+                name: 'Load building',
+                initPath: 'white-',
+                initExt: '.png',
+            },
+            dataLoader: {
+                func: 'loadDataFile',
+                name: 'Load trajectories',
+            },
+            delAll: {
+                func: 'deleteTrajectoryData',
+                name: 'Delete everything',
+            },
+            delTrajectories: {
+                func: 'deleteTrajectoryData',
+                name: 'Delete trajectories',
+            },
+            hideGrid: {
+                func: 'hideAllGrids',
+                name: 'Hide grid',
+            }
+
+        },
+        sliders: {
+            scale: {
+                func: 'scale',
+                name: 'Scale (1:X)',
+                min: 45,
+                max: 100,
+                step: 1,
+                init: 49,
+            },
+            maxClusterRad: {
+                func: 'maxRadius',
+                name: 'Radius',
+                min: 5,
+                max: 50,
+                step: 5,
+                init: 20,
+            },
+            redist: {
+                func: 'redist',
+                name: 'Redist count',
+                min: 0,
+                max: 50,
+                step: 1,
+                init: 50,
+            },
+            zoom: {
+                func: 'zoom',
+                name: 'Zoom',
+                min: 1,
+                max: 2,
+                step: 0.1,
+                init: 1.3,
+            },
+            floor: {
+                func: 'floor',
+                name: 'Floor',
+                min: -2,
+                max: 2,
+                step: 1,
+                init: 1,
+            },
+        },
+        checkboxes: {
+            lineTypes: {
                 choices: {
                     points: {name: 'Dots', init: true},
                     lines: {name: 'Lines', init: false},
@@ -85,48 +158,14 @@
                     curves: {name: 'Curves', init: false},
                 },
             },
-        },
-        buttons: {
-            bgLoader: {
-                name: 'Load building',
-                initPath: 'white-',
-                initExt: '.png',
-            },
-            dataLoader: {
-                name: 'Load trajectories',
-            },
-
-        },
-        sliders: {
-            scale: {
-                name: 'Scale (1:X)',
-                min: 45,
-                max: 100,
-                step: 1,
-                init: 49,
-            },
-            floor: {
-                name: 'Floor',
-                min: -2,
-                max: 2,
-                step: 1,
-                init: 1,
-            },
-            maxClusterRad: {
-                name: 'Radius',
-                min: 5,
-                max: 50,
-                step: 5,
-                init: 20,
-            },
-            redist: {
-                name: 'Redist count',
-                min: 0,
-                max: 50,
-                step: 1,
-                init: 50,
-            },
-        },
+            infoTypes: {
+                choices: {
+                    basic: {name: 'Basic', init: true},
+                    analysis: {name: 'Analysis', init: false},
+                    extensive: {name: 'Extensive', init: false},
+                }
+            }
+        }
 
     }; //ToDo: building path changed-----------------------------------------------------------------
     const par = {
@@ -316,6 +355,21 @@
             return this.w / this.h;
         },
 
+        z: guiPar.sliders.zoom.init,
+        zListener: function() {},
+        get zoom() {
+            return this.z;
+        },
+        set zoom(val) {
+            if (val !== this.z) {
+                this.z = val;
+                this.zListener(val);
+            }
+        },
+        registerZListener: function(listener) {
+            this.zListener = listener;
+        },
+
         f: guiPar.sliders.floor.init, //building floor
         fListener: function() {},
         get floor() {
@@ -356,13 +410,13 @@
         },
 
         lt: {
-            pt: guiPar.folders.lineTypes.choices.points.init,
-            ln: guiPar.folders.lineTypes.choices.lines.init,
-            ct: guiPar.folders.lineTypes.choices.centroids.init,
-            ci: guiPar.folders.lineTypes.choices.circles.init,
-            cl: guiPar.folders.lineTypes.choices.clusters.init,
-            bt: guiPar.folders.lineTypes.choices.graph.init,
-            eb: guiPar.folders.lineTypes.choices.curves.init,
+            pt: guiPar.checkboxes.lineTypes.choices.points.init,
+            ln: guiPar.checkboxes.lineTypes.choices.lines.init,
+            ct: guiPar.checkboxes.lineTypes.choices.centroids.init,
+            ci: guiPar.checkboxes.lineTypes.choices.circles.init,
+            cl: guiPar.checkboxes.lineTypes.choices.clusters.init,
+            bt: guiPar.checkboxes.lineTypes.choices.graph.init,
+            eb: guiPar.checkboxes.lineTypes.choices.curves.init,
 
             ltListener: function() {},
 
@@ -409,6 +463,36 @@
             this.lt.ltListener = listener;
         },
 
+        iT: {
+            ba: guiPar.checkboxes.infoTypes.choices.basic.init,
+            an: guiPar.checkboxes.infoTypes.choices.analysis.init,
+            ex: guiPar.checkboxes.infoTypes.choices.extensive.init,
+
+            itListener: function(){},
+
+            get basic() {return this.ba},
+            set basic(val) {
+                this.ba = val;
+                this.iTListener();
+            },
+            get analysis() {return this.an},
+            set analysis(val) {
+                this.an = val;
+                this.iTListener();
+            },
+            get extensive() {return this.ex},
+            set extensive(val) {
+                this.ex = val;
+                this.iTListener();
+            },
+        },
+        get infoType() {
+            return this.lt;
+        },
+        registerItListener: function(listener) {
+            this.iT.itListener = listener;
+        },
+
         mR: guiPar.sliders.maxClusterRad.init, //cluster maxRadius
         mRListener: function() {},
         get maxRadius() {
@@ -450,11 +534,17 @@
     bd.registerFListener(function() {
         changeFloors();
     });
+    bd.registerZListener(function() {
+        updateCamera();
+    });
     bd.registerSListener(function() {
         changeScale();
     });
-    bd.registerLtListener(function(lineType) {
-        changeLineType(lineType);
+    bd.registerLtListener(function() {
+        changeLineType();
+    });
+    bd.registerItListener(function() {
+        changeInfoType();
     });
     bd.registerMRListener(function() {
         changeClusterRadius();
@@ -554,6 +644,7 @@
     class Anchor extends Point {
         constructor(p) {
             super(p);
+            this.col = p.col;
         }
         get prevAnchor() {return this.prev}
         set prevAnchor(anch) {
@@ -584,9 +675,6 @@
                 centLine: null,
                 anchLine: null,
             };
-            rawData.forEach(function(pt) {
-               pt.trajectory = this;
-            });
         }
         get rawPoints() {return this.data.raw}
         set rawPoints(points) {this.data.raw = points}
@@ -696,11 +784,17 @@
 
                 const alpha = 0.5;
 
+                const tempScale = chroma.scale([cA.color, cB.color]);
+
                 const p = new Anchor({
                     x: alpha * cA.x + (1 - alpha) * cB.x,
                     y: alpha * cA.y + (1 - alpha) * cB.y,
                     f: cA.f,
-                });
+                    col: tempScale(alpha),
+            });
+                /*const tempColor = (((cA.color * 0x0000FF + cB.color * 0x0000FF) / 2) +
+                                    ((cA.color * 0x00FF00 + cB.color * 0x00FF00) / 2) +
+                                    ((cA.color * 0xFF0000 + cB.color * 0xFF0000) / 2));*/
 
                 this.addAnchor(new Anchor(cA));
                 this.addAnchor(p);
@@ -1008,6 +1102,7 @@
             camera.near = Math.trunc((-bd.floor - par.gd.corrZ + threePar.cam.corrNear + threePar.cam.corrZ) * 100) / 100; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
             camera.far = Math.trunc((-bd.floor - par.bg.corrZ + threePar.cam.corrFar + threePar.cam.corrZ) * 100) / 100;
         }
+        camera.zoom = bd.zoom;
         camera.updateProjectionMatrix();
 //        if( camerahelper ) {
 //            camerahelper.update();
@@ -1283,7 +1378,7 @@
         }
         if (clus.trajectories.size !== 0) {
             clus.trajectories.forEach(function (traj) {
-                clickTrajectory(traj);
+                clickTrajectory(traj); //ToDo
             });
         }
     }
@@ -1375,6 +1470,7 @@
     function unShowInfo(o) {
         document.getElementById('infoDiv').removeChild(o.info.div);
     }
+
 
     //temp code inside
     function onDocumentMouseMove(event){
@@ -1475,33 +1571,48 @@
     function initDatGUI() {
         //gui = new dat.GUI({autoPlace: false});
         gui = new dat.GUI({autoPlace: false, right: 0});
-        const fLoad = gui.addFolder('Load things');
-        fLoad.add(buildingFileClicker, 'loadBuildingFile').name(guiPar.buttons.bgLoader.name);
-        fLoad.add(trajectoryFileClicker, 'loadDataFile').name(guiPar.buttons.dataLoader.name);
+
+        const fLoad = gui.addFolder(guiPar.folders.load.name);
+        fLoad.add(buildingFileClicker, guiPar.buttons.bgLoader.func).name(guiPar.buttons.bgLoader.name);
+        fLoad.add(trajectoryFileClicker, guiPar.buttons.dataLoader.func).name(guiPar.buttons.dataLoader.name);
         fLoad.open();
-        const fDelete = gui.addFolder('Delete things');
-        fDelete.add(this, 'deleteEverything').name('Delete everything');
-        fDelete.add(this, 'deleteTrajectoryData').name('Delete trajectories');
-        const fBdSettings = gui.addFolder('Building settings');
-        fBdSettings.add(bd, 'scale', guiPar.sliders.scale.min, guiPar.sliders.scale.max)
+
+        const fDelete = gui.addFolder(guiPar.folders.del.name);
+        fDelete.add(this, guiPar.buttons.delAll.func).name(guiPar.buttons.delAll.name);
+        fDelete.add(this, guiPar.buttons.delTrajectories.func).name(guiPar.buttons.delTrajectories.name);
+
+        const fBdSettings = gui.addFolder(guiPar.folders.bdSettings.name);
+        fBdSettings.add(bd, guiPar.sliders.scale.func, guiPar.sliders.scale.min, guiPar.sliders.scale.max)
                         .step(guiPar.sliders.scale.step).name(guiPar.sliders.scale.name);
-        const fDataSettings = gui.addFolder('Data settings');
-        fDataSettings.add(bd, 'maxRadius', guiPar.sliders.maxClusterRad.min, guiPar.sliders.maxClusterRad.max)
-                            .step(guiPar.sliders.maxClusterRad.step).name(guiPar.sliders.maxClusterRad.name);
-        fDataSettings.add(bd, 'redist', guiPar.sliders.redist.min, guiPar.sliders.redist.max)
-                            .step(guiPar.sliders.redist.step).name(guiPar.sliders.redist.name);
-        const fViewSettings = gui.addFolder('View settings');
-        fViewSettings.add(this, 'hideAllGrids').name('Hide grid');
-        fViewSettings.add(bd, 'floor', guiPar.sliders.floor.min, guiPar.sliders.floor.max)
+
+        const fViewSettings = gui.addFolder(guiPar.folders.viewSettings.name);
+        fViewSettings.add(this, guiPar.buttons.hideGrid.func).name(guiPar.buttons.hideGrid.name);
+        fViewSettings.add(bd, guiPar.sliders.zoom.func, guiPar.sliders.zoom.min, guiPar.sliders.zoom.max)
+                            .step(guiPar.sliders.zoom.step).name(guiPar.sliders.zoom.name);
+        fViewSettings.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
                             .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
         fViewSettings.open();
-        const fLineTypes = fViewSettings.addFolder('Line types');
-        for(let ch in guiPar.folders.lineTypes.choices) {
-            if(guiPar.folders.lineTypes.choices.hasOwnProperty(ch)) {
-                fLineTypes.add(bd.lt, ch).name(guiPar.folders.lineTypes.choices[ch].name);
+
+        const fLineTypes = fViewSettings.addFolder(guiPar.folders.lineTypes.name);
+        for(let ch in guiPar.checkboxes.lineTypes.choices) {
+            if(guiPar.checkboxes.lineTypes.choices.hasOwnProperty(ch)) {
+                fLineTypes.add(bd.lt, ch).name(guiPar.checkboxes.lineTypes.choices[ch].name);
             }
         }
         fLineTypes.open();
+
+        const fDataSettings = gui.addFolder(guiPar.folders.dataSettings.name);
+        fDataSettings.add(bd, guiPar.sliders.maxClusterRad.func, guiPar.sliders.maxClusterRad.min, guiPar.sliders.maxClusterRad.max)
+            .step(guiPar.sliders.maxClusterRad.step).name(guiPar.sliders.maxClusterRad.name);
+        fDataSettings.add(bd, guiPar.sliders.redist.func, guiPar.sliders.redist.min, guiPar.sliders.redist.max)
+            .step(guiPar.sliders.redist.step).name(guiPar.sliders.redist.name);
+
+        const fInfoSettings = gui.addFolder(guiPar.folders.infoSettings.name);
+        for(let ch in guiPar.checkboxes.infoTypes.choices) {
+            if(guiPar.checkboxes.infoTypes.choices.hasOwnProperty(ch)) {
+                fInfoSettings.add(bd.iT, ch).name(guiPar.checkboxes.infoTypes.choices[ch].name);
+            }
+        }
 
         const guiDiv = document.getElementById('guiDiv');
         guiDiv.appendChild(gui.domElement);
@@ -1676,6 +1787,9 @@
                         if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
 
                             const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
+                            tempTrajectory.rawPoints.forEach(function(pt) {
+                                pt.trajectory = tempTrajectory;
+                            });
 
                             if (tempTrajectory.rawPoints.length > 1) {
 
@@ -2341,8 +2455,8 @@
     //--All-Trajectories------------------------------------------------------------------------------------------------
 
     function showCheckedDrawings() {
-        for(let ch in guiPar.folders.lineTypes.choices) {
-            if(guiPar.folders.lineTypes.choices.hasOwnProperty(ch)) {
+        for(let ch in guiPar.checkboxes.lineTypes.choices) {
+            if(guiPar.checkboxes.lineTypes.choices.hasOwnProperty(ch)) {
                 if(bd.lineType[ch]) show(ch);
             }
         }
@@ -2593,7 +2707,6 @@
     }
 
 //--CHANGE--------------------------------------------------------------------------------------------------------------
-//  ToDo: review changeClusterRadius
 
     function changeScale() {
         deleteAllBgMeshes();
@@ -2611,6 +2724,9 @@
     function changeLineType() {
         hideTrajectoryDrawings();
         showCheckedDrawings();
+    }
+    function changeInfoType() {
+        //Todo
     }
     function changeClusterRadius() {
         deleteClusterTrajectories();
