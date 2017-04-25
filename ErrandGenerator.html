@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Errand Generator</title>
+    <style>
+
+        body {
+            -webkit-print-color-adjust: exact;
+            margin: 0;
+            overflow: auto;
+            font: 13px 'Lucida Grande', sans-serif;
+        }
+        table {
+            position: absolute;
+            width: 150px;
+            height: 300px;
+            border: 1px solid;
+            border-color: rgba(86, 86, 86, 0.2);
+            border-collapse: collapse;
+            margin: 5px;
+        }
+        tr {
+            height: auto;
+        }
+        td {
+            vertical-align: middle;
+            padding-left: 4px;
+        }
+        th {
+            font-size: 15px;
+            font-weight: bold;
+            background-color: rgba(143, 143, 143, 0.2);
+            padding-left: 4px;
+        }
+        .errandTitle {
+            font-size: 17px;
+            background-color: rgba(181, 181, 181, 0.5);
+        }
+
+    </style>
+</head>
+<body>
+<script src="js/dat.gui.js"></script>
+<script src="js/papaparse.js"></script>
+
+<script>
+
+    let trajectoryFileClicker;
+    let errandCount = 100;
+    let stopCount = 3;
+    let errandNum = 1;
+
+    let shops = [], entrances = [], errands = [];
+
+    const people = ["Thomas", "Moritz", "Marko", "Boxian", "Reini", "Matej", "Nikolay", "Michael", "Anna", "Caroline"];
+    let pCnt = 0;
+
+    class Shop {
+        constructor(o) {
+            this.name = o.name;
+            this.desc = o.desc;
+            this.floor = o.floor;
+            this.type = o.type;
+        }
+    }
+    class Entrance {
+        constructor(o) {
+            this.name = o.name;
+            this.desc = o.desc;
+            this.floor = o.floor;
+            this.type = o.type;
+        }
+    }
+    class Errand {
+        constructor(ID, entrance, shops, exit) {
+            this.ID = ID;
+            this.entrance = entrance;
+            this.exit = exit;
+            this.shops = shops;
+        }
+    }
+
+    init();
+
+    function init() {
+        initDataFileInput();
+        initDatGUI();
+        //initDOM();
+    }
+    function initDataFileInput() {
+        const dataFileInput = document.createElement('input');
+        dataFileInput.id = "dataFileInput";
+        dataFileInput.type = "file";
+        dataFileInput.accept = ".csv";
+        dataFileInput.style.position = "absolute";
+        dataFileInput.style.visibility = "hidden";
+        document.body.appendChild(dataFileInput);
+
+        dataFileInput.addEventListener('change', function() {
+            const reader = new FileReader();
+            reader.onload = function() {
+                createLocations(parseCSV(this.result));
+                genErrands();
+                let ct = 0;
+                errands.forEach(function(errand) {
+                    genErrandTable(errand, ct);
+                    ct++;
+                });
+            };
+            reader.readAsText(dataFileInput.files[0]);
+        });
+
+        trajectoryFileClicker = {
+            loadDataFile: function () {
+                document.getElementById("dataFileInput").click();
+            }
+        };
+    }
+    function initDatGUI() {
+        gui = new dat.GUI();
+        gui.add(trajectoryFileClicker, 'loadDataFile').name('Load csv');
+        document.body.appendChild(gui.domElement);
+    } //dat.gui
+
+    function parseCSV(csvString) {
+        const parseResult = Papa.parse(csvString, {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            comments: '#',
+        });
+        return parseResult.data;
+    }
+
+    function createLocations(readerResult) {
+        readerResult.forEach(function(o) {
+            if(o.type !== "entrance") {
+                shops.push(new Shop(o));
+            } else {
+                entrances.push(new Entrance(o))
+            }
+        });
+    }
+    function genErrands() {
+        while(errandNum < errandCount) {
+
+            const stops = [];
+            for(let i = 0; i < stopCount; i++){
+                stops.push(getRandomShop());
+            }
+
+            errands.push(new Errand(
+                errandNum,
+                getRandEntrance(),
+                stops,
+                getRandEntrance()
+            ));
+
+            errandNum++;
+        }
+    }
+    function genErrandTable(errand, ct) {
+
+        const table = document.createElement('table');
+        const left = 155 * (ct % 3);
+        table.style.left = left + "px";
+        const top = 350 * Math.trunc(ct / 3);
+        table.style.top = top + "px";
+
+        if(people.length <= pCnt) pCnt = 0;
+        let person = people[pCnt];
+        if((((ct+1) % 3) === 0) && (ct !== 0)) pCnt++;
+
+        table.appendChild(genTitleRow(errand, person));
+
+        const entRows = genRows(errand.entrance, "Entrance");
+        entRows.forEach(function(row) {
+            table.appendChild(row);
+        });
+
+        let num = 1;
+        errand.shops.forEach(function(shop) {
+            const shopRows = genRows(shop, "Shop " + num);
+            shopRows.forEach(function(row) {
+                table.appendChild(row);
+            });
+            num++;
+        });
+
+        const exitRows = genRows(errand.exit, "Exit");
+        exitRows.forEach(function(row) {
+            table.appendChild(row);
+        });
+
+        document.body.appendChild(table);
+    }
+
+    function genTitleRow(errand, person) {
+        const row = document.createElement('tr');
+        const col = document.createElement('th');
+        col.className = "errandTitle";
+        col.appendChild(document.createTextNode("E" + errand.ID + " - " + person));
+        row.appendChild(col);
+
+        return row;
+    }
+    function genRows(obj, name) {
+        const rows = [];
+
+        const row1 = document.createElement('tr');
+        const col1 = document.createElement('th');
+        col1.appendChild(document.createTextNode(name));
+        row1.appendChild(col1);
+        rows.push(row1);
+
+        const row2 = document.createElement('tr');
+        const col2 = document.createElement('td');
+        col2.appendChild(document.createTextNode(obj.name));
+        row2.appendChild(col2);
+        rows.push(row2);
+
+        const row3 = document.createElement('tr');
+        const col3 = document.createElement('td');
+        col3.appendChild(document.createTextNode("(" + obj.desc + ")"));
+        row3.appendChild(col3);
+        rows.push(row3);
+
+        return rows;
+    }
+
+
+
+
+
+
+    function getRandEntrance() {
+        return entrances[getRandomInt(0,entrances.length - 1)];
+    }
+    function getRandomShop() {
+        return shops[getRandomInt(0, shops.length - 1)];
+
+    }
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    </script>
+</body>
+</html>
