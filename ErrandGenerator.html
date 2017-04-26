@@ -47,13 +47,15 @@
 <script>
 
     let trajectoryFileClicker;
-    let errandCount = 100;
+    let errandCount = 36;
     let stopCount = 3;
     let errandNum = 1;
 
     let shops = [], entrances = [], errands = [];
 
-    const people = ["Thomas", "Moritz", "Marko", "Boxian", "Reini", "Matej", "Nikolay", "Michael", "Anna", "Caroline"];
+    //const people = ["Thomas", "Moritz", "Marko", "Boxian", "Reini", "Matej", "Nikolay", "Michael", "Anna", "Caroline", "Tom", "Ronald"];
+    const people = ["Dejan", "Max", "Florian", "Wesley"];
+
     let pCnt = 0;
 
     class Shop {
@@ -74,7 +76,7 @@
     }
     class Errand {
         constructor(ID, entrance, shops, exit) {
-            this.ID = ID;
+            this.ID = 99 + ID;
             this.entrance = entrance;
             this.exit = exit;
             this.shops = shops;
@@ -143,19 +145,34 @@
         });
     }
     function genErrands() {
+
+        let tempEntrance = getRandEntrance();
+
         while(errandNum < errandCount) {
 
             const stops = [];
+            let oldShop = null;
+            let newShop = null;
+
             for(let i = 0; i < stopCount; i++){
-                stops.push(getRandomShop());
+
+                while(oldShop === newShop) {
+                    newShop = getRandomShop();
+                }
+                stops.push(newShop);
+                oldShop = newShop;
             }
+
+            const tempExit = getRandEntrance();
 
             errands.push(new Errand(
                 errandNum,
-                getRandEntrance(),
+                tempEntrance,
                 stops,
-                getRandEntrance()
+                tempExit
             ));
+
+            tempEntrance = tempExit;
 
             errandNum++;
         }

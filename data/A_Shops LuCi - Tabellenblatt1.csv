@@ -4,13 +4,13 @@ Apotheke,-1,pharmacy,shop
 Müller,-1,supermarket,shop
 CCC,-1,shoes,shop
 Dorotheum,-1,jewellery,shop
-claire's,-1,jewellery,shop
-orsay,-1,clothes,shop
+Claire's,-1,jewellery,shop
+Orsay,-1,clothes,shop
 Merkur,-1,supermarket,shop
 Media Markt,1,electronics,shop
 Jack Jones / Only,1,clothes,shop
 Dressmann,1,clothes,shop
-pimkie,1,clothes,shop
+Pimkie,1,clothes,shop
 BiPa,1,drugstore,shop
 A1,1,phone and internet,shop
 myShoes,1,shoes,shop
@@ -22,21 +22,21 @@ McFit,1,fitness center,shop
 C&A,0,clothes,shop
 H&M,0,clothes,shop
 Deichmann,0,shoes,shop
-dm,0,drugstore,shop
+DM,0,drugstore,shop
 Bonita,0,clothes,shop
 GameStop,0,electronics,shop
 Bijou Brigitte,0,jewellery,shop
 Anker,0,food,shop
 Bawag / Post,0,bank / post office,shop
-snipes,0,shoes,shop
+Snipes,0,shoes,shop
 Ulla Popken,0,clothes,shop
 Marionnaud,0,cosmetics,shop
 Orion,0,sexshop,shop
 """3""",0,phone and internet,shop
-1 - Wurzbachg/Gablenzg,-1,next to dorotheum,entrance
-2 - Elevators (Level -1),-1,the three elevators,entrance
-3 - Moeringg/Gablenzg,0,next to Bawag / Post,entrance
-4 - Elevators (Level 0),0,the three elevators,entrance
-5 - Geyschlägerg,0,through C&A,entrance
-6 - Bridge,1,just before the bridge,entrance
-7 - Elevators (Level 1),1,the three elevators,entrance
+E1 - Wurzbachgasse,-1,next to dorotheum,entrance
+E2 - Elevators (Level -1),-1,the three elevators,entrance
+E3 - Moeringgasse,0,next to Bawag / Post,entrance
+E4 - Elevators (Level 0),0,the three elevators,entrance
+E5 - Geyschlägerg.,0,through C&A,entrance
+E6 - Bridge,1,just before the bridge,entrance
+E7 - Elevators (Level 1),1,the three elevators,entrance

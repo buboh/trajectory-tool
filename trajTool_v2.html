@@ -36,6 +36,8 @@
     let mouse, raycaster, INTERSECTED = new Set();
     let gui, infoDiv;
     let buildingFileClicker, trajectoryFileClicker;
+    let pointList;
+
 
     const threePar = {
         cam: {
@@ -1136,6 +1138,8 @@
         renderer.render(scene, camera);
     } //three.js
 
+//--RAYCASTER-----------------------------------------------------------------------------------------------------------
+
     function hoverDetector() {
 
         raycaster.setFromCamera(mouse, camera);
@@ -1177,7 +1181,6 @@
             INTERSECTED = null;
         }
     }
-
 
     function onMouseClick(event) {
         mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -1574,7 +1577,9 @@
                 reader.onload = function () {
                     result.push(this.result);
                     if (result.length === fileCount) {
-                        loadNewTrajectories(result);
+                        pointList = loadPointList(result);
+                        //newTrajectoriesByFloor(sortAndGroupList(pointList, true));
+                        newTrajectories(sortAndGroupList(pointList, false));
                         deleteClusterTrajectories();
                         showCheckedDrawings();
                     }
@@ -1756,7 +1761,9 @@
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
 //  ToDo: Implement function for removing first and last locations of recording
 
-    function loadNewTrajectories(readerResult) {
+
+
+    function loadPointList(readerResult) {
 
         data.trjs.valid = false;
         data.clts.valid = false;
@@ -1764,8 +1771,8 @@
 
         let pointList = [];
 
-    //--create-Point-Objects--------------------------------------------------------------------------------------------
-        readerResult.forEach(function(file){
+        //--create-Point-Objects--------------------------------------------------------------------------------------------
+        readerResult.forEach(function (file) {
             const tempList = parseCSV(file);
 
             tempList.splice(0, par.csv.removeCount);
@@ -1777,62 +1784,8 @@
             });
         });
 
-    //--sort-Points-----------------------------------------------------------------------------------------------------
-        pointList = sortPoints(pointList);
-
-        const pointListByDID = groupPointListByDid(pointList);
-        const pointListByDIDByTime = [];
-        const pointListByDIDByTimeByFloor = [];
-
-        for(let did in pointListByDID) {
-            if(pointListByDID.hasOwnProperty(did)){
-                pointListByDIDByTime[did] = groupPointListByTime(pointListByDID[did]);
-            }
-        }
-
-        for(let did in pointListByDIDByTime) {
-            if(pointListByDIDByTime.hasOwnProperty(did)) {
-                pointListByDIDByTimeByFloor[did] = [];
-                for(let t in pointListByDIDByTime[did]) {
-                    if(pointListByDIDByTime[did].hasOwnProperty(t)) {
-                        pointListByDIDByTimeByFloor[did][t] = groupPointListByFloor(pointListByDIDByTime[did][t]);
-                    }
-                }
-            }
-        }
-
-    //--create-Trajectories---------------------------------------------------------------------------------------------
-        for(let did in pointListByDIDByTimeByFloor) {
-            for(let t in pointListByDIDByTimeByFloor[did]) {
-                if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
-                    for (let f in pointListByDIDByTimeByFloor[did][t]) {
-                        if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
-
-                            const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
-                            tempTrajectory.rawPoints.forEach(function(pt) {
-                                pt.trajectory = tempTrajectory;
-                            });
-
-                            if (tempTrajectory.rawPoints.length > 1) {
-
-                                let tempPrevPoint = tempTrajectory.rawPoints[0];
-                                tempPrevPoint.prevPoint = null;
-
-                                for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
-                                    tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
-                                    tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
-                                    tempPrevPoint = tempTrajectory.rawPoints[p];
-                                }
-                                data.trjs.val.push(tempTrajectory);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        data.trjs.valid = true;
+        return pointList;
     }
-
     function parseCSV(csvString) {
         const parseResult = Papa.parse(csvString, {
             header: true,
@@ -1848,15 +1801,64 @@
         });
         return parseResult.data;
     }
-    function sortPoints(pointList) {
-    pointList.sort(
-        firstBy("did")
-            .thenBy("t")
-    );
-    return pointList;
-}
+
+    function sortAndGroupList(pL, floor) {
+        //--sort-Points-----------------------------------------------------------------------------------------------------
+        let pointList = sortPointList(pL);
+
+        const pointListByDID = groupPointListByDid(pointList);
+        const pointListByDIDByTime = [];
+        const pointListByDIDByTimeByFloor = [];
+
+        for (let did in pointListByDID) {
+            if (pointListByDID.hasOwnProperty(did)) {
+                pointListByDIDByTime[did] = groupPointListByTime(pointListByDID[did]);
+            }
+        }
+
+        if(!floor) {
+            return pointListByDIDByTime;
+        } else {
+            for (let did in pointListByDIDByTime) {
+                if (pointListByDIDByTime.hasOwnProperty(did)) {
+                    pointListByDIDByTimeByFloor[did] = [];
+                    for (let t in pointListByDIDByTime[did]) {
+                        if (pointListByDIDByTime[did].hasOwnProperty(t)) {
+                            pointListByDIDByTimeByFloor[did][t] = groupPointListByFloor(pointListByDIDByTime[did][t]);
+                        }
+                    }
+                }
+            }
+            return pointListByDIDByTimeByFloor;
+        }
+
+        //--
+
+        /*const pointListByDID = groupPointListByDid(pointList);
+
+        const pointListByDIDByFloor = [];
+        pointListByDID.forEach(function(didList) {
+            pointListByDIDByFloor.push(groupPointListByFloor(didList));
+        });
+
+        const pointListByDIDByFloorByTime = [];
+        pointListByDIDByFloor.forEach(function(didList) {
+           didList.forEach(function(timeList) {
+               pointListByDIDByFloorByTime.push(groupPointListByFloor(timeList));
+           });
+        });
+        return pointListByDIDByTimeByFloor;*/
+    }
+    function sortPointList(pointList) {
+        pointList.sort(
+            firstBy("did")
+                .thenBy("f")
+                .thenBy("t")
+        );
+        return pointList;
+    }
     function groupPointListByDid(pointList) {
-        return groupBy(pointList, function (item) {
+        return groupBy(pointList, function(item) {
                 return [item.did]; //, item.t
             }
         );
@@ -1883,7 +1885,7 @@
         return pointListByTime;
     }
     function groupPointListByFloor(pointList) {
-        return groupBy(pointList, function( item )  {
+        return groupBy(pointList, function(item) {
                 return [item.f]; //, item.t
             }
         );
@@ -1892,13 +1894,81 @@
 
         const groups = {};
         array.forEach(
-            function (object) {
+            function(object) {
                 const group = JSON.stringify(f(object));
                 groups[group] = groups[group] || []; //if groups[group] doesn't exist, [] is assigned
                 groups[group].push(object);
             }
         );
         return groups;
+    }
+
+    function newTrajectories(pL) {
+        const pointListByDIDByTime = pL;
+
+        for(let did in pointListByDIDByTime) {
+            if(pointListByDIDByTime.hasOwnProperty(did)) {
+                for(let t in pointListByDIDByTime[did]) {
+                    if(pointListByDIDByTime[did].hasOwnProperty(t)) {
+
+                        const tempTrajectory = new Trajectory(pointListByDIDByTime[did][t], null);
+                        tempTrajectory.rawPoints.forEach(function (pt) {
+                            pt.trajectory = tempTrajectory;
+                        });
+
+                        if (tempTrajectory.rawPoints.length > 1) {
+
+                            let tempPrevPoint = tempTrajectory.rawPoints[0];
+                            tempPrevPoint.prevPoint = null;
+
+                            for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+                                tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
+                                tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
+                                tempPrevPoint = tempTrajectory.rawPoints[p];
+                            }
+                        data.trjs.val.push(tempTrajectory);
+                        }
+                    }
+                }
+            }
+        }
+        data.trjs.valid = true;
+    }
+    function newTrajectoriesByFloor(pL) {
+        //--create-Trajectories---------------------------------------------------------------------------------------------
+        const pointListByDIDByTimeByFloor = pL;
+
+        for(let did in pointListByDIDByTimeByFloor) {
+            if(pointListByDIDByTimeByFloor.hasOwnProperty(did)) {
+                for(let t in pointListByDIDByTimeByFloor[did]) {
+                    if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
+                        for (let f in pointListByDIDByTimeByFloor[did][t]) {
+                            if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
+
+                                const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
+                                tempTrajectory.rawPoints.forEach(function (pt) {
+                                    pt.trajectory = tempTrajectory;
+                                });
+
+                                if (tempTrajectory.rawPoints.length > 1) {
+
+                                    let tempPrevPoint = tempTrajectory.rawPoints[0];
+                                    tempPrevPoint.prevPoint = null;
+
+                                    for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+                                        tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
+                                        tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
+                                        tempPrevPoint = tempTrajectory.rawPoints[p];
+                                    }
+                                    data.trjs.val.push(tempTrajectory);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        data.trjs.valid = true;
     }
 
 //--CLUSTERING----------------------------------------------------------------------------------------------------------
