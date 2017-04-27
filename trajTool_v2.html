@@ -672,13 +672,13 @@
             this.data = {
                 raw: rawData,
                 subsa: [],
-                centroids: [],
+                clusters: [],
                 anchors: [],
             };
             this.drawing = {
                 dots: null,
                 line: null,
-                centLine: null,
+                clusLine: null,
                 anchLine: null,
             };
         }
@@ -688,11 +688,11 @@
         get subsaPoints() {return this.data.subsa}
         set subsaPoints(points) {this.data.subsa = points}
         emptySubsaPoints() {this.data.subsa = []}
-        get centroids() {return this.data.centroids}
-        set centroids(points) {this.data.centroids = points}
-        addCentroid(cent) {
-            this.data.centroids.push(cent);
-            cent.cluster.addTrajectory(this);
+        get clusters() {return this.data.clusters}
+        set clusters(clusters) {this.data.clusters = clusters}
+        addCentroid(clus) {
+            this.data.clusters.push(clus);
+            clus.addTrajectory(this);
         }
         findCentroids() {
             this.emptyCentroids();
@@ -737,15 +737,15 @@
         }
         findAnchors() {
             this.emptyAnchors();
-            this.addAnchor(new Anchor(this.centroids[0]));
+            this.addAnchor(new Anchor(this.clusters[0].centroid));
 
             let i = 1;
-            if(this.centroids.length > 2) {
-                while (i < this.centroids.length - 1) {
+            if(this.clusters.length > 2) {
+                while (i < this.clusters.length - 1) {
 
-                    const p0 = this.centroids[i - 1];
-                    const p1 = this.centroids[i];
-                    const p2 = this.centroids[i + 1];
+                    const p0 = this.clusters[i - 1].centroid;
+                    const p1 = this.clusters[i].centroid;
+                    const p2 = this.clusters[i + 1].centroid;
 
                     let p1p0 = {x: p0.x - p1.x, y: p0.y - p1.y};
                     let p1p2 = {x: p2.x - p1.x, y: p2.y - p1.y};
@@ -782,18 +782,18 @@
                 }
             }
 
-            if(this.centroids.length > 1){
-                this.addAnchor(new Anchor(this.centroids[i]));
+            if(this.clusters.length > 1){
+                this.addAnchor(new Anchor(this.clusters[i].centroid));
             }
         }
         findBezAnchors() {
             this.emptyAnchors();
 
             let i = 0;
-            while( i < this.centroids.length - 1) {
+            while( i < this.clusters.length - 1) {
 
-                const cA = this.centroids[i];
-                const cB = this.centroids[i+1];
+                const cA = this.clusters[i].centroid;
+                const cB = this.clusters[i+1].centroid;
 
                 const alpha = 0.5;
 
@@ -814,7 +814,7 @@
 
                 i++;
             }
-            this.addAnchor(new Anchor(this.centroids[i]));
+            this.addAnchor(new Anchor(this.clusters[i].centroid));
         }
         emptyAnchors() {
             this.data.anchors = [];
@@ -1385,11 +1385,11 @@
             traj.anchLine.material.color.set(threePar.rayc.clickColor);
             traj.anchLine.material.needsUpdate = true;
         }
-        if(traj.centroids.length !== 0) {
-            traj.centroids.forEach(function(cent) {
-                if(cent.cluster.centDot) {
-                    cent.cluster.centDot.material.color.set(threePar.rayc.clickColor);
-                    cent.cluster.centDot.material.needsUpdate = true;
+        if(traj.clusters.length !== 0) {
+            traj.clusters.forEach(function(clus) {
+                if(clus.centDot) {
+                    clus.centDot.material.color.set(threePar.rayc.clickColor);
+                    clus.centDot.material.needsUpdate = true;
                 }
             });
         }
@@ -1415,11 +1415,11 @@
             traj.anchLine.material.color.set(par.ln.color);
             traj.anchLine.material.needsUpdate = true;
         }
-        if(traj.centroids.length !== 0) {
-            traj.centroids.forEach(function(cent) {
-                if(cent.cluster.centDot) {
-                    cent.cluster.centDot.material.color.set(cent.color);
-                    cent.cluster.centDot.material.needsUpdate = true;
+        if(traj.clusters.length !== 0) {
+            traj.clusters.forEach(function(clus) {
+                if(clus.centDot) {
+                    clus.centDot.material.color.set(cent.color);
+                    clus.centDot.material.needsUpdate = true;
                 }
             });
         }
@@ -1623,8 +1623,8 @@
                     result.push(this.result);
                     if (result.length === fileCount) {
                         pointList = loadPointList(result);
-                        //newTrajectoriesByFloor(sortAndGroupList(pointList, true));
-                        newTrajectories(sortAndGroupList(pointList, false));
+                        newTrajectoriesByFloor(sortAndGroupList(pointList, true));
+                        //newTrajectories(sortAndGroupList(pointList, false));
                         deleteClusterTrajectories();
                         showCheckedDrawings();
                     }
@@ -2448,12 +2448,12 @@
     } //three.js
     function makeTrajLineGeom(traj) {
         const trajGeom = new THREE.Geometry();
-        traj.centroids.forEach(function(cent) {
+        traj.clusters.forEach(function(clus) {
             trajGeom.vertices.push(
                 new THREE.Vector3(
-                    cent.x + traj.deviation * par.tj.deviationFactor,
-                    -cent.y + traj.deviation * par.tj.deviationFactor,
-                    cent.f));
+                    clus.centroid.x + traj.deviation * par.tj.deviationFactor,
+                    -clus.centroid.y + traj.deviation * par.tj.deviationFactor,
+                    clus.centroid.f));
             trajGeom.colors.push(new THREE.Color(cent.color));
         });
         return trajGeom;
