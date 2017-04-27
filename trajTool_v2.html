@@ -35,8 +35,8 @@
     let camera, scene, renderer;
     let mouse, raycaster, INTERSECTED = new Set();
     let gui, infoDiv;
-    let buildingFileClicker, trajectoryFileClicker;
-    let pointList;
+    let buildingFileClicker, trajectoryFileClicker, groundtruthFileClicker;
+    let pointList, groundtruthList;
 
 
     const threePar = {
@@ -75,7 +75,7 @@
                 name: "Visible data",
             },
             dataSettings: {
-                name: "Clustering settings",
+                name: "Data settings",
             },
             infoSettings: {
                 name: "Infobox settings"
@@ -92,8 +92,12 @@
                 func: 'loadDataFile',
                 name: 'Load trajectories',
             },
+            gtLoader: {
+                func: 'loadGroundtruthFile',
+                name: 'Load groundtruths',
+            },
             delAll: {
-                func: 'deleteTrajectoryData',
+                func: 'deleteEverything',
                 name: 'Delete everything',
             },
             delTrajectories: {
@@ -115,9 +119,17 @@
                 step: 1,
                 init: 49,
             },
+            cutTime: {
+                func: 'cutTime',
+                name: 'Cut time',
+                min: 1000,
+                max: 1000000,
+                step: 1000,
+                init: 20000,
+            },
             maxClusterRad: {
                 func: 'maxRadius',
-                name: 'Radius',
+                name: 'Cluster radius',
                 min: 5,
                 max: 50,
                 step: 5,
@@ -158,6 +170,7 @@
                     clusters: {name: 'Clusters', init: false},
                     graph: {name: 'Graph', init: false},
                     curves: {name: 'Curves', init: false},
+                    groundtruth: {name: 'GT', init: true},
                 },
             },
             infoTypes: {
@@ -217,6 +230,9 @@
             errors: {
                 color: 0x0000ff,
             }
+        },
+        gt: {
+            cutTime: 20000000,
         },
         csv: {
             header: 't,x,y,acc,f,did',
@@ -419,6 +435,7 @@
             cl: guiPar.checkboxes.lineTypes.choices.clusters.init,
             bt: guiPar.checkboxes.lineTypes.choices.graph.init,
             eb: guiPar.checkboxes.lineTypes.choices.curves.init,
+            gt: guiPar.checkboxes.lineTypes.choices.groundtruth.init,
 
             ltListener: function() {},
 
@@ -457,6 +474,11 @@
                 this.eb = val;
                 this.ltListener('curves');
             },
+            get groundtruth() {return this.gt},
+            set groundtruth(val) {
+                this.gt = val;
+                this.ltListener('groundtruth');
+            },
         }, //trajectory linetype
         get lineType() {
             return this.lt;
@@ -493,6 +515,17 @@
         },
         registerItListener: function(listener) {
             this.iT.itListener = listener;
+        },
+
+        cT: guiPar.sliders.cutTime.init,
+        cTListener: function() {},
+        get cutTime() {return this.cT},
+        set cutTime(val) {
+            this.cT = val;
+            this.cTListener();
+        },
+        registerCtListener: function(listener) {
+            this.cTListener = listener;
         },
 
         mR: guiPar.sliders.maxClusterRad.init, //cluster maxRadius
@@ -548,6 +581,9 @@
     bd.registerItListener(function() {
         changeInfoType();
     });
+    bd.registerCtListener(function() {
+
+    });
     bd.registerMRListener(function() {
         changeClusterRadius();
     });
@@ -558,6 +594,10 @@
     const data = {
         grds: {},
         trjs: {
+            valid: false,
+            val: [],
+        },
+        grts: {
             valid: false,
             val: [],
         },
@@ -634,7 +674,7 @@
             this.ID = flags.clustering.centID;
             flags.clustering.centID++;
         }
-        get prevCentroids() {return this.prev}
+        /*get prevCentroids() {return this.prev}
         set prevCentroids(set) {this.prev = set}
         addPrevCentroid(cent) {
             this.prev.add(cent);
@@ -645,7 +685,7 @@
         addNextCentroid(cent) {
             this.next.add(cent);
             if(cent) cent.prev.add(this);
-        }
+        }*/
     }
     class Anchor extends Point {
         constructor(p) {
@@ -690,7 +730,7 @@
         emptySubsaPoints() {this.data.subsa = []}
         get clusters() {return this.data.clusters}
         set clusters(clusters) {this.data.clusters = clusters}
-        addCentroid(clus) {
+        addCluster(clus) {
             this.data.clusters.push(clus);
             clus.addTrajectory(this);
         }
@@ -699,24 +739,24 @@
 
             let tc;
 
-            if(this.subsaPoints[0].centroid){
-                tc = this.subsaPoints[0].centroid;
-                this.addCentroid(this.subsaPoints[0].centroid);
+            if(this.subsaPoints[0].cluster){
+                tc = this.subsaPoints[0].cluster;
+                this.addCluster(this.subsaPoints[0].cluster);
             } else {
                 const k = 0;
             }//ToDo: find cause of missing centroids
 
             let i = 1;
             while(i < this.subsaPoints.length) {
-                if(this.subsaPoints[i].centroid){
-                    if(this.subsaPoints[i-1].centroid !== this.subsaPoints[i].centroid) {
-                        if(!this.subsaPoints[i].centroid) {
+                if(this.subsaPoints[i].cluster){
+                    if(this.subsaPoints[i-1].cluster !== this.subsaPoints[i].cluster) {
+                        if(!this.subsaPoints[i].cluster) {
                             const k = 0;
                         }
 
-                        let c = this.subsaPoints[i].centroid;
-                        tc.addNextCentroid(c);
-                        this.addCentroid(c);
+                        let c = this.subsaPoints[i].cluster;
+                        tc.addNextClusters(c);
+                        this.addCluster(c);
                         tc = c;
                     }
                 } else {
@@ -888,7 +928,9 @@
                 centroid: null,
                 circle: null,
                 members: null,
-            }
+            };
+            this.prev = new Set();
+            this.next = new Set();
         }
         get centroid() {return this.data.centroid}
         set centroid(cent) {
@@ -980,9 +1022,9 @@
             this.prev.add(clus);
             if(clus) clus.next.add(this);
         }
-        get nextCluster() {return this.next}
-        set nextCluster(set) {this.next = set}
-        addNextCluster(clus) {
+        get nextClusters() {return this.next}
+        set nextClusters(set) {this.next = set}
+        addNextClusters(clus) {
             this.next.add(clus);
             if(clus) clus.prev.add(this);
         }
@@ -996,8 +1038,8 @@
         getBasicInfo() {
             const mem = this.members.length;
             const trajs = this.trajectories.size;
-            const conns = this.centroid.prevCentroids;
-            conns.add(...this.centroid.nextCentroids);
+            const conns = this.prevClusters;
+            conns.add(...this.nextClusters);
 
             return [
                 ["Members", mem],
@@ -1043,7 +1085,8 @@
         initRenderer();
         initCamera();
         initBackgroundFileInput();
-        initDataFileInput();
+        initPositionFileInput();
+        initGroundtruthFileInput();
         initDatGUI();
         initWindowResizeListeners();
         initKeypressListener();
@@ -1604,7 +1647,7 @@
             }
         };
     }
-    function initDataFileInput() {
+    function initPositionFileInput() {
         const dataFileInput = document.createElement('input');
         dataFileInput.id = "dataFileInput";
         dataFileInput.type = "file";
@@ -1623,7 +1666,7 @@
                     result.push(this.result);
                     if (result.length === fileCount) {
                         pointList = loadPointList(result);
-                        newTrajectoriesByFloor(sortAndGroupList(pointList, true));
+                        newTrajectoriesByFloor(sortAndGroupList(pointList, true, par.tj.cutTime));
                         //newTrajectories(sortAndGroupList(pointList, false));
                         deleteClusterTrajectories();
                         showCheckedDrawings();
@@ -1639,7 +1682,49 @@
             }
         };
     }
+    function initGroundtruthFileInput() {
+        const dataFileInput = document.createElement('input');
+        dataFileInput.id = "groundtruthFileInput";
+        dataFileInput.type = "file";
+        dataFileInput.accept = ".csv";
+        dataFileInput.multiple = true;
+        dataFileInput.style.position = "absolute";
+        dataFileInput.style.visibility = "hidden";
+        document.body.appendChild(dataFileInput);
 
+        dataFileInput.addEventListener('change', function () {
+            const fileCount = dataFileInput.files.length;
+            const result = [];
+            for(let file = 0; file < fileCount; file++) {
+                const reader = new FileReader();
+                reader.onload = function () {
+                    result.push(this.result);
+                    if (result.length === fileCount) {
+                        groundtruthList = loadGroundtruthList(result);
+                        const sortedGts = [];
+                        groundtruthList.forEach(function(gt) {
+                            sortedGts.push(sortAndGroupList(gt, true, par.gt.cutTime));
+                        });
+                        sortedGts.forEach(function(gt) {
+                            newGroundtruth(gt);
+                        });
+                        data.grts.valid = true;
+
+                        //newTrajectories(sortAndGroupList(pointList, false));
+                        hideGroundtruthTrajectories();
+                        showCheckedDrawings();
+                    }
+                };
+                reader.readAsText(dataFileInput.files[file]);
+            }
+            this.value = null; //remove filename from input
+        });
+        groundtruthFileClicker = {
+            loadGroundtruthFile: function () {
+                document.getElementById("groundtruthFileInput").click();
+            }
+        };
+    }
     function initDatGUI() {
         //gui = new dat.GUI({autoPlace: false});
         gui = new dat.GUI({autoPlace: false, right: 0});
@@ -1647,6 +1732,7 @@
         const fLoad = gui.addFolder(guiPar.folders.load.name);
         fLoad.add(buildingFileClicker, guiPar.buttons.bgLoader.func).name(guiPar.buttons.bgLoader.name);
         fLoad.add(trajectoryFileClicker, guiPar.buttons.dataLoader.func).name(guiPar.buttons.dataLoader.name);
+        fLoad.add(groundtruthFileClicker, guiPar.buttons.gtLoader.func).name(guiPar.buttons.gtLoader.name);
         fLoad.open();
 
         const fDelete = gui.addFolder(guiPar.folders.del.name);
@@ -1664,7 +1750,7 @@
 
         const fLineTypes = gui.addFolder(guiPar.folders.lineTypes.name);
         fLineTypes.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
-            .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
+                        .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
         for(let ch in guiPar.checkboxes.lineTypes.choices) {
             if(guiPar.checkboxes.lineTypes.choices.hasOwnProperty(ch)) {
                 fLineTypes.add(bd.lt, ch).name(guiPar.checkboxes.lineTypes.choices[ch].name);
@@ -1673,10 +1759,12 @@
         fLineTypes.open();
 
         const fDataSettings = gui.addFolder(guiPar.folders.dataSettings.name);
+        fDataSettings.add(bd, guiPar.sliders.cutTime.func, guiPar.sliders.cutTime.min, guiPar.sliders.cutTime.max)
+                            .step(guiPar.sliders.cutTime.step).name(guiPar.sliders.cutTime.name);
         fDataSettings.add(bd, guiPar.sliders.maxClusterRad.func, guiPar.sliders.maxClusterRad.min, guiPar.sliders.maxClusterRad.max)
-            .step(guiPar.sliders.maxClusterRad.step).name(guiPar.sliders.maxClusterRad.name);
+                            .step(guiPar.sliders.maxClusterRad.step).name(guiPar.sliders.maxClusterRad.name);
         fDataSettings.add(bd, guiPar.sliders.redist.func, guiPar.sliders.redist.min, guiPar.sliders.redist.max)
-            .step(guiPar.sliders.redist.step).name(guiPar.sliders.redist.name);
+                            .step(guiPar.sliders.redist.step).name(guiPar.sliders.redist.name);
 
         const fInfoSettings = gui.addFolder(guiPar.folders.infoSettings.name);
         for(let ch in guiPar.checkboxes.infoTypes.choices) {
@@ -1829,6 +1917,32 @@
 
         return pointList;
     }
+    function loadGroundtruthList(readerResult) {
+
+        data.grts.valid = false;
+
+        const list = [];
+
+        //--create-Point-Objects--------------------------------------------------------------------------------------------
+        readerResult.forEach(function(file) {
+
+            let pointList = [];
+
+            const tempList = parseCSV(file);
+
+            //tempList.splice(0, par.csv.removeCount);
+            //tempList.splice(-par.csv.removeCount);
+
+            tempList.forEach(function (point) {
+                const p = new Point(point);
+                pointList.push(p);
+            });
+
+            list.push(pointList);
+        });
+
+        return list;
+    }
     function parseCSV(csvString) {
         const parseResult = Papa.parse(csvString, {
             header: true,
@@ -1845,7 +1959,7 @@
         return parseResult.data;
     }
 
-    function sortAndGroupList(pL, floor) {
+    function sortAndGroupList(pL, floor, cutTime) {
         //--sort-Points-----------------------------------------------------------------------------------------------------
         let pointList = sortPointList(pL);
 
@@ -1855,7 +1969,7 @@
 
         for (let did in pointListByDID) {
             if (pointListByDID.hasOwnProperty(did)) {
-                pointListByDIDByTime[did] = groupPointListByTime(pointListByDID[did]);
+                pointListByDIDByTime[did] = groupPointListByTime(pointListByDID[did], cutTime);
             }
         }
 
@@ -1875,8 +1989,6 @@
             return pointListByDIDByTimeByFloor;
         }
 
-        //--
-
         /*const pointListByDID = groupPointListByDid(pointList);
 
         const pointListByDIDByFloor = [];
@@ -1892,6 +2004,7 @@
         });
         return pointListByDIDByTimeByFloor;*/
     }
+
     function sortPointList(pointList) {
         pointList.sort(
             firstBy("did")
@@ -1906,7 +2019,7 @@
             }
         );
     }
-    function groupPointListByTime(pointList) {
+    function groupPointListByTime(pointList, cutTime) {
 
         const pointListByTime = [];
 
@@ -1914,7 +2027,7 @@
         let tempTimeArray = [];
 
         pointList.forEach(function(point) {
-            if (tempTime + par.tj.cutTime < point.t) {
+            if (tempTime + cutTime < point.t) {
                 pointListByTime.push(tempTimeArray);
                 tempTimeArray = [];
                 tempTimeArray.push(point);
@@ -1989,7 +2102,7 @@
                             if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
 
                                 const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
-                                tempTrajectory.rawPoints.forEach(function (pt) {
+                                tempTrajectory.rawPoints.forEach(function(pt) {
                                     pt.trajectory = tempTrajectory;
                                 });
 
@@ -2012,6 +2125,40 @@
             }
         }
         data.trjs.valid = true;
+    }
+    function newGroundtruth(pL) {
+        const pointListByDIDByTimeByFloor = pL;
+
+        for(let did in pointListByDIDByTimeByFloor) {
+            if(pointListByDIDByTimeByFloor.hasOwnProperty(did)) {
+                for(let t in pointListByDIDByTimeByFloor[did]) {
+                    if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
+                        for (let f in pointListByDIDByTimeByFloor[did][t]) {
+                            if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
+
+                                const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
+                                tempTrajectory.rawPoints.forEach(function(pt) {
+                                    pt.trajectory = tempTrajectory;
+                                });
+
+                                if (tempTrajectory.rawPoints.length > 1) {
+
+                                    let tempPrevPoint = tempTrajectory.rawPoints[0];
+                                    tempPrevPoint.prevPoint = null;
+
+                                    for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+                                        tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
+                                        tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
+                                        tempPrevPoint = tempTrajectory.rawPoints[p];
+                                    }
+                                    data.grts.val.push(tempTrajectory);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
 //--CLUSTERING----------------------------------------------------------------------------------------------------------
@@ -2074,7 +2221,6 @@
             ID: flags.clustering.subsaPoints,
         });
         flags.clustering.subsaPoints++;
-
 
         //data.subsaPnts.push(p0); //testing
 
@@ -2325,7 +2471,7 @@
     }
 
     function connectTheDots(clusters) {
-        clusters.forEach(function(cluster) {
+    /*    clusters.forEach(function(cluster) {
             const centroid = cluster.centroid;
             //centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
 //            centroid.prev = new Set();
@@ -2352,7 +2498,7 @@
                     end: nextCentroid
                 });
             });
-        });
+        }); */
     }
 
     function rand_BoxMuller() {
@@ -2454,7 +2600,7 @@
                     clus.centroid.x + traj.deviation * par.tj.deviationFactor,
                     -clus.centroid.y + traj.deviation * par.tj.deviationFactor,
                     clus.centroid.f));
-            trajGeom.colors.push(new THREE.Color(cent.color));
+            trajGeom.colors.push(new THREE.Color(clus.centroid.color));
         });
         return trajGeom;
     } //three.js
@@ -2661,6 +2807,14 @@
                 });
                 break;
             }
+            case 'groundtruth': {
+                if(!data.grts.valid) break;
+                data.grts.val.forEach(function(traj) {
+                    if(!traj.line) makeLine(traj);
+                    scene.add(traj.line);
+                });
+                break;
+            }
         }
     }
 
@@ -2726,6 +2880,12 @@
                     });
                     break;
                 }
+                case 'groundtruth': {
+                    data.grts.val.forEach(function(traj) {
+                        scene.remove(traj.line);
+                    });
+                    break;
+                }
             }
         });
     }
@@ -2760,6 +2920,12 @@
                     draw.errors = null;
                     break;
                 }
+                case 'grts': {
+                    data.grts.val.forEach(function(traj) {
+                        traj.emptyDrawing();
+                    });
+                    break;
+                }
             }
         });
     }
@@ -2788,17 +2954,32 @@
                     draw.errors = null;
                     break;
                 }
+                case 'grts': {
+                    data.grts = {
+                        valid: false,
+                        val: [],
+                    };
+                    break;
+                }
             }
         });
     }
 
     //--All-Trajectories------------------------------------------------------------------------------------------------
     function hideTrajectoryDrawings() {
-        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'graph', 'curves']);
+        hideDrawing(['points', 'lines', 'centroids', 'circles', 'clusters', 'graph', 'curves', 'groundtruth']);
     } //three.js
     function deleteTrajectoryData() {
         hideTrajectoryDrawings();
-        deleteData(['trjs', 'clts', 'errors']);
+        deleteData(['trjs', 'clts', 'errors', 'grts']);
+    }
+
+    function hideGroundtruthTrajectories() {
+        hideDrawing(['groundtruth']);
+    }
+    function deleteGroundtruthTrajectories() {
+        hideGroundtruthTrajectories();
+        deleteData(['grts']);
     }
 
     //--Special-Trajectories--------------------------------------------------------------------------------------------
