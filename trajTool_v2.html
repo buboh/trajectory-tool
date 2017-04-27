@@ -30,7 +30,7 @@
 
     //'use strict';
 
-//--CONSTANTS-&-VARIABLES-----------------------------------------------------------------------------------------------
+//--VARIABLES-----------------------------------------------------------------------------------------------------------
 
     let camera, scene, renderer;
     let mouse, raycaster, INTERSECTED = new Set();
@@ -38,6 +38,7 @@
     let buildingFileClicker, trajectoryFileClicker, groundtruthFileClicker;
     let pointList, groundtruthList;
 
+//--PARAMETERS----------------------------------------------------------------------------------------------------------
 
     const threePar = {
         cam: {
@@ -243,6 +244,216 @@
         //tj = trajectory; pt = point; ct = centroid; bg = background; gd = grid
     };
 
+//--CONSTANTS-----------------------------------------------------------------------------------------------------------
+
+    const bd = {
+        w: window.innerWidth, //building width
+        wListener: function() {
+            updateCamera();
+            updateRenderer();
+        },
+        get width() {
+            return this.w;
+        },
+        set width(val) {
+            this.w = val;
+            this.wListener(val)
+        },
+
+        h: window.innerHeight, //building height
+        hListener: function() {
+            updateCamera();
+            updateRenderer();
+        },
+        get height() {
+            return this.h;
+        },
+        set height(val) {
+            this.h = val;
+            this.hListener(val);
+        },
+
+        get ratio() {
+            return this.w / this.h;
+        },
+
+        z: guiPar.sliders.zoom.init,
+        zListener: function() {
+            updateCamera();
+        },
+        get zoom() {
+            return this.z;
+        },
+        set zoom(val) {
+            if (val !== this.z) {
+                this.z = val;
+                this.zListener(val);
+            }
+        },
+
+        f: guiPar.sliders.floor.init, //building floor
+        fListener: function() {
+            changeFloors();
+        },
+        get floor() {
+            return this.f;
+        },
+        set floor(val) {
+            if (val !== this.f) {
+                this.f = val;
+                this.fListener();
+            }
+        },
+
+        s: guiPar.sliders.scale.init, //building scale
+        sListener: function() {
+            changeScale();
+        },
+        get scale() {
+            return this.s;
+        },
+        get scaleFraction() {
+            return ( 1 / this.s );
+        },
+        set scale(val) {
+            if (val !== this.s) {
+                this.s = val;
+                this.sListener(val);
+            }
+        },
+
+        filePath: guiPar.buttons.bgLoader.initPath,
+        fileExt: guiPar.buttons.bgLoader.initExt,
+        get path() {
+            return this.filePath + this.f + this.fileExt;
+        },
+
+        lt: {
+            pt: guiPar.checkboxes.lineTypes.choices.points.init,
+            ln: guiPar.checkboxes.lineTypes.choices.lines.init,
+            ct: guiPar.checkboxes.lineTypes.choices.centroids.init,
+            ci: guiPar.checkboxes.lineTypes.choices.circles.init,
+            cl: guiPar.checkboxes.lineTypes.choices.clusters.init,
+            bt: guiPar.checkboxes.lineTypes.choices.graph.init,
+            eb: guiPar.checkboxes.lineTypes.choices.curves.init,
+            gt: guiPar.checkboxes.lineTypes.choices.groundtruth.init,
+
+            ltListener: function() {
+                changeLineType();
+            },
+
+            get points() {return this.pt},
+            set points(val) {
+                this.pt = val;
+                this.ltListener('points');
+            },
+            get lines() {return this.ln},
+            set lines(val) {
+                this.ln = val;
+                this.ltListener('lines');
+            },
+            get centroids() {return this.ct},
+            set centroids(val) {
+                this.ct = val;
+                this.ltListener('centroids');
+            },
+            get circles() {return this.ci},
+            set circles(val) {
+                this.ci = val;
+                this.ltListener('circles');
+            },
+            get clusters() {return this.cl},
+            set clusters (val) {
+                this.cl = val;
+                this.ltListener('clusters');
+            },
+            get graph() {return this.bt},
+            set graph (val) {
+                this.bt = val;
+                this.ltListener('graph');
+            },
+            get curves() {return this.eb},
+            set curves (val) {
+                this.eb = val;
+                this.ltListener('curves');
+            },
+            get groundtruth() {return this.gt},
+            set groundtruth(val) {
+                this.gt = val;
+                this.ltListener('groundtruth');
+            },
+        }, //trajectory linetype
+        get lineType() {
+            return this.lt;
+        },
+
+        iT: {
+            ba: guiPar.checkboxes.infoTypes.choices.basic.init,
+            an: guiPar.checkboxes.infoTypes.choices.analysis.init,
+            ex: guiPar.checkboxes.infoTypes.choices.extensive.init,
+
+            itListener: function(){
+                changeInfoType();
+            },
+
+            get basic() {return this.ba},
+            set basic(val) {
+                this.ba = val;
+                this.itListener();
+            },
+            get analysis() {return this.an},
+            set analysis(val) {
+                this.an = val;
+                this.itListener();
+            },
+            get extensive() {return this.ex},
+            set extensive(val) {
+                this.ex = val;
+                this.itListener();
+            },
+        },
+        get infoType() {
+            return this.lt;
+        },
+
+        cT: guiPar.sliders.cutTime.init,
+        cTListener: function() {
+            changeCutTime();
+        },
+        get cutTime() {return this.cT},
+        set cutTime(val) {
+            this.cT = val;
+            this.cTListener();
+        },
+
+        mR: guiPar.sliders.maxClusterRad.init, //cluster maxRadius
+        mRListener: function() {
+            changeClusterRadius();
+        },
+        get maxRadius() {
+            return this.mR;
+        },
+        set maxRadius(val) {
+            if (val !== this.mR) {
+                this.mR = val;
+                this.mRListener(val);
+            }
+        },
+
+        redi: guiPar.sliders.redist.init,
+        rediListener: function() {
+            changeMaxRedist();
+        },
+        get redist() {
+            return this.redi;
+        },
+        set redist(val) {
+            if(val !== this.redi) {
+                this.redi = val;
+                this.rediListener(val);
+            }
+        },
+    };
     const flags = {
         dom: {
             infoDivCount: 0,
@@ -256,6 +467,37 @@
             shiftDown: false,
         },
     };
+
+    const data = {
+        grds: {},
+        trjs: {
+            valid: false,
+            val: [],
+        },
+        grts: {
+            valid: false,
+            val: [],
+        },
+        clts: {
+            valid: false,
+            val: [],
+        },
+        edgs: {
+            valid: false,
+            val: [],
+        },
+        errors: {
+            valid: false,
+            val: [],
+        }, //temp
+    };
+    const draw = {
+        bgMs: [],
+        grds: [],
+        errors: null,
+    };
+
+//--CLASSES-------------------------------------------------------------------------------------------------------------
 
     class infoCont {
         constructor(heading, cont) {
@@ -342,284 +584,6 @@
         }
     }
 
-    const bd = {
-        w: window.innerWidth, //building width
-        wListener: function() {},
-        get width() {
-            return this.w;
-        },
-        set width(val) {
-            this.w = val;
-            this.wListener(val)
-        },
-        registerWListener: function(listener) {
-            this.hListener = listener;
-        },
-
-        h: window.innerHeight, //building height
-        hListener: function() {},
-        get height() {
-            return this.h;
-        },
-        set height(val) {
-            this.h = val;
-            this.hListener(val);
-        },
-        registerHListener: function(listener) {
-            this.wListener = listener;
-        },
-
-        get ratio() {
-            return this.w / this.h;
-        },
-
-        z: guiPar.sliders.zoom.init,
-        zListener: function() {},
-        get zoom() {
-            return this.z;
-        },
-        set zoom(val) {
-            if (val !== this.z) {
-                this.z = val;
-                this.zListener(val);
-            }
-        },
-        registerZListener: function(listener) {
-            this.zListener = listener;
-        },
-
-        f: guiPar.sliders.floor.init, //building floor
-        fListener: function() {},
-        get floor() {
-            return this.f;
-        },
-        set floor(val) {
-            if (val !== this.f) {
-                this.f = val;
-                this.fListener();
-            }
-        },
-        registerFListener: function(listener) {
-            this.fListener = listener;
-        },
-
-        s: guiPar.sliders.scale.init, //building scale
-        sListener: function() {},
-        get scale() {
-            return this.s;
-        },
-        get scaleFraction() {
-            return ( 1 / this.s );
-        },
-        set scale(val) {
-            if (val !== this.s) {
-                this.s = val;
-                this.sListener(val);
-            }
-        },
-        registerSListener: function(listener) {
-            this.sListener = listener;
-        },
-
-        filePath: guiPar.buttons.bgLoader.initPath,
-        fileExt: guiPar.buttons.bgLoader.initExt,
-        get path() {
-            return this.filePath + this.f + this.fileExt;
-        },
-
-        lt: {
-            pt: guiPar.checkboxes.lineTypes.choices.points.init,
-            ln: guiPar.checkboxes.lineTypes.choices.lines.init,
-            ct: guiPar.checkboxes.lineTypes.choices.centroids.init,
-            ci: guiPar.checkboxes.lineTypes.choices.circles.init,
-            cl: guiPar.checkboxes.lineTypes.choices.clusters.init,
-            bt: guiPar.checkboxes.lineTypes.choices.graph.init,
-            eb: guiPar.checkboxes.lineTypes.choices.curves.init,
-            gt: guiPar.checkboxes.lineTypes.choices.groundtruth.init,
-
-            ltListener: function() {},
-
-            get points() {return this.pt},
-            set points(val) {
-                this.pt = val;
-                this.ltListener('points');
-            },
-            get lines() {return this.ln},
-            set lines(val) {
-                this.ln = val;
-                this.ltListener('lines');
-            },
-            get centroids() {return this.ct},
-            set centroids(val) {
-                this.ct = val;
-                this.ltListener('centroids');
-            },
-            get circles() {return this.ci},
-            set circles(val) {
-                this.ci = val;
-                this.ltListener('circles');
-            },
-            get clusters() {return this.cl},
-            set clusters (val) {
-                this.cl = val;
-                this.ltListener('clusters');
-            },
-            get graph() {return this.bt},
-            set graph (val) {
-                this.bt = val;
-                this.ltListener('graph');
-            },
-            get curves() {return this.eb},
-            set curves (val) {
-                this.eb = val;
-                this.ltListener('curves');
-            },
-            get groundtruth() {return this.gt},
-            set groundtruth(val) {
-                this.gt = val;
-                this.ltListener('groundtruth');
-            },
-        }, //trajectory linetype
-        get lineType() {
-            return this.lt;
-        },
-        registerLtListener: function(listener) {
-            this.lt.ltListener = listener;
-        },
-
-        iT: {
-            ba: guiPar.checkboxes.infoTypes.choices.basic.init,
-            an: guiPar.checkboxes.infoTypes.choices.analysis.init,
-            ex: guiPar.checkboxes.infoTypes.choices.extensive.init,
-
-            itListener: function(){},
-
-            get basic() {return this.ba},
-            set basic(val) {
-                this.ba = val;
-                this.itListener();
-            },
-            get analysis() {return this.an},
-            set analysis(val) {
-                this.an = val;
-                this.itListener();
-            },
-            get extensive() {return this.ex},
-            set extensive(val) {
-                this.ex = val;
-                this.itListener();
-            },
-        },
-        get infoType() {
-            return this.lt;
-        },
-        registerItListener: function(listener) {
-            this.iT.itListener = listener;
-        },
-
-        cT: guiPar.sliders.cutTime.init,
-        cTListener: function() {},
-        get cutTime() {return this.cT},
-        set cutTime(val) {
-            this.cT = val;
-            this.cTListener();
-        },
-        registerCtListener: function(listener) {
-            this.cTListener = listener;
-        },
-
-        mR: guiPar.sliders.maxClusterRad.init, //cluster maxRadius
-        mRListener: function() {},
-        get maxRadius() {
-            return this.mR;
-        },
-        set maxRadius(val) {
-            if (val !== this.mR) {
-                this.mR = val;
-                this.mRListener(val);
-            }
-        },
-        registerMRListener: function(listener) {
-            this.mRListener = listener;
-        },
-
-        redi: guiPar.sliders.redist.init,
-        rediListener: function() {},
-        get redist() {
-            return this.redi;
-        },
-        set redist(val) {
-            if(val !== this.redi) {
-                this.redi = val;
-                this.rediListener(val);
-            }
-        },
-        registerRediListener: function(listener) {
-            this.rediListener = listener;
-        },
-    };
-    bd.registerWListener(function() {
-        updateCamera();
-        updateRenderer();
-    });
-    bd.registerHListener(function() {
-        updateCamera();
-        updateRenderer();
-    });
-    bd.registerFListener(function() {
-        changeFloors();
-    });
-    bd.registerZListener(function() {
-        updateCamera();
-    });
-    bd.registerSListener(function() {
-        changeScale();
-    });
-    bd.registerLtListener(function() {
-        changeLineType();
-    });
-    bd.registerItListener(function() {
-        changeInfoType();
-    });
-    bd.registerCtListener(function() {
-
-    });
-    bd.registerMRListener(function() {
-        changeClusterRadius();
-    });
-    bd.registerRediListener(function() {
-        changeMaxRedist();
-    });
-
-    const data = {
-        grds: {},
-        trjs: {
-            valid: false,
-            val: [],
-        },
-        grts: {
-            valid: false,
-            val: [],
-        },
-        clts: {
-            valid: false,
-            val: [],
-        },
-        edgs: {
-            valid: false,
-            val: [],
-        },
-        errors: {
-            valid: false,
-            val: [],
-        }, //temp
-    };
-    const draw = {
-        bgMs: [],
-        grds: [],
-        errors: null,
-    };
-
     class Point {
         constructor(p) {
             this.col = par.tj.color;
@@ -670,7 +634,6 @@
             this.next = new Set();
             this.c = p.c;
             this.cl = p.cl;
-            this.col = Math.random() * 0xffffff;
             this.ID = flags.clustering.centID;
             flags.clustering.centID++;
         }
@@ -735,24 +698,30 @@
             clus.addTrajectory(this);
         }
         findCentroids() {
-            this.emptyCentroids();
+            this.emptyClusters();
 
             let tc;
 
-            if(this.subsaPoints[0].cluster){
+            /*if(this.subsaPoints[0].cluster){
                 tc = this.subsaPoints[0].cluster;
                 this.addCluster(this.subsaPoints[0].cluster);
             } else {
-                const k = 0;
-            }//ToDo: find cause of missing centroids
+                console.log('subsaP 0 has no cluster');
+            }//ToDo: find cause of missing centroids*/
 
-            let i = 1;
+            let i = 0;
             while(i < this.subsaPoints.length) {
                 if(this.subsaPoints[i].cluster){
-                    if(this.subsaPoints[i-1].cluster !== this.subsaPoints[i].cluster) {
-                        if(!this.subsaPoints[i].cluster) {
-                            const k = 0;
-                        }
+                    if(!tc) {
+                        tc = this.subsaPoints[i].cluster;
+                    }
+
+                    if(i === 0) {
+
+                        tc = this.subsaPoints[i].cluster;
+                        this.addCluster(this.subsaPoints[i].cluster);
+
+                    } else if(this.subsaPoints[i-1].cluster !== this.subsaPoints[i].cluster) {
 
                         let c = this.subsaPoints[i].cluster;
                         tc.addNextClusters(c);
@@ -760,14 +729,14 @@
                         tc = c;
                     }
                 } else {
-                    console.log("no Centroid found");
+                    console.log('subsaP ' + i + ' has no cluster');
                 }
 
                 i++;
             }
         }
-        emptyCentroids() {
-            this.data.centroids = [];
+        emptyClusters() {
+            this.data.clusters = [];
         }
         get anchors() {return this.data.anchors}
         set anchors(anchs) {this.data.anchors = anchs}
@@ -863,7 +832,7 @@
         emptyClusterData() {
             this.emptyClusterDrawing();
             this.emptySubsaPoints();
-            this.emptyCentroids();
+            this.emptyClusters();
             this.emptyAnchors();
         }
 
@@ -871,13 +840,13 @@
         set dots(dots) {this.drawing.dots = dots}
         get line() {return this.drawing.line}
         set line(line) {this.drawing.line = line}
-        get centLine() {return this.drawing.centLine}
-        set centLine(centLine) {this.drawing.centLine = centLine}
+        get clusLine() {return this.drawing.clusLine}
+        set clusLine(clusLine) {this.drawing.clusLine = clusLine}
         get anchLine() {return this.drawing.anchLine}
         set anchLine(anchLine) {this.drawing.anchLine = anchLine}
 
         emptyClusterDrawing() {
-            this.centLine = null;
+            this.clusLine = null;
             this.anchLine = null;
         }
         emptyDrawing() {
@@ -931,6 +900,7 @@
             };
             this.prev = new Set();
             this.next = new Set();
+            this.col = Math.random() * 0xffffff;
         }
         get centroid() {return this.data.centroid}
         set centroid(cent) {
@@ -973,6 +943,7 @@
 
 
         }
+
         get members() {return this.data.members}
         set members(memb) {
             this.data.members = memb;
@@ -995,6 +966,7 @@
             this.data.members = [];
             this.clearTrajectories();
         }
+
         get trajectories() {
             return this.data.trajs;
         }
@@ -1004,6 +976,7 @@
         clearTrajectories() {
             this.data.trajs.clear();
         }
+
         get anchors() {return this.data.anchors}
         addAnchor(anch) {
             this.data.anchors.push(anch);
@@ -1418,10 +1391,10 @@
             traj.line.material.color.set(threePar.rayc.clickColor);
             traj.line.material.needsUpdate = true;
         }
-        if(traj.centLine) {
-            traj.centLine.material.vertexColors = THREE.NoColors;
-            traj.centLine.material.color.set(threePar.rayc.clickColor);
-            traj.centLine.material.needsUpdate = true;
+        if(traj.clusLine) {
+            traj.clusLine.material.vertexColors = THREE.NoColors;
+            traj.clusLine.material.color.set(threePar.rayc.clickColor);
+            traj.clusLine.material.needsUpdate = true;
         }
         if(traj.anchLine) {
             //traj.drawing.anchLine.material.vertexColors = THREE.NoColors;
@@ -1448,10 +1421,10 @@
             traj.line.material.color.set(traj.color);
             traj.line.material.needsUpdate = true;
         }
-        if (traj.centLine) {
-            traj.centLine.material.vertexColors = THREE.VertexColors;
-            traj.centLine.material.color.set(0xffffff);
-            traj.centLine.material.needsUpdate = true;
+        if (traj.clusLine) {
+            traj.clusLine.material.vertexColors = THREE.VertexColors;
+            traj.clusLine.material.color.set(0xffffff);
+            traj.clusLine.material.needsUpdate = true;
         }
         if (traj.anchLine) {
             //traj.anchLine.material.vertexColors = THREE.VertexColors;
@@ -1461,7 +1434,7 @@
         if(traj.clusters.length !== 0) {
             traj.clusters.forEach(function(clus) {
                 if(clus.centDot) {
-                    clus.centDot.material.color.set(cent.color);
+                    clus.centDot.material.color.set(clus.color);
                     clus.centDot.material.needsUpdate = true;
                 }
             });
@@ -1490,16 +1463,16 @@
     }
     function unClickCluster(clus) {
         if (clus.centDot) {
-            clus.centDot.material.color.set(clus.centroid.color);
+            clus.centDot.material.color.set(clus.color);
             clus.centDot.material.needsUpdate = true;
         }
         if (clus.circMesh) {
-            clus.circMesh.material.color.set(clus.centroid.color);
+            clus.circMesh.material.color.set(clus.color);
             clus.circMesh.material.needsUpdate = true;
         }
         if (clus.membDots) {
             clus.membDots.children.forEach(function(dot) {
-                dot.material.color.set(clus.centroid.color);
+                dot.material.color.set(clus.color);
                 dot.material.needsUpdate = true;
             });
         }
@@ -1665,9 +1638,19 @@
                 reader.onload = function () {
                     result.push(this.result);
                     if (result.length === fileCount) {
-                        pointList = loadPointList(result);
+                        pointList = loadGroundtruthList(result);
+                        const sortedList = [];
+                        pointList.forEach(function(pl) {
+                            sortedList.push(sortAndGroupList(pl, true, par.tj.cutTime));
+                        });
+                        sortedList.forEach(function(pl) {
+                            newTrajectoriesByFloor(pl);
+                        });
+                        data.trjs.valid = true;
+
+                        /*pointList = loadPointList(result);
                         newTrajectoriesByFloor(sortAndGroupList(pointList, true, par.tj.cutTime));
-                        //newTrajectories(sortAndGroupList(pointList, false));
+                        //newTrajectories(sortAndGroupList(pointList, false));*/
                         deleteClusterTrajectories();
                         showCheckedDrawings();
                     }
@@ -2195,9 +2178,9 @@
         });
 
         R.forEach(function(cluster) {
-            //cluster.centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
+            //cluster.color = Math.random() * par.ct.color + par.ct.corrColor;
             const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
-            cluster.centroid.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
+            cluster.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
             data.clts.val.push(cluster); //ToDo
         });
         data.clts.valid = true;
@@ -2525,21 +2508,21 @@
     }
     function makeCentroid(clus) {
         //const centGeom = makePointGeometry([clus.centroid]);
-        //clus.centDot = createDots(centGeom, clus.centroid.color, par.ct.opacity, par.ct.size, clus.centroid);
+        //clus.centDot = createDots(centGeom, clus.color, par.ct.opacity, par.ct.size, clus.centroid);
         const centGeom = makeCircleGeometry(par.ct.size, clus.centroid, 0); // par.ct.corrZ);
-        clus.centDot = createCircle(centGeom, clus.centroid.color, par.ct.opacity, false, clus.centroid);//clus.centroid);
+        clus.centDot = createCircle(centGeom, clus.color, par.ct.opacity, false, clus.centroid);//clus.centroid);
     }
     function makeCircle(clus) {
         const circleGeom = makeCircleGeometry(bd.maxRadius / 2, clus.centroid, par.ct.circles.corrZ);
-        clus.circMesh = createCircle(circleGeom, clus.centroid.color, par.ct.circles.opacity, true, null);//clus.centroid);
+        clus.circMesh = createCircle(circleGeom, clus.color, par.ct.circles.opacity, true, null);//clus.centroid);
     }
     function makeCluster(clus) {
         //const pointsGeom = makePointGeometry(clus.members);
-        //clus.membDots = createDots(pointsGeom, clus.centroid.color, par.tj.dot.opacity, par.tj.dot.size, clus.members);
+        //clus.membDots = createDots(pointsGeom, clus.color, par.tj.dot.opacity, par.tj.dot.size, clus.members);
         const members = new THREE.Group();
         clus.members.forEach(function(point) {
             const pointGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
-            members.add(createCircle(pointGeom, clus.centroid.color, par.tj.dot.opacity, par.tj.dot.size, clus.members));
+            members.add(createCircle(pointGeom, clus.color, par.tj.dot.opacity, par.tj.dot.size, clus.members));
         });
         clus.membDots = members;
     }
@@ -2557,7 +2540,7 @@
     function makeGraph(traj) {
         traj.findCentroids();
         const trajGeom = makeTrajLineGeom(traj);
-        traj.centLine = createLine(trajGeom, 0xffffff, par.ln.opacity, par.ln.transparency,
+        traj.clusLine = createLine(trajGeom, 0xffffff, par.ln.opacity, par.ln.transparency,
                                     THREE.VertexColors, THREE.FlatShading, traj);
     }
     function makeAnchorCurve(traj) {
@@ -2600,7 +2583,7 @@
                     clus.centroid.x + traj.deviation * par.tj.deviationFactor,
                     -clus.centroid.y + traj.deviation * par.tj.deviationFactor,
                     clus.centroid.f));
-            trajGeom.colors.push(new THREE.Color(clus.centroid.color));
+            trajGeom.colors.push(new THREE.Color(clus.color));
         });
         return trajGeom;
     } //three.js
@@ -2792,8 +2775,8 @@
             case 'graph': {
                 if(!data.clts.valid) cluster(data.trjs.val);
                 data.trjs.val.forEach(function(traj) {
-                    if(!traj.centLine) makeGraph(traj);
-                    scene.add(traj.centLine);
+                    if(!traj.clusLine) makeGraph(traj);
+                    scene.add(traj.clusLine);
                 });
                 break;
             }
@@ -2870,7 +2853,7 @@
                 }
                 case 'graph': {
                     data.trjs.val.forEach(function(traj) {
-                        scene.remove(traj.centLine);
+                        scene.remove(traj.clusLine);
                     });
                     break;
                 }
@@ -3046,6 +3029,9 @@
             unShowInfo(o);
             showInfo(o);
         });
+    }
+    function changeCutTime() {
+
     }
     function changeClusterRadius() {
         deleteClusterTrajectories();
