@@ -565,6 +565,10 @@
             valid: false,
             val: [],
         },
+        edgs: {
+            valid: false,
+            val: [],
+        },
         errors: {
             valid: false,
             val: [],
@@ -875,6 +879,7 @@
         constructor() {
             this.data = {
                 centroid: {},
+                edges: [],
                 members: [],
                 trajs: new Set(),
                 anchors: [],
@@ -917,6 +922,14 @@
                 this.centroid = null;
                 console.error("updateCentroid: cluster has no members");
             }
+        }
+
+        get edges() {return this.data.edges}
+        set edges(val) {this.data.edges = val}
+        addEdge(edge) {
+            this.data.edges.push(edge);
+
+
         }
         get members() {return this.data.members}
         set members(memb) {
@@ -961,6 +974,19 @@
         get membDots() {return this.drawing.members}
         set membDots(point) {this.drawing.members = point}
 
+        get prevClusters() {return this.prev}
+        set prevClusters(set) {this.prev = set}
+        addPrevCluster(clus) {
+            this.prev.add(clus);
+            if(clus) clus.next.add(this);
+        }
+        get nextCluster() {return this.next}
+        set nextCluster(set) {this.next = set}
+        addNextCluster(clus) {
+            this.next.add(clus);
+            if(clus) clus.prev.add(this);
+        }
+
         emptyClusterDrawing() {
             this.centDot = null;
             this.circMesh = null;
@@ -980,6 +1006,25 @@
             ];
         }
 
+    }
+    class Edge {
+        constructor() {
+            this.data = {
+                prevCluster: {},
+                nextCluster: {},
+            };
+            this.drawing = {
+                line: null,
+            }
+        }
+        get prevCluster() {return this.data.prevCluster}
+        set prevCluster(cent) {
+            this.data.prevCluster = cent;
+        }
+        get nextCluster() {return this.data.nextCluster}
+        set nextCluster(cent) {
+            this.data.nextCluster = cent;
+        }
     }
 
 //--START---------------------------------------------------------------------------------------------------------------
@@ -1760,8 +1805,6 @@
 
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
 //  ToDo: Implement function for removing first and last locations of recording
-
-
 
     function loadPointList(readerResult) {
 
