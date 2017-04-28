@@ -429,3 +429,42 @@ renderer.render(scene, camera);
  (1 / bd.height) * -centVect.y, //g
  (1 / Math.abs(threePar.cam.near - threePar.cam.far)) * (centVect.z + 100) //b
  );*/
+
+const vertices = [];
+
+data.clts.val.forEach(function(traj) {
+    traj.subsaPoints = subsamplePoints(traj);
+    vertices.push(traj.subsaPoints);
+});
+
+if(window.Worker) {
+    let worker = new Worker('cluster.js');
+    worker.addEventListener('message', function(e) {
+        console.log(e.data);
+        /*data.clts.val.forEach(function(clus) {
+         if(!clus.centDot) makeCentroid(clus);
+         scene.add(clus.centDot);
+         });*/
+    }, false);
+    worker.postMessage(vertices);
+}
+
+
+
+if(this.subsaPoints[0].floorChangeFrom && this.subsaPoints[i].cluster) {
+    this.subsaPoints[i].cluster.addNextCluster(this.subsaPoints[0].floorChangeFrom.cluster);
+}
+if(traj.subsaPoints[traj.subsaPoints.length - 1].cluster === this) {
+    if(traj.floorChangeTo) this.addNextCluster(traj.floorChangeTo.cluster);
+}
+
+
+if(startPoint.cluster && startPoint.floorChangeFrom && startPoint.floorChangeFrom.cluster) {
+    startPoint.cluster.addPrevCluster(startPoint.floorChangeFrom.cluster);
+}
+
+const endPoint = traj.subsaPoints[traj.subsaPoints.length - 1];
+
+if(endPoint.cluster && endPoint.floorChangeTo && endPoint.floorChangeTo.cluster) {
+    startPoint.cluster.addNextCluster(startPoint.floorChangeTo.cluster);
+}
