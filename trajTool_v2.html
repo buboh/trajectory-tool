@@ -1608,10 +1608,7 @@
         }
         get color() {return this.col}
         set color(val) {this.col = val}
-        get centroid() { return this.c; }
-        set centroid(cent) {
-            this.c = cent;
-        }
+
         get cluster() {return this.cl}
         set cluster(clus) {
             this.cl = clus;
@@ -1639,7 +1636,6 @@
             super(p);
             this.prev = new Set(); // ev. Map mit Cent als key und anzahl als val?
             this.next = new Set();
-            this.c = p.c;
             this.cl = p.cl;
             this.ID = flags.clustering.centID;
             flags.clustering.centID++;
@@ -1719,18 +1715,21 @@
             let i = 0;
             while(i < this.subsaPoints.length) {
                 if(this.subsaPoints[i].cluster){
+                    /*if(!tc) {
+                        tc = this.subsaPoints[i].cluster;
+                    }*/
+
                     if(!tc) {
-                        tc = this.subsaPoints[i].cluster;
-                    }
-
-                    if(i === 0) {
 
                         tc = this.subsaPoints[i].cluster;
-                        this.addCluster(this.subsaPoints[i].cluster);
+                        this.addCluster(tc);
 
-                    } else if(this.subsaPoints[i-1].cluster !== this.subsaPoints[i].cluster) {
+                    } else if(tc !== this.subsaPoints[i].cluster) {
 
                         let c = this.subsaPoints[i].cluster;
+                        if(tc === c) {
+                            let k = 0;
+                        }
                         tc.addNextCluster(c);
                         this.addCluster(c);
                         tc = c;
@@ -3085,35 +3084,48 @@
                         pointsList.push(tempList);
 
                         pointsList.forEach(function(list) {
-                            const tempTrajectory = new Trajectory(list, list.f);
 
-                            if(tempTrajectory.rawPoints.length > 1) {
+                            if(list.length > 1) {
 
-                                let tempPrevPoint = tempTrajectory.rawPoints[0];
-                                if(tempPrevPoint.floorChangeFrom) {
-                                    tempTrajectory.floorChangeFrom =
-                                        tempPrevPoint.floorChangeFrom.trajectory || tempPrevPoint.floorChangeFrom;
-
-                                    if(tempTrajectory.floorChangeFrom.floorChangeTo instanceof Point) {
-                                        tempTrajectory.floorChangeFrom.floorChangeTo = tempTrajectory;
-                                    }
-                                }
-
-                                tempPrevPoint.prevPoint = null;
-
-                                for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
-
-                                    tempTrajectory.rawPoints[p].trajectory = tempTrajectory;
-
-                                    tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
-                                    tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
-                                    tempPrevPoint = tempTrajectory.rawPoints[p];
-                                }
-
-                                if(tempPrevPoint.floorChangeTo) tempTrajectory.floorChangeTo =
-                                    tempPrevPoint.floorChangeTo.trajectory || tempPrevPoint.floorChangeTo;
+                                const tempTrajectory = new Trajectory(list, list[0].f);
+                                list.forEach(function(p) {
+                                    p.trajectory = tempTrajectory;
+                                });
 
                                 data.trjs.val.push(tempTrajectory);
+                            }
+                        });
+
+                        data.trjs.val.forEach(function(tempTrajectory) {
+
+                            let tempPrevPoint = tempTrajectory.rawPoints[0];
+                            if(tempPrevPoint.floorChangeFrom) {
+                                tempTrajectory.floorChangeFrom =
+                                    tempPrevPoint.floorChangeFrom.trajectory; // || tempPrevPoint.floorChangeFrom;
+
+                                /*if(tempTrajectory.floorChangeFrom.floorChangeTo instanceof Point) {
+                                    tempTrajectory.floorChangeFrom.floorChangeTo = tempTrajectory;
+                                }*/
+                            }
+
+                            tempPrevPoint.prevPoint = null;
+
+                            for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+
+                                tempTrajectory.rawPoints[p].trajectory = tempTrajectory;
+
+                                tempPrevPoint.nextPoint = tempTrajectory.rawPoints[p];
+                                tempTrajectory.rawPoints[p].prevPoint = tempPrevPoint;
+                                tempPrevPoint = tempTrajectory.rawPoints[p];
+                            }
+
+                            if(tempPrevPoint.floorChangeTo) {
+                                tempTrajectory.floorChangeTo =
+                                    tempPrevPoint.floorChangeTo.trajectory; // || tempPrevPoint.floorChangeTo;
+
+                                /*if(tempTrajectory.floorChangeTo.floorChangeFrom instanceof Point) {
+                                 tempTrajectory.floorChangeTo.floorChangeFrom = tempTrajectory;
+                                 }*/
                             }
                         });
                     }
@@ -3205,9 +3217,9 @@
         });
 
         trajs.forEach(function(traj) {
-            if(traj.floorChangeFrom) {
+            /*if(traj.floorChangeFrom) {
                 traj.clusters[0].addPrevCluster(traj.floorChangeFrom.clusters[traj.floorChangeFrom.clusters.length - 1]);
-            }
+            }*/
             if(traj.floorChangeTo) {
                 traj.clusters[traj.clusters.length - 1].addNextCluster(traj.floorChangeTo.clusters[0]);
             }
@@ -3220,8 +3232,6 @@
             });
         });
         data.edgs.valid = true;
-
-
     }
 
     function subsamplePoints(traj) {
