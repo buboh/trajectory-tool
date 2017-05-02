@@ -468,3 +468,34 @@ const endPoint = traj.subsaPoints[traj.subsaPoints.length - 1];
 if(endPoint.cluster && endPoint.floorChangeTo && endPoint.floorChangeTo.cluster) {
     startPoint.cluster.addNextCluster(startPoint.floorChangeTo.cluster);
 }
+
+function connectTheDots(clusters) {
+    /*    clusters.forEach(function(cluster) {
+     const centroid = cluster.centroid;
+     //centroid.color = Math.random() * par.ct.color + par.ct.corrColor;
+     //            centroid.prev = new Set();
+     //            centroid.next = new Set();
+
+     cluster.members.forEach(function (point) {
+     if ((point.prevPoint !== null) && (point.prevPoint.centroid !== null)){
+     if((point.prevPoint.centroid !== point.centroid) && (point.prevPoint.centroid.f === point.centroid.f)) {
+     centroid.addPrevCentroid(point.prevPoint.centroid);
+     }
+     }
+     if ((point.nextPoint !== null) && (point.nextPoint.centroid !== null)){
+     if((point.nextPoint.centroid !== point.centroid) && (point.nextPoint.centroid.f === point.centroid.f)) {
+     centroid.addNextCentroid(point.nextPoint.centroid);
+     }
+     }
+     });
+     });
+     clusters.forEach(function (cluster) {
+     const centroid = cluster.centroid;
+     centroid.nextCentroids.forEach(function(nextCentroid) {
+     data.grph.edges.val.push({
+     start: centroid,
+     end: nextCentroid
+     });
+     });
+     }); */
+}
