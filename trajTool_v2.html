@@ -1192,11 +1192,11 @@
     const par = {
         bg: {
             dir: 'img/',
-            corrZ: -0.1,
+            corrZ: -1,
         },
         gd: {
             delta: 5,
-            corrZ: 0.1,
+            corrZ: 1,
             line: {
                 color: 0x555555,
                 opacity: 1,
@@ -1614,11 +1614,9 @@
         get cluster() {return this.cl}
         set cluster(clus) {
             this.cl = clus;
-            this.c = clus.c;
         }
         clearCluster() {
             this.cl = null;
-            this.c = null;
         }
         get trajectory() {return this.traj}
         set trajectory(tj) {this.traj = tj}
@@ -2149,25 +2147,20 @@
         if( windowRatio < bd.ratio) {
             camera.right = bd.width;
             camera.bottom = -bd.width / windowRatio;
-            camera.near = Math.trunc((-(bd.floor * 10) - par.gd.corrZ + threePar.cam.corrNear + threePar.cam.corrZ) * 100) / 100; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
-            camera.far = Math.trunc((-(bd.floor * 10) - par.bg.corrZ + threePar.cam.corrFar + threePar.cam.corrZ) * 100) / 100; //Math.round((bd.floor + par.bg.corrZ + threePar.cam.corrFar) * 100) / 100;
+            camera.near = -(bd.floor * 10 + 5) + threePar.cam.corrZ;
+            camera.far = -(bd.floor * 10 - 5) + threePar.cam.corrZ;
         } else {
             camera.right = bd.height * windowRatio;
             camera.bottom = -bd.height;
-            camera.near = Math.trunc((-(bd.floor * 10) - par.gd.corrZ + threePar.cam.corrNear + threePar.cam.corrZ) * 100) / 100; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
-            camera.far = Math.trunc((-(bd.floor * 10) - par.bg.corrZ + threePar.cam.corrFar + threePar.cam.corrZ) * 100) / 100;
+            camera.near = -(bd.floor * 10 + 5) + threePar.cam.corrZ;
+            camera.far = -(bd.floor * 10 - 5) + threePar.cam.corrZ;
         }
         camera.zoom = bd.zoom;
         camera.updateProjectionMatrix();
-//        if( camerahelper ) {
-//            camerahelper.update();
-//        }
     } //three.js
     function updateRaycaster() {
-        //if(bd.scaleFraction) raycaster.linePrecision = threePar.rayc.linePrec * bd.scale;
-        //raycaster.linePrecision = 0;
-        raycaster.near = Math.trunc((-(bd.floor * 10) - par.gd.corrZ + threePar.cam.corrNear + threePar.cam.corrZ) * 100) / 100;
-        raycaster.far = Math.trunc((-(bd.floor * 10) - par.bg.corrZ + threePar.cam.corrFar + threePar.cam.corrZ) * 100) / 100;
+        raycaster.near = -(bd.floor * 10 + 5) + threePar.cam.corrZ;
+        raycaster.far = -(bd.floor * 10 - 5) + threePar.cam.corrZ;
     }
 
     function update() {
@@ -2242,7 +2235,7 @@
                 const tempObj = intersects[o].object;
 
                 if((!(intersects[o].distance.isNaN)) && (tempObj.geometry !== tempGeom) &&
-                    ((Math.trunc(intersects[o].point.z * 100) / 100) === bd.floor))
+                    ((Math.trunc(intersects[o].point.z * 100) / 100) === (bd.floor * 10)))
                     outer_if:{
 
                     tempGeom = tempObj.geometry;
