@@ -1182,8 +1182,8 @@
             infoTypes: {
                 choices: {
                     basic: {name: 'Basic', init: true},
-                    analysis: {name: 'Analysis', init: false},
-                    extensive: {name: 'Extensive', init: false},
+                    analysis: {name: 'Analysis', init: true},
+                    extensive: {name: 'Extensive', init: true},
                 }
             }
         }
@@ -1221,7 +1221,7 @@
         ct: {
             size: 1,
             opacity: 1,
-            corrZ: 0.01,
+            corrZ: 0.1,
             circles: {
                 opacity: 0.2,
                 segNum: 20,
@@ -1567,7 +1567,7 @@
                 tempCol.style.borderBottom = "1px dotted rgba(255,255,255,0.1)";
 
                 if(first) {
-                    tempCol.style.width = "35%";
+                    tempCol.style.width = "45%";
                 }
                 first = false;
 
@@ -1830,6 +1830,7 @@
             const dur = this.getDurationInS();
             const speed = Math.round((lM / dur) * 360) / 100;
             return [
+                ["Floor", this.f],
                 ["Length", lM + " m"],
                 ["Length", lP + " pts"],
                 ["Duration", dur + " s"],
@@ -1849,7 +1850,22 @@
             return Math.trunc((this.rawPoints[this.rawPoints.length - 1].t - this.rawPoints[0].t) / 1000);
         }
 
-        getAnalysisInfo() {return [['Hi', 'dude!']]}
+        getAnalysisInfo() {
+            return [
+                ['Visited clusters', this.getVisitedClusters()]
+            ]
+        }
+        getVisitedClusters() {
+            let IDs = "";
+            this.clusters.forEach(function(clus) {
+                IDs += clus.centroid.ID.toString();
+                IDs += "-";
+            });
+            IDs = IDs.slice(0,-1);
+            return IDs;
+        }
+
+
         getExtensiveInfo() {return [['Hey', 'guy!']]}
     }
     class Cluster {
@@ -1970,14 +1986,12 @@
         }
 
         getBasicInfo() {
-            const mem = this.members.length;
-            const trajs = this.trajectories.size;
-
             return [
-                ["Members", mem],
-                ["Incoming conns", this.getInEdges(this)],
-                ["Outgoing conns", this.getOutEdges(this)],
-                ["Ts Passing", trajs],
+                ["ID", this.centroid.ID],
+                ["Members", this.members.length],
+                this.getInEdges(this),
+                this.getOutEdges(this),
+                ["Ts Passing", this.trajectories.size]
             ];
         }
         getOutEdges(clus) {
@@ -1985,14 +1999,45 @@
             this.edges.forEach(function(edge) {
                 if(edge.prevCluster === clus) count++;
             });
-            return count;
+            return ["Edges in", count];
         }
         getInEdges(clus) {
             let count = 0;
             this.edges.forEach(function(edge) {
                 if(edge.nextCluster === clus) count++;
             });
-            return count;
+            return ["Edges out", count];
+        }
+
+        getAnalysisInfo() {
+            return [
+                ['Origins', this.getOriginClusters()],
+                ['Destinations', this.getDestinationClusters()]
+            ]
+        }
+        getOriginClusters() {
+            let IDs = [];
+            this.prevClusters.forEach(function(clus) {
+                IDs.push(clus.centroid.ID);
+            });
+            IDs.sort((a,b) => (a - b));
+            IDs.join(", ");
+            return IDs;
+        }
+        getDestinationClusters() {
+            let IDs = [];
+            this.nextClusters.forEach(function(clus) {
+                IDs.push(clus.centroid.ID);
+            });
+            IDs.sort((a,b) => (a - b));
+            IDs.join(", ");
+            return IDs;
+        }
+
+        getExtensiveInfo() {
+            return [
+                ['Coordinates', 'x: ' + this.centroid.x + '\ny: ' + this.centroid.y]
+            ]
         }
 
     }
@@ -2129,14 +2174,11 @@
     } //three.js
     function initRaycaster() {
         raycaster = new THREE.Raycaster();
-        raycaster.near = 0; //Math.round((bd.floor + par.gd.corrZ + threePar.cam.corrNear) * 100) / 100;
-        raycaster.far = 200; //Math.round((bd.floor + par.bg.corrZ + threePar.cam.corrFar) * 100) / 100;
+        raycaster.near = 0;
+        raycaster.far = 200;
         raycaster.linePrecision = threePar.rayc.linePrec;
         mouse = new THREE.Vector2();
         window.addEventListener('click', onMouseClick, false);
-
-        // when the mouse moves, call the given function
-        //window.addEventListener( 'mousemove', onMouseClick, false );
     } //three.js
 
     function updateRenderer() {
@@ -2161,7 +2203,7 @@
     function updateRaycaster() {
         raycaster.near = -(bd.floor * 10 + 5) + threePar.cam.corrZ;
         raycaster.far = -(bd.floor * 10 - 5) + threePar.cam.corrZ;
-    }
+    }//three.js
 
     function update() {
         requestAnimationFrame(update);
@@ -2235,7 +2277,10 @@
                 const tempObj = intersects[o].object;
 
                 if((!(intersects[o].distance.isNaN)) && (tempObj.geometry !== tempGeom) &&
-                    ((Math.trunc(intersects[o].point.z * 100) / 100) === (bd.floor * 10)))
+                    ((Math.trunc(intersects[o].point.z * 100) / 100) >= (bd.floor * 10) - 1) &&
+                    ((Math.trunc(intersects[o].point.z * 100) / 100) <= (bd.floor * 10) + 1) &&
+                    (tempObj.geometry.vertices[0].z >= (bd.floor - 1)) &&
+                    (tempObj.geometry.vertices[0].z <= (bd.floor + 1)))
                     outer_if:{
 
                     tempGeom = tempObj.geometry;
@@ -2253,7 +2298,7 @@
                         };
                         break outer_if;
                     } else if(tempObj.userData instanceof Array) {
-                        if(tempObj.userData[0].centroid) {
+                        if(tempObj.userData[0].cluster) {
                             obj = {
                                 type: 'member',
                                 userData: tempObj.userData,
@@ -2305,7 +2350,7 @@
     function click(o){
         switch(o.type) {
             case 'trajectory': {
-                clickTrajectory(o.userData);
+                clickTrajectory(o.userData, true);
                 showInfo(o);
                 break;
             }
@@ -2349,7 +2394,7 @@
         }
     }
 
-    function clickTrajectory(traj) {
+    function clickTrajectory(traj, clickClusters) {
         if(traj.dots) {
             traj.dots.children.forEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
@@ -2370,7 +2415,7 @@
             traj.anchLine.material.color.set(threePar.rayc.clickColor);
             traj.anchLine.material.needsUpdate = true;
         }
-        if(traj.clusters.length !== 0) {
+        if(clickClusters && (traj.clusters.length !== 0)) {
             traj.clusters.forEach(function(clus) {
                 if(clus.centDot) {
                     clus.centDot.material.color.set(threePar.rayc.clickColor);
@@ -2409,7 +2454,7 @@
             });
         }
     }
-    function clickCluster(clus) {
+    function clickCluster(clus, clickTrajectories) {
         if (clus.centDot) {
             clus.centDot.material.color.set(threePar.rayc.clickColor);
             clus.centDot.material.needsUpdate = true;
@@ -2424,9 +2469,9 @@
                 dot.material.needsUpdate = true;
             });
         }
-        if (clus.trajectories.size !== 0) {
+        if (clickTrajectories && (clus.trajectories.size !== 0)) {
             clus.trajectories.forEach(function (traj) {
-                clickTrajectory(traj); //ToDo
+                clickTrajectory(traj, false); //ToDo
             });
         }
     }
@@ -2489,9 +2534,15 @@
             }
             case 'centroid': {
                 if(!o.hasOwnProperty('info')) {
+
+                    const tempInfo = [];
+                    if(bd.iT.basic) tempInfo.push(...o.userData.cluster.getBasicInfo());
+                    if(bd.iT.analysis) tempInfo.push(...o.userData.cluster.getAnalysisInfo());
+                    if(bd.iT.extensive) tempInfo.push(...o.userData.cluster.getExtensiveInfo());
+
                     o.info = new infoCont(
                         ["Description", "Content"],
-                        o.userData.cluster.getBasicInfo()
+                        tempInfo
                     );
                     o.info.createDiv();
                 }
@@ -2536,6 +2587,8 @@
 //        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 //        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
     }
+
+//--INITS---------------------------------------------------------------------------------------------------------------
 
     function initWindowResizeListeners() {
         window.addEventListener(
