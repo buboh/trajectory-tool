@@ -1463,14 +1463,15 @@
         dom: {
             infoDivCount: 0,
         },
-        raw: {
+        data: {
             points: 0,
+            subsaPoints: 0,
+            trajectories: 0,
+            centroids: 0,
+            edges: 0,
         },
         clustering: {
             redistChange: true,
-            subsaPoints: 0,
-            centroids: 0,
-            edges: 0,
         },
         camera: {
             threeD: false,
@@ -1625,8 +1626,8 @@
         constructor(p) {
             super(p);
             this.cl = p.cl;
-            this.ID = flags.clustering.centroids;
-            flags.clustering.centroids++;
+            this.ID = flags.data.centroids;
+            flags.data.centroids++;
         }
     }
     class Anchor extends Point {
@@ -1637,7 +1638,8 @@
     }
 
     class Trajectory {
-        constructor(rawData, floor) {
+        constructor(rawData, floor, ID) {
+            this.ID = ID;
             this.f = floor;
             this.color = Math.random() * 0xffffff; //par.tj.color;
             this.deviation = rand_BoxMuller();
@@ -1829,13 +1831,13 @@
             const lP = this.rawPoints.length;
             const dur = this.getDurationInS();
             const speed = Math.round((lM / dur) * 360) / 100;
-            return [
-                ["Floor", this.f],
-                ["Length", lM + " m"],
-                ["Length", lP + " pts"],
-                ["Duration", dur + " s"],
-                ["Speed", speed + " km/h"],
-            ];
+            return {
+                'Type_ID': this.constructor.name + '_' + this.ID,
+                'Floor': this.f,
+                'Length': lM + ' m / ' + lP + ' pts',
+                'Duration': dur + ' s',
+                'Avg. speed': speed + ' km/h',
+            };
         }
         getLengthInMeters() {
             const rp = this.rawPoints;
@@ -1851,9 +1853,9 @@
         }
 
         getAnalysisInfo() {
-            return [
-                ['Visited clusters', this.getVisitedClusters()]
-            ]
+            return {
+                'Visited clusters': this.getVisitedClusters(),
+            }
         }
         getVisitedClusters() {
             let IDs = "";
@@ -1866,7 +1868,7 @@
         }
 
 
-        getExtensiveInfo() {return [['Hey', 'guy!']]}
+        getExtensiveInfo() {return {'Hey': 'guy!'}}
     }
     class Cluster {
         constructor() {
@@ -1986,34 +1988,33 @@
         }
 
         getBasicInfo() {
-            return [
-                ["ID", this.centroid.ID],
-                ["Members", this.members.length],
-                this.getInEdges(this),
-                this.getOutEdges(this),
-                ["Ts Passing", this.trajectories.size]
-            ];
+            return {
+                'Type_ID': this.centroid.constructor.name + '_' + this.centroid.ID,
+                'Members': this.members.length,
+                'Edges in / out': this.getInEdges(this) + ' / ' + this.getOutEdges(this),
+                'Ts Passing': this.trajectories.size
+            };
         }
         getOutEdges(clus) {
             let count = 0;
             this.edges.forEach(function(edge) {
                 if(edge.prevCluster === clus) count++;
             });
-            return ["Edges in", count];
+            return count;
         }
         getInEdges(clus) {
             let count = 0;
             this.edges.forEach(function(edge) {
                 if(edge.nextCluster === clus) count++;
             });
-            return ["Edges out", count];
+            return count;
         }
 
         getAnalysisInfo() {
-            return [
-                ['Origins', this.getOriginClusters()],
-                ['Destinations', this.getDestinationClusters()]
-            ]
+            return {
+                'Origins': this.getOriginClusters(),
+                'Destinations': this.getDestinationClusters()
+            }
         }
         getOriginClusters() {
             let IDs = [];
@@ -2035,9 +2036,9 @@
         }
 
         getExtensiveInfo() {
-            return [
-                ['Coordinates', 'x: ' + this.centroid.x + '\ny: ' + this.centroid.y]
-            ]
+            return {
+                'Centroid': 'x: ' + this.centroid.x + '\ny: ' + this.centroid.y,
+            }
         }
 
     }
@@ -2066,6 +2067,7 @@
 
     function init() {
         initCustomForEach();
+        initSpreadObjToArray();
         scene = new THREE.Scene();
         camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
         initDOM();
@@ -2227,6 +2229,20 @@
             value: arrayForeach
         });
     }
+    function initSpreadObjToArray() {
+        function toArray() {
+            const obj = this;
+            const arr = [];
+            for(let key in obj) {
+                if(obj.hasOwnProperty(key)) arr.push([key, obj[key]]);
+            }
+            return arr;
+        }
+        Object.defineProperty(Object.prototype, 'toArray', {
+            enumerable: false,
+            value: toArray
+        });
+    }
     function rand_BoxMuller() {
         const u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
         const v = 1 - Math.random();
@@ -2317,14 +2333,14 @@
                     } else if(tempObj.userData instanceof Centroid) {
                         obj = {
                             type: 'centroid',
-                            userData: tempObj.userData,
+                            userData: tempObj.userData.cluster,
                         };
                         break outer_if;
                     } else if(tempObj.userData instanceof Array) {
                         if(tempObj.userData[0].cluster) {
                             obj = {
                                 type: 'member',
-                                userData: tempObj.userData,
+                                userData: tempObj.userData[0].cluster,
                             };
                         } else {
                             obj = {
@@ -2340,48 +2356,50 @@
             if(obj) {
                 if(INTERSECTED.size === 0) {
 
-                    INTERSECTED.add(obj);
                     highlight(obj);
                     showInfo(obj);
+                    INTERSECTED.add(obj);
 
                 } else {
 
-                    if(!flags.raycaster.shiftDown) {
+                    if(!flags.raycaster.shiftDown) { //shift not pressed -> remove all highlights
 
-                        INTERSECTED.forEach(function(o) {
-                            unHighlight(o);
-                            unShowInfo(o);
-                        });
+                        INTERSECTED.forEach(unHighlight);
+                        unShowInfo(...INTERSECTED);
                         INTERSECTED.clear();
+
                         INTERSECTED.add(obj);
                         highlight(obj);
                         showInfo(obj);
 
-                    } else {
+                    } else { //shift pressed
 
-                        let isClicked = false;
+                        let isHighlighted = false;
                         INTERSECTED.forEach(function(o) {
                             if(obj.userData === o.userData) {
                                 obj = o;
-                                isClicked = true;
+                                isHighlighted = true;
                             }
                         });
-                        if(isClicked) {
+                        if(isHighlighted) { //if clicked object is already highlighted -> remove highlight
+
                             unHighlight(obj);
-                            unShowInfo(obj);
+                            unShowInfo(...INTERSECTED);
                             INTERSECTED.delete(obj);
-                        } else {
+                            showInfo(...INTERSECTED);
+
+                        } else { //if clicked object is not yet highlighted -> add highlight
+
+                            unShowInfo(...INTERSECTED);
                             INTERSECTED.add(obj);
                             INTERSECTED.forEach(highlight);
-                            INTERSECTED.forEach(showInfo);
+                            showInfo(...INTERSECTED);
                         }
                     }
                 }
-            } else {
-                INTERSECTED.forEach(function(o) {
-                    unHighlight(o);
-                    unShowInfo(o);
-                });
+            } else if(!flags.raycaster.shiftDown) {
+                INTERSECTED.forEach(unHighlight);
+                unShowInfo(...INTERSECTED);
                 INTERSECTED.clear();
             }
         }
@@ -2390,15 +2408,24 @@
     function highlight(o){
         switch(o.type) {
             case 'trajectory': {
-                clickTrajectory(o.userData, true);
+                clickTrajectory(o.userData, true, true, true, true);
+                o.userData.clusters.customForEach(function(clus) {
+                    clickCluster(clus, true, false, false);
+                });
                 break;
             }
             case 'centroid': {
-                clickCluster(o.userData.cluster);
+                clickCluster(o.userData, true, true, true);
+                o.userData.trajectories.forEach(function(traj) {
+                    clickTrajectory(traj, true, true, true, true);
+                });
                 break;
             }
             case 'member': {
-                clickCluster(o.userData[0].cluster);
+                clickCluster(o.userData, true, true, true);
+                o.userData.trajectories.forEach(function(traj) {
+                    clickTrajectory(traj, true, true, true, true);
+                });
                 break;
             }
             case 'error': {
@@ -2410,15 +2437,24 @@
     function unHighlight(o) {
         switch(o.type) {
             case 'trajectory': {
-                unClickTrajectory(o.userData);
+                unClickTrajectory(o.userData, true, true, true, true);
+                o.userData.clusters.customForEach(function(clus) {
+                    unClickCluster(clus);
+                });
                 break;
             }
             case 'centroid': {
-                unClickCluster(o.userData.cluster);
+                unClickCluster(o.userData, true, true, true);
+                o.userData.trajectories.forEach(function(traj) {
+                    unClickTrajectory(traj);
+                });
                 break;
             }
             case 'member': {
-                unClickCluster(o.userData[0].cluster);
+                unClickCluster(o.userData, true, true, true);
+                o.userData.trajectories.forEach(function(traj) {
+                    unClickTrajectory(traj);
+                });
                 break;
             }
             case 'error':
@@ -2427,35 +2463,35 @@
         }
     }
 
-    function clickTrajectory(traj, clickClusters) {
-        if(traj.dots) {
+    function clickTrajectory(traj, dots, line, clusLine, anchLine) {
+        if(traj.dots && dots) {
             traj.dots.children.customForEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
                 dot.material.needsUpdate = true;
             });
         }
-        if(traj.line) {
+        if(traj.line && line) {
             traj.line.material.color.set(threePar.rayc.clickColor);
             traj.line.material.needsUpdate = true;
         }
-        if(traj.clusLine) {
+        if(traj.clusLine && clusLine) {
             traj.clusLine.material.vertexColors = THREE.NoColors;
             traj.clusLine.material.color.set(threePar.rayc.clickColor);
             traj.clusLine.material.needsUpdate = true;
         }
-        if(traj.anchLine) {
+        if(traj.anchLine && anchLine) {
             //traj.drawing.anchLine.material.vertexColors = THREE.NoColors;
             traj.anchLine.material.color.set(threePar.rayc.clickColor);
             traj.anchLine.material.needsUpdate = true;
         }
-        if(clickClusters && (traj.clusters.length !== 0)) {
+        /*if(clickClusters && (traj.clusters.length !== 0)) {
             traj.clusters.customForEach(function(clus) {
                 if(clus.centDot) {
                     clus.centDot.material.color.set(threePar.rayc.clickColor);
                     clus.centDot.material.needsUpdate = true;
                 }
             });
-        }
+        }*/
     }
     function unClickTrajectory(traj) {
         if (traj.dots) {
@@ -2478,35 +2514,35 @@
             traj.anchLine.material.color.set(par.ln.color);
             traj.anchLine.material.needsUpdate = true;
         }
-        if(traj.clusters.length !== 0) {
+        /*if(traj.clusters.length !== 0) {
             traj.clusters.customForEach(function(clus) {
                 if(clus.centDot) {
                     clus.centDot.material.color.set(clus.color);
                     clus.centDot.material.needsUpdate = true;
                 }
             });
-        }
+        }*/
     }
-    function clickCluster(clus, clickTrajectories) {
-        if (clus.centDot) {
+    function clickCluster(clus, centDot, circMesh, membDots) {
+        if (clus.centDot && centDot) {
             clus.centDot.material.color.set(threePar.rayc.clickColor);
             clus.centDot.material.needsUpdate = true;
         }
-        if (clus.circMesh) {
+        if (clus.circMesh && circMesh) {
             clus.circMesh.material.color.set(threePar.rayc.clickColor);
             clus.circMesh.material.needsUpdate = true;
         }
-        if (clus.membDots) {
+        if (clus.membDots && membDots) {
             clus.membDots.children.customForEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
                 dot.material.needsUpdate = true;
             });
         }
-        if (clickTrajectories && (clus.trajectories.size !== 0)) {
+       /* if (clickTrajectories && (clus.trajectories.size !== 0)) {
             clus.trajectories.forEach(function (traj) {
                 clickTrajectory(traj, false); //ToDo
             });
-        }
+        }*/
     }
     function unClickCluster(clus) {
         if (clus.centDot) {
@@ -2523,11 +2559,11 @@
                 dot.material.needsUpdate = true;
             });
         }
-        if (clus.trajectories.size !== 0) {
+        /*if (clus.trajectories.size !== 0) {
             clus.trajectories.forEach(function (traj) {
                 unClickTrajectory(traj)
             });
-        }
+        }*/
     }
     function clickErrors() {
         if (draw.errors) {
@@ -2546,68 +2582,114 @@
         }
     }
 
-    function showInfo(o) {
-        switch(o.type) {
-            case 'trajectory': {
-                if(!o.hasOwnProperty('info')) {
+    function showInfo(...os) {
 
-                    const tempInfo = [];
-                    if(bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo());
-                    if(bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo());
-                    if(bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo());
+        const tempInfo = [];
 
-                    o.info = new infoCont(
-                        ["Description", "Content"],
-                        tempInfo
-                    );
-                    o.info.createDiv();
-                }
-                infoDiv.appendChild(o.info.div);
-                break;
+        if(os.length === 1) {
+
+            const o = os[0];
+            if(o.type !== 'errors') {
+                if(bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
+                if(bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
+                if(bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
+            } else {
+                tempInfo.push(["Number of Errors: ", o.userData.length]);
             }
-            case 'centroid': {
-                if(!o.hasOwnProperty('info')) {
 
-                    const tempInfo = [];
-                    if(bd.iT.basic) tempInfo.push(...o.userData.cluster.getBasicInfo());
-                    if(bd.iT.analysis) tempInfo.push(...o.userData.cluster.getAnalysisInfo());
-                    if(bd.iT.extensive) tempInfo.push(...o.userData.cluster.getExtensiveInfo());
+            o.info = new infoCont(
+                ["Description", "Content"],
+                tempInfo
+            );
+            o.info.createDiv();
+            infoDiv.appendChild(o.info.div);
 
-                    o.info = new infoCont(
-                        ["Description", "Content"],
-                        tempInfo
-                    );
-                    o.info.createDiv();
+        } else if(os.length === 2) {
+
+            let infos = {
+                basic: {
+                    info: [],
+                },
+                analysis: {
+                    info: [],
+                },
+                extensive: {
+                    info: [],
+                },
+            };
+
+            os.customForEach(function(o) {
+                if (o.type !== 'errors') {
+                    if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
+                    if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
+                    if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
+                } else {
+                    //tempInfo.push(["Number of Errors: ", o.userData.length]);
                 }
-                infoDiv.appendChild(o.info.div);
-                break;
+            });
+
+            for(let type in infos) {
+                for(let it in infos[type].info[0]) {
+                    infos[type][it] = [];
+                }
+                for(let obj in infos[type].info) {
+                    for(let item in infos[type].info[obj]) {
+                        infos[type][item].push(infos[type].info[obj][item]);
+                    }
+                }
+                delete infos[type].info;
             }
-            case 'member': {
-                if(!o.hasOwnProperty('info')) {
-                    o.info = new infoCont(
-                        ["Description", "Content"],
-                        o.userData[0].cluster.getBasicInfo()
-                    );
-                    o.info.createDiv();
+
+            for(let type in infos) {
+                for(let item in infos[type]) {
+                    tempInfo.push([item, infos[type][item][0], infos[type][item][1]]);
                 }
-                infoDiv.appendChild(o.info.div);
-                break;
             }
-            case 'error':
-                if(!o.hasOwnProperty('info')) {
-                    o.info = new infoCont(
-                        ["Description", "Content"],
-                        [["Number of Errors: ", o.userData.length]]
-                    );
-                    o.info.createDiv();
+
+            const info = new infoCont(
+                ["Description", "Content"],
+                tempInfo
+            );
+
+            info.createDiv();
+            infoDiv.appendChild(info.div);
+
+            os.customForEach(function (o) {
+                o.info = info;
+            });
+
+
+        } else {
+
+            //placeholder
+            os.customForEach(function (o) {
+                if (o.type !== 'errors') {
+                    if (bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
+                    if (bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
+                    if (bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
+                } else {
+                    tempInfo.push(["Number of Errors: ", o.userData.length]);
                 }
-                infoDiv.appendChild(o.info.div);
-                break;
+            });
+
+            const info = new infoCont(
+                ["Description", "Content"],
+                tempInfo
+            );
+
+            info.createDiv();
+            infoDiv.appendChild(info.div);
+
+            os.customForEach(function (o) {
+                o.info = info;
+            });
         }
     }
-    function unShowInfo(o) {
-        document.getElementById('infoDiv').removeChild(o.info.div);
-        delete o.info;
+    function unShowInfo(...os) {
+        document.getElementById('infoDiv').removeChild(os[0].info.div);
+        os.customForEach(function(o) {
+            if(o.info) delete o.info;
+        });
     }
 
     //temp code inside
@@ -2947,8 +3029,8 @@
             tempList.splice(-par.csv.removeCount);
 
             tempList.customForEach(function (point) {
-                point.ID = flags.raw.points;
-                flags.raw.points++;
+                point.ID = flags.data.points;
+                flags.data.points++;
                 const p = new Point(point);
                 pointList.push(p);
             });
@@ -3136,7 +3218,9 @@
 
                             if(list.length > 1) {
 
-                                const tempTrajectory = new Trajectory(list, list[0].f);
+                                const tempTrajectory = new Trajectory(list, list[0].f, flags.data.trajectories);
+                                flags.data.trajectories++;
+
                                 list.customForEach(function(p) {
                                     p.trajectory = tempTrajectory;
                                 });
@@ -3188,7 +3272,9 @@
                         for (let f in pointListByDIDByTimeByFloor[did][t]) {
                             if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
 
-                                const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
+                                const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f, flags.data.trajectories);
+                                flags.data.trajectories++;
+
                                 tempTrajectory.rawPoints.customForEach(function(pt) {
                                     pt.trajectory = tempTrajectory;
                                 });
@@ -3216,14 +3302,14 @@
     function cluster(trajs) {
         const vertices = [];
 
-        flags.clustering.subsaPoints = 0;
+        flags.data.subsaPoints = 0;
 
         trajs.customForEach(function(traj) {
             traj.subsaPoints = subsamplePoints(traj);
             vertices.push(traj.subsaPoints);
         });
 
-        console.log("subsaP: " + flags.clustering.subsaPoints);
+        console.log("subsaP: " + flags.data.subsaPoints);
 
         //centroid seed
         const P = vertices; //Points
@@ -3294,11 +3380,11 @@
             f: points[0].f,
             t: points[0].t,
             traj: traj,
-            ID: flags.clustering.subsaPoints,
+            ID: flags.data.subsaPoints,
         });
         p0.floorChangeFrom = points[0].floorChangeFrom || null;
 
-        flags.clustering.subsaPoints++;
+        flags.data.subsaPoints++;
 
         //data.subsaPnts.push(p0); //testing
 
@@ -3323,9 +3409,9 @@
                         f: pA.f,
                         t: pA.t,
                         traj: traj,
-                        ID: flags.clustering.subsaPoints,
+                        ID: flags.data.subsaPoints,
                     });
-                    flags.clustering.subsaPoints++;
+                    flags.data.subsaPoints++;
 
                     tempPrevPoint = p;
 
@@ -3639,7 +3725,7 @@
                     new THREE.Vector3(
                         anch.x + traj.deviation * par.tj.deviationFactor,
                         -anch.y + traj.deviation * par.tj.deviationFactor,
-                        anch.f));
+                        anch.f * 10));
             });
             const curve = new THREE.CatmullRomCurve3(anchorGeom.vertices);
             let curveGeom = new THREE.Geometry();
@@ -3695,15 +3781,15 @@
                     new THREE.Vector3(
                         a[i].x + traj.deviation * par.tj.deviationFactor,
                         -a[i].y + traj.deviation * par.tj.deviationFactor,
-                        a[i].f),
+                        a[i].f * 10),
                     new THREE.Vector3(
                         a[i + 1].x + traj.deviation * par.tj.deviationFactor,
                         -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
-                        a[i + 1].f),
+                        a[i + 1].f * 10),
                     new THREE.Vector3(
                         a[i + 2].x + traj.deviation * par.tj.deviationFactor,
                         -a[i + 2].y + traj.deviation * par.tj.deviationFactor,
-                        a[i + 2].f)
+                        a[i + 2].f * 10)
                 );
                 geom.add(curve);
 
@@ -3714,15 +3800,15 @@
                 new THREE.Vector3(
                     a[i].x + traj.deviation * par.tj.deviationFactor,
                     -a[i].y + traj.deviation * par.tj.deviationFactor,
-                    a[i].f),
+                    a[i].f * 10),
                 new THREE.Vector3(
                     a[i + 1].x + traj.deviation * par.tj.deviationFactor,
                     -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
-                    a[i + 1].f),
+                    a[i + 1].f * 10),
                 new THREE.Vector3(
                     a[i + 1].x + traj.deviation * par.tj.deviationFactor,
                     -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
-                    a[i + 1].f)
+                    a[i + 1].f * 10)
             );
             geom.add(curveE);
 
