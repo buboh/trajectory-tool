@@ -1562,7 +1562,7 @@
             }
             let first;
             if(this.heading.length < 3) first = true;
-            this.heading.forEach(function(col) {
+            this.heading.customForEach(function(col) {
                 const tempCol = document.createElement('td');
                 tempCol.style.borderBottom = "1px dotted rgba(255,255,255,0.1)";
 
@@ -1576,9 +1576,9 @@
             });
             table.appendChild(heading);
 
-            this.contBlocks.forEach(function(content) {
+            this.contBlocks.customForEach(function(content) {
                 const tr = document.createElement('tr');
-                content.forEach(function(col) {
+                content.customForEach(function(col) {
                     const tempCol =  document.createElement('td');
                     tempCol.style.verticalAlign = "top";
                     tempCol.appendChild(document.createTextNode(col));
@@ -1857,7 +1857,7 @@
         }
         getVisitedClusters() {
             let IDs = "";
-            this.clusters.forEach(function(clus) {
+            this.clusters.customForEach(function(clus) {
                 IDs += clus.centroid.ID.toString();
                 IDs += "-";
             });
@@ -1926,7 +1926,7 @@
         get members() {return this.data.members}
         set members(memb) {
             this.data.members = memb;
-            this.data.members.forEach(function(pt) {
+            this.data.members.customForEach(function(pt) {
                 pt.cluster = this;
             });
         }
@@ -1935,7 +1935,7 @@
             this.data.members.push(pt);
         }
         clearMembers() {
-            this.data.members.forEach(function(pt) {
+            this.data.members.customForEach(function(pt) {
                 pt.clearCluster();
             });
             this.data.members = [];
@@ -2065,6 +2065,7 @@
 //  ToDo: Review init function (camera?)
 
     function init() {
+        initCustomForEach();
         scene = new THREE.Scene();
         camera = new THREE.OrthographicCamera(0, 0, 0, 0, 0, 0, 0);
         initDOM();
@@ -2210,6 +2211,28 @@
         renderer.render(scene, camera);
     } //three.js
 
+//--HELPERS-------------------------------------------------------------------------------------------------------------
+
+    function initCustomForEach() {
+        function arrayForeach(fn) {
+            const arr = this;
+            const len = arr.length;
+            for(let i = 0; i < len; ++i) {
+                fn(arr[i]);
+            }
+        }
+
+        Object.defineProperty(Array.prototype, 'customForEach', {
+            enumerable: false,
+            value: arrayForeach
+        });
+    }
+    function rand_BoxMuller() {
+        const u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
+        const v = 1 - Math.random();
+        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
 //--RAYCASTER-----------------------------------------------------------------------------------------------------------
 
     function hoverDetector() {
@@ -2315,88 +2338,98 @@
             }
 
             if(obj) {
-                if((!flags.raycaster.shiftDown) && (INTERSECTED.size !== 0)) {
-                    INTERSECTED.forEach(function(o) {
-                        unClick(o);
-                    });
-                    INTERSECTED.clear();
+                if(INTERSECTED.size === 0) {
+
                     INTERSECTED.add(obj);
-                    click(obj);
+                    highlight(obj);
+                    showInfo(obj);
+
                 } else {
-                    let has = false;
-                    INTERSECTED.forEach(function(o) {
-                        if(obj.userData === o.userData) {
-                            obj = o;
-                            has = true;
-                        }
-                    });
-                    if (has) {
-                        unClick(obj);
-                        INTERSECTED.delete(obj);
-                    } else {
+
+                    if(!flags.raycaster.shiftDown) {
+
+                        INTERSECTED.forEach(function(o) {
+                            unHighlight(o);
+                            unShowInfo(o);
+                        });
+                        INTERSECTED.clear();
                         INTERSECTED.add(obj);
-                        click(obj);
+                        highlight(obj);
+                        showInfo(obj);
+
+                    } else {
+
+                        let isClicked = false;
+                        INTERSECTED.forEach(function(o) {
+                            if(obj.userData === o.userData) {
+                                obj = o;
+                                isClicked = true;
+                            }
+                        });
+                        if(isClicked) {
+                            unHighlight(obj);
+                            unShowInfo(obj);
+                            INTERSECTED.delete(obj);
+                        } else {
+                            INTERSECTED.add(obj);
+                            INTERSECTED.forEach(highlight);
+                            INTERSECTED.forEach(showInfo);
+                        }
                     }
                 }
             } else {
                 INTERSECTED.forEach(function(o) {
-                    unClick(o);
+                    unHighlight(o);
+                    unShowInfo(o);
                 });
                 INTERSECTED.clear();
             }
         }
     }
 
-    function click(o){
+    function highlight(o){
         switch(o.type) {
             case 'trajectory': {
                 clickTrajectory(o.userData, true);
-                showInfo(o);
                 break;
             }
             case 'centroid': {
                 clickCluster(o.userData.cluster);
-                showInfo(o);
                 break;
             }
             case 'member': {
                 clickCluster(o.userData[0].cluster);
-                showInfo(o);
                 break;
             }
-            case 'error':
+            case 'error': {
                 clickErrors();
-                showInfo(o);
                 break;
+            }
         }
     }
-    function unClick(o) {
+    function unHighlight(o) {
         switch(o.type) {
             case 'trajectory': {
                 unClickTrajectory(o.userData);
-                unShowInfo(o);
                 break;
             }
             case 'centroid': {
                 unClickCluster(o.userData.cluster);
-                unShowInfo(o);
                 break;
             }
             case 'member': {
                 unClickCluster(o.userData[0].cluster);
-                unShowInfo(o);
                 break;
             }
             case 'error':
                 unClickErrors();
-                unShowInfo(o);
                 break;
         }
     }
 
     function clickTrajectory(traj, clickClusters) {
         if(traj.dots) {
-            traj.dots.children.forEach(function(dot) {
+            traj.dots.children.customForEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
                 dot.material.needsUpdate = true;
             });
@@ -2416,7 +2449,7 @@
             traj.anchLine.material.needsUpdate = true;
         }
         if(clickClusters && (traj.clusters.length !== 0)) {
-            traj.clusters.forEach(function(clus) {
+            traj.clusters.customForEach(function(clus) {
                 if(clus.centDot) {
                     clus.centDot.material.color.set(threePar.rayc.clickColor);
                     clus.centDot.material.needsUpdate = true;
@@ -2426,7 +2459,7 @@
     }
     function unClickTrajectory(traj) {
         if (traj.dots) {
-            traj.dots.children.forEach(function(dot) {
+            traj.dots.children.customForEach(function(dot) {
                 dot.material.color.set(traj.color);
                 dot.material.needsUpdate = true;
             });
@@ -2446,7 +2479,7 @@
             traj.anchLine.material.needsUpdate = true;
         }
         if(traj.clusters.length !== 0) {
-            traj.clusters.forEach(function(clus) {
+            traj.clusters.customForEach(function(clus) {
                 if(clus.centDot) {
                     clus.centDot.material.color.set(clus.color);
                     clus.centDot.material.needsUpdate = true;
@@ -2464,7 +2497,7 @@
             clus.circMesh.material.needsUpdate = true;
         }
         if (clus.membDots) {
-            clus.membDots.children.forEach(function(dot) {
+            clus.membDots.children.customForEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
                 dot.material.needsUpdate = true;
             });
@@ -2485,7 +2518,7 @@
             clus.circMesh.material.needsUpdate = true;
         }
         if (clus.membDots) {
-            clus.membDots.children.forEach(function(dot) {
+            clus.membDots.children.customForEach(function(dot) {
                 dot.material.color.set(clus.color);
                 dot.material.needsUpdate = true;
             });
@@ -2498,7 +2531,7 @@
     }
     function clickErrors() {
         if (draw.errors) {
-            draw.errors.children.forEach(function(dot) {
+            draw.errors.children.customForEach(function(dot) {
                 dot.material.color.set(threePar.rayc.clickColor);
                 dot.material.needsUpdate = true;
             });
@@ -2506,7 +2539,7 @@
     }
     function unClickErrors() {
         if (draw.errors) {
-            draw.errors.children.forEach(function(dot) {
+            draw.errors.children.customForEach(function(dot) {
                 dot.material.color.set(par.cl.errors.color);
                 dot.material.needsUpdate = true;
             });
@@ -2661,10 +2694,10 @@
                     if (result.length === fileCount) {
                         pointList = loadPointList(result);
                         const sortedList = [];
-                        pointList.forEach(function(pl) {
+                        pointList.customForEach(function(pl) {
                             sortedList.push(sortAndGroupList(pl, false, par.tj.cutTime));
                         });
-                        sortedList.forEach(function(pl) {
+                        sortedList.customForEach(function(pl) {
                             newTrajectories(pl);
                         });
                         data.trjs.valid = true;
@@ -2703,10 +2736,10 @@
                     if (result.length === fileCount) {
                         groundtruthList = loadGroundtruthList(result);
                         const sortedGts = [];
-                        groundtruthList.forEach(function(gt) {
+                        groundtruthList.customForEach(function(gt) {
                             sortedGts.push(sortAndGroupList(gt, true, par.gt.cutTime));
                         });
-                        sortedGts.forEach(function(gt) {
+                        sortedGts.customForEach(function(gt) {
                             newGroundtruth(gt);
                         });
                         data.grts.valid = true;
@@ -2878,7 +2911,7 @@
     function drawGrid(floor) {
 
         const coordGeometry = new THREE.Geometry();
-        data.grds[floor].val.forEach(function(line) {
+        data.grds[floor].val.customForEach(function(line) {
             coordGeometry.vertices.push(new THREE.Vector3(line.p0.x, -line.p0.y, line.p0.f * 10 + par.gd.corrZ));
             coordGeometry.vertices.push(new THREE.Vector3(line.p1.x, -line.p1.y, line.p1.f * 10 + par.gd.corrZ));
         });
@@ -2904,7 +2937,7 @@
         const list = [];
 
         //--create-Point-Objects--------------------------------------------------------------------------------------------
-        readerResult.forEach(function(file) {
+        readerResult.customForEach(function(file) {
 
             let pointList = [];
 
@@ -2913,7 +2946,7 @@
             tempList.splice(0, par.csv.removeCount);
             tempList.splice(-par.csv.removeCount);
 
-            tempList.forEach(function (point) {
+            tempList.customForEach(function (point) {
                 point.ID = flags.raw.points;
                 flags.raw.points++;
                 const p = new Point(point);
@@ -2932,7 +2965,7 @@
         const list = [];
 
         //--create-Point-Objects--------------------------------------------------------------------------------------------
-        readerResult.forEach(function(file) {
+        readerResult.customForEach(function(file) {
 
             let pointList = [];
 
@@ -2941,7 +2974,7 @@
             //tempList.splice(0, par.csv.removeCount);
             //tempList.splice(-par.csv.removeCount);
 
-            tempList.forEach(function (point) {
+            tempList.customForEach(function (point) {
                 const p = new Point(point);
                 pointList.push(p);
             });
@@ -3004,13 +3037,13 @@
         /*const pointListByOne = groupPointListByDid(pointList);
 
         const pointListByDIDByFloor = [];
-        pointListByOne.forEach(function(didList) {
+        pointListByOne.customForEach(function(didList) {
             pointListByDIDByFloor.push(groupPointListByFloor(didList));
         });
 
         const pointListByDIDByFloorByTime = [];
-        pointListByDIDByFloor.forEach(function(didList) {
-           didList.forEach(function(timeList) {
+        pointListByDIDByFloor.customForEach(function(didList) {
+           didList.customForEach(function(timeList) {
                pointListByDIDByFloorByTime.push(groupPointListByFloor(timeList));
            });
         });
@@ -3037,7 +3070,7 @@
         let tempTime = pointList[0].t;
         let tempTimeArray = [];
 
-        pointList.forEach(function(point) {
+        pointList.customForEach(function(point) {
             if (tempTime + cutTime < point.t) {
                 pointListByTime.push(tempTimeArray);
                 tempTimeArray = [];
@@ -3060,7 +3093,7 @@
     function groupBy(array, f) {
 
         const groups = {};
-        array.forEach(
+        array.customForEach(
             function(object) {
                 const group = JSON.stringify(f(object));
                 groups[group] = groups[group] || []; //if groups[group] doesn't exist, [] is assigned
@@ -3099,12 +3132,12 @@
                         }
                         pointsList.push(tempList);
 
-                        pointsList.forEach(function(list) {
+                        pointsList.customForEach(function(list) {
 
                             if(list.length > 1) {
 
                                 const tempTrajectory = new Trajectory(list, list[0].f);
-                                list.forEach(function(p) {
+                                list.customForEach(function(p) {
                                     p.trajectory = tempTrajectory;
                                 });
 
@@ -3112,7 +3145,7 @@
                             }
                         });
 
-                        data.trjs.val.forEach(function(tempTrajectory) {
+                        data.trjs.val.customForEach(function(tempTrajectory) {
 
                             let tempPrevPoint = tempTrajectory.rawPoints[0];
                             if(tempPrevPoint.floorChangeFrom) {
@@ -3156,7 +3189,7 @@
                             if (pointListByDIDByTimeByFloor[did][t].hasOwnProperty(f)) {
 
                                 const tempTrajectory = new Trajectory(pointListByDIDByTimeByFloor[did][t][f], f);
-                                tempTrajectory.rawPoints.forEach(function(pt) {
+                                tempTrajectory.rawPoints.customForEach(function(pt) {
                                     pt.trajectory = tempTrajectory;
                                 });
 
@@ -3185,7 +3218,7 @@
 
         flags.clustering.subsaPoints = 0;
 
-        trajs.forEach(function(traj) {
+        trajs.customForEach(function(traj) {
             traj.subsaPoints = subsamplePoints(traj);
             vertices.push(traj.subsaPoints);
         });
@@ -3206,11 +3239,11 @@
             i++;
         }
         let ml = 0;
-        R.forEach(function(cluster) {
+        R.customForEach(function(cluster) {
             if(ml < cluster.members.length) ml = cluster.members.length;
         });
 
-        R.forEach(function(cluster) {
+        R.customForEach(function(cluster) {
             //cluster.color = Math.random() * par.ct.color + par.ct.corrColor;
             const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
             cluster.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
@@ -3221,11 +3254,11 @@
 
         //build graph
 
-        trajs.forEach(function(traj) {
+        trajs.customForEach(function(traj) {
             traj.findClusters();
         });
 
-        trajs.forEach(function(traj) {
+        trajs.customForEach(function(traj) {
             /*if(traj.floorChangeFrom) {
                 traj.clusters[0].addPrevCluster(traj.floorChangeFrom.clusters[traj.floorChangeFrom.clusters.length - 1]);
             }*/
@@ -3235,7 +3268,7 @@
         });
 
         data.edgs.valid = false;
-        data.clts.val.forEach(function(clus) {
+        data.clts.val.customForEach(function(clus) {
             clus.nextClusters.forEach(function(nextClus) {
                 const edge = new Edge(clus, nextClus);
                 clus.addEdge(edge);
@@ -3345,8 +3378,8 @@
         const P = points;
         const R = []; //results
 
-        P.forEach(function(t) {
-            t.forEach(function(p) {
+        P.customForEach(function(t) {
+            t.customForEach(function(p) {
                 putInProperGroup(p, R, G);
             });
         });
@@ -3372,8 +3405,8 @@
         let cnt = 0;
 
         //--Assign every Point to a group
-        P.forEach(function(t) {
-            t.forEach(function(p) {
+        P.customForEach(function(t) {
+            t.customForEach(function(p) {
 
                 let cent = getClosestCentroid(p, G);
                 if (cent !== null) {// FEHLER! WARUM KANN c NULL SEIN? -> Kein centroid in reichweite
@@ -3492,7 +3525,7 @@
             return C[0];
         } else {
             let ck = C[0];
-            C.forEach(function(c) {
+            C.customForEach(function(c) {
                 if (getSpatialDistance(c, p) <= getSpatialDistance(ck, p)) {
                     ck = c;
                 }
@@ -3510,17 +3543,11 @@
         return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
     }
 
-    function rand_BoxMuller() {
-        const u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
-        const v = 1 - Math.random();
-        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
-    }
-
 //--MAKE-(THREE.JS)-----------------------------------------------------------------------------------------------------
 
     function makePoints(traj) {
         const dots = new THREE.Group();
-        traj.rawPoints.forEach(function(point) {
+        traj.rawPoints.customForEach(function(point) {
             const pointGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
             dots.add(createCircle(pointGeom, traj.color, par.tj.opacity, par.tj.dot.size, traj));
         });
@@ -3540,7 +3567,7 @@
     }
     function makeCluster(clus) {
         const members = new THREE.Group();
-        clus.members.forEach(function(point) {
+        clus.members.customForEach(function(point) {
             const pointGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
             members.add(createCircle(pointGeom, clus.color, par.tj.dot.opacity, par.tj.dot.size, clus.members));
         });
@@ -3548,7 +3575,7 @@
     }
     function makeErrors() {
         const errors = new THREE.Group();
-        data.errors.val.forEach(function(point) {
+        data.errors.val.customForEach(function(point) {
             const errorGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
             errors.add(createCircle(errorGeom, par.cl.errors.color, par.tj.dot.opacity, par.tj.dot.size, data.errors.val)); //data.errors.val));
             point.isError = true;
@@ -3574,7 +3601,7 @@
 
     function makePointGeometry(points) {
         const pointsGeom = new THREE.Geometry();
-        points.forEach(function(point) {
+        points.customForEach(function(point) {
             pointsGeom.vertices.push(new THREE.Vector3(point.x, -point.y, point.f * 10));
         });
         return pointsGeom;
@@ -3594,7 +3621,7 @@
     } //three.js
     function makeTrajLineGeom(traj) {
         const trajGeom = new THREE.Geometry();
-        traj.clusters.forEach(function(clus) {
+        traj.clusters.customForEach(function(clus) {
             trajGeom.vertices.push(
                 new THREE.Vector3(
                     clus.centroid.x + traj.deviation * par.tj.deviationFactor,
@@ -3607,7 +3634,7 @@
     function makeTrajCurveGeom(traj) {
         if(traj.anchors.length > 1) {
             const anchorGeom = new THREE.Geometry();
-            traj.anchors.forEach(function (anch) {
+            traj.anchors.customForEach(function (anch) {
                 anchorGeom.vertices.push(
                     new THREE.Vector3(
                         anch.x + traj.deviation * par.tj.deviationFactor,
@@ -3623,9 +3650,9 @@
             return false;
         }
         //started to implement splines --> continue
-        /*trajs.forEach(function (traj) {
+        /*trajs.customForEach(function (traj) {
          const anchorVertices = [];
-         traj.anchors.forEach(function (point) {
+         traj.anchors.customForEach(function (point) {
          anchorVertices.push(
          new THREE.Vector3(
          point.x + traj.deviation * 0.25,
@@ -3747,7 +3774,7 @@
         switch(choice) {
             case 'points': {
                 if(!data.trjs.valid) break;
-                data.trjs.val.forEach(function(traj) {
+                data.trjs.val.customForEach(function(traj) {
                     if(!traj.dots) makePoints(traj);
                     scene.add(traj.dots);
                 });
@@ -3755,7 +3782,7 @@
             }
             case 'lines': {
                 if(!data.trjs.valid) break;
-                data.trjs.val.forEach(function(traj) {
+                data.trjs.val.customForEach(function(traj) {
                     if(!traj.line) makeLine(traj);
                     scene.add(traj.line);
                 });
@@ -3763,7 +3790,7 @@
             }
             case 'centroids': {
                 if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.forEach(function(clus) {
+                data.clts.val.customForEach(function(clus) {
                     if(!clus.centDot) makeCentroid(clus);
                     scene.add(clus.centDot);
                 });
@@ -3771,7 +3798,7 @@
             }
             case 'circles': {
                 if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.forEach(function(clus) {
+                data.clts.val.customForEach(function(clus) {
                     if(!clus.circMesh) makeCircle(clus);
                     scene.add(clus.circMesh);
                 });
@@ -3779,7 +3806,7 @@
             }
             case 'clusters': {
                 if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.forEach(function(clus) {
+                data.clts.val.customForEach(function(clus) {
                     if(!clus.membDots) makeCluster(clus);
                     scene.add(clus.membDots);
                 });
@@ -3791,7 +3818,7 @@
             }
             case 'graph': {
                 if(!data.clts.valid) cluster(data.trjs.val);
-                data.trjs.val.forEach(function(traj) {
+                data.trjs.val.customForEach(function(traj) {
                     if(!traj.clusLine) {
                         makeGraph(traj);
                     }
@@ -3801,7 +3828,7 @@
             }
             case 'curves': {
                 if(!data.clts.valid) cluster(data.trjs.val);
-                data.trjs.val.forEach(function(traj) {
+                data.trjs.val.customForEach(function(traj) {
                     if(!traj.anchLine) makeAnchorCurve(traj);
                     if(traj.anchLine instanceof THREE.Line) {
                         scene.add(traj.anchLine);
@@ -3811,7 +3838,7 @@
             }
             case 'groundtruth': {
                 if(!data.grts.valid) break;
-                data.grts.val.forEach(function(traj) {
+                data.grts.val.customForEach(function(traj) {
                     if(!traj.line) makeLine(traj);
                     scene.add(traj.line);
                 });
@@ -3821,7 +3848,7 @@
     }
 
     function hideDrawing(choices) {
-        choices.forEach(function(choice) {
+        choices.customForEach(function(choice) {
             switch(choice) {
                 case 'bgMs': {
                     for (let bgMesh in draw.bgMs) {
@@ -3840,50 +3867,50 @@
                     break;
                 }
                 case 'points': {
-                    data.trjs.val.forEach(function(traj) {
+                    data.trjs.val.customForEach(function(traj) {
                         scene.remove(traj.dots);
                     });
                     break;
                 }
                 case 'lines': {
-                    data.trjs.val.forEach(function(traj) {
+                    data.trjs.val.customForEach(function(traj) {
                         scene.remove(traj.line);
                     });
                     break;
                 }
                 case 'centroids': {
-                    data.clts.val.forEach(function(clus) {
+                    data.clts.val.customForEach(function(clus) {
                         scene.remove(clus.centDot);
                     });
                     break;
                 }
                 case 'circles': {
-                    data.clts.val.forEach(function(clus) {
+                    data.clts.val.customForEach(function(clus) {
                         scene.remove(clus.circMesh);
                     });
                     break;
                 }
                 case 'clusters': {
-                    data.clts.val.forEach(function(clus) {
+                    data.clts.val.customForEach(function(clus) {
                         scene.remove(clus.membDots);
                     });
                     scene.remove(draw.errors);
                     break;
                 }
                 case 'graph': {
-                    data.trjs.val.forEach(function(traj) {
+                    data.trjs.val.customForEach(function(traj) {
                         scene.remove(traj.clusLine);
                     });
                     break;
                 }
                 case 'curves': {
-                    data.trjs.val.forEach(function(traj) {
+                    data.trjs.val.customForEach(function(traj) {
                         scene.remove(traj.anchLine);
                     });
                     break;
                 }
                 case 'groundtruth': {
-                    data.grts.val.forEach(function(traj) {
+                    data.grts.val.customForEach(function(traj) {
                         scene.remove(traj.line);
                     });
                     break;
@@ -3892,7 +3919,7 @@
         });
     }
     function removeDrawing(choices) {
-        choices.forEach(function(choice) {
+        choices.customForEach(function(choice) {
             switch(choice) {
                 case 'bgMs': {
                     draw.bgMs = {};
@@ -3907,13 +3934,13 @@
                     break;
                 }
                 case 'trjs': {
-                    data.trjs.val.forEach(function(traj) {
+                    data.trjs.val.customForEach(function(traj) {
                         traj.emptyDrawing();
                     });
                     break;
                 }
                 case 'clts': {
-                    data.clts.val.forEach(function(clus) {
+                    data.clts.val.customForEach(function(clus) {
                         clus.emptyClusterDrawing();
                     });
                     break;
@@ -3923,7 +3950,7 @@
                     break;
                 }
                 case 'grts': {
-                    data.grts.val.forEach(function(traj) {
+                    data.grts.val.customForEach(function(traj) {
                         traj.emptyDrawing();
                     });
                     break;
@@ -3932,7 +3959,7 @@
         });
     }
     function deleteData(choices) {
-        choices.forEach(function(choice) {
+        choices.customForEach(function(choice) {
             switch(choice) {
                 case 'trjs': {
                     data.trjs = {
@@ -3997,7 +4024,7 @@
     }
     function deleteClusterTrajectories() {
         hideClusterTrajectories();
-        data.trjs.val.forEach(function(traj) {
+        data.trjs.val.customForEach(function(traj) {
             traj.emptyClusterData();
         });
         data.clts.valid = false;
