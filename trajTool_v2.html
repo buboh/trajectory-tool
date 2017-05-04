@@ -24,6 +24,7 @@
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
 <script src="js/thenBy.js"></script>
+<script src="js/levenshtein.js"></script>
 
 <!--Trajectory viewer-->
 <script>
@@ -1535,9 +1536,6 @@
                     fontWeight: "bold",
                     height: "1.8em",
                 },
-                columns: {
-                    1: "35%",
-                }
             };
 
             this.heading = heading || ["Description", "Value"];
@@ -1562,14 +1560,14 @@
                 }
             }
             let first;
-            if(this.heading.length < 3) first = true;
+            if(this.heading.length <= 3) first = true;
             this.heading.customForEach(function(col) {
                 const tempCol = document.createElement('td');
                 tempCol.style.borderBottom = "1px dotted rgba(255,255,255,0.1)";
 
-                if(first) {
-                    tempCol.style.width = "45%";
-                }
+                //if(first) {
+                    tempCol.style.width = "120px";
+                //}
                 first = false;
 
                 tempCol.appendChild(document.createTextNode(col));
@@ -1832,11 +1830,19 @@
             const dur = this.getDurationInS();
             const speed = Math.round((lM / dur) * 360) / 100;
             return {
-                'Type_ID': this.constructor.name + '_' + this.ID,
+                'Type': this.constructor.name,
+                'ID': this.ID,
                 'Floor': this.f,
-                'Length': lM + ' m / ' + lP + ' pts',
-                'Duration': dur + ' s',
-                'Avg. speed': speed + ' km/h',
+                'Length': {
+                    'm': lM,
+                    'pts': lP,
+                },
+                'Duration': {
+                    's': dur,
+                },
+                'Avg. speed': {
+                    'km/h': speed,
+                },
             };
         }
         getLengthInMeters() {
@@ -1988,10 +1994,18 @@
         }
 
         getBasicInfo() {
+
+            const edgesIn = this.getInEdges(this);
+            const edgesOut = this.getOutEdges(this);
+
             return {
-                'Type_ID': this.centroid.constructor.name + '_' + this.centroid.ID,
+                'Type': this.centroid.constructor.name,
+                'ID': this.centroid.ID,
                 'Members': this.members.length,
-                'Edges in / out': this.getInEdges(this) + ' / ' + this.getOutEdges(this),
+                'Edges': {
+                    'in': edgesIn,
+                    'out': edgesOut,
+                },
                 'Ts Passing': this.trajectories.size
             };
         }
@@ -2022,8 +2036,7 @@
                 IDs.push(clus.centroid.ID);
             });
             IDs.sort((a,b) => (a - b));
-            IDs.join(", ");
-            return IDs;
+            return IDs.join(", ");
         }
         getDestinationClusters() {
             let IDs = [];
@@ -2031,13 +2044,15 @@
                 IDs.push(clus.centroid.ID);
             });
             IDs.sort((a,b) => (a - b));
-            IDs.join(", ");
-            return IDs;
+            return IDs.join(", ");
         }
 
         getExtensiveInfo() {
             return {
-                'Centroid': 'x: ' + this.centroid.x + '\ny: ' + this.centroid.y,
+                'Centroid': {
+                    'x': this.centroid.x,
+                    'y': this.centroid.y,
+                },
             }
         }
 
@@ -2103,7 +2118,7 @@
         infoDiv.style.position = "absolute";
         infoDiv.style.right = "0px";
         infoDiv.style.bottom = "0px";
-        infoDiv.style.width = "245px";
+        infoDiv.style.width = "490px"; //"245px";
         infoDiv.style.height = "auto";
         infoDiv.style.maxHeight = "330px";
         infoDiv.style.backgroundColor = "rgba(20, 20, 20, 1)";
@@ -2130,6 +2145,7 @@
         const table = document.createElement('table');
         table.style.width = "100%";
         table.style.borderSpacing = "2px";
+        table.style.overflow = "hidden";
         const heading = document.createElement('tr');
         const desCol = document.createElement('td');
         desCol.style.textAlign = "center";
@@ -2597,9 +2613,25 @@
                 tempInfo.push(["Number of Errors: ", o.userData.length]);
             }
 
+            const ti = [];
+            tempInfo.customForEach(function(line) {
+                let arr = [line[0]];
+                if(line[1] instanceof Object) {
+                    let str = "";
+                    for(let o in line[1]) {
+                        str += (line[1][o] + " " + o + " / ");
+                    }
+                    str = str.slice(0,-3);
+                    arr.push(str);
+                } else {
+                    arr.push(line[1]);
+                }
+                ti.push(arr);
+            });
+
             o.info = new infoCont(
                 ["Description", "Content"],
-                tempInfo
+                ti
             );
             o.info.createDiv();
             infoDiv.appendChild(o.info.div);
@@ -2628,6 +2660,8 @@
                 }
             });
 
+
+
             for(let type in infos) {
                 for(let it in infos[type].info[0]) {
                     infos[type][it] = [];
@@ -2642,13 +2676,32 @@
 
             for(let type in infos) {
                 for(let item in infos[type]) {
-                    tempInfo.push([item, infos[type][item][0], infos[type][item][1]]);
+                    tempInfo.push([item, infos[type][item][0], infos[type][item][1], combineInfos(item, infos[type][item][0], infos[type][item][1])]);
                 }
             }
+            //  "-"]); //
+
+            const ti = [];
+            tempInfo.customForEach(function(line) {
+                let arr = [line[0]];
+                for(let i = 1; i < line.length; i++) {
+                    if(line[i] instanceof Object) {
+                        let str = "";
+                        for(let o in line[i]) {
+                            str += (line[i][o] + " " + o + " / ");
+                        }
+                        str = str.slice(0,-3);
+                        arr.push(str);
+                    } else {
+                        arr.push(line[i]);
+                    }
+                }
+                ti.push(arr);
+            });
 
             const info = new infoCont(
-                ["Description", "Content"],
-                tempInfo
+                ["Description", "Content 1", "Content 2", "Comparison 1:2"],
+                ti
             );
 
             info.createDiv();
@@ -2684,9 +2737,66 @@
                 o.info = info;
             });
         }
+
+        function combineInfos(item, ...info) {
+
+            let r;
+
+            switch(item) {
+                case 'Type':
+                    r = (info[0] === info[1]) ? "==" : "!=";
+                    break;
+                case 'ID':
+                    r = "";
+                    break;
+                case 'Floor':
+                    r = (info[0] === info[1]) ? "==" : "!=";
+                    break;
+                case 'Length':
+                    r = {
+                        'm': Math.trunc((info[1]['m']  - info[0]['m']) * 100) / 100,
+                        'pts': info[1]['pts'] - info[0]['pts'],
+                    };
+                    break;
+                case 'Duration':
+                    r = {
+                        's': Math.trunc(info[1]['s'] - info[0]['s']),
+                    };
+                    break;
+                case 'Avg. speed':
+                    r = {
+                        'km/h': Math.trunc((info[1]['km/h'] - info[0]['km/h']) * 100) / 100,
+                    };
+                    break;
+               /* case 'Edges':
+                case 'Ts Passing':
+                case '':
+                case '':
+                case '':
+                case '':
+                case '':
+                case '':
+                case '':
+                case '':*/
+                case 'Visited clusters':
+                    r = Levenshtein.get(info[0], info[1]); //edit distance
+                    break;
+                /*default:
+                    if((!isNaN(parseFloat(info[0]))) && (!isNaN(parseFloat(info[1])))) {
+                        //r = info[0] - info[1] : r = "-";
+                    }
+                    break;*/
+            }
+            return r;
+        }
     }
     function unShowInfo(...os) {
-        document.getElementById('infoDiv').removeChild(os[0].info.div);
+        for(let o in os) {
+            if(os.hasOwnProperty(o) && os[o].info.div) {
+                document.getElementById('infoDiv').removeChild(os[o].info.div);
+                break;
+            }
+        }
         os.customForEach(function(o) {
             if(o.info) delete o.info;
         });
