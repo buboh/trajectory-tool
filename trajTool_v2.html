@@ -24,7 +24,7 @@
 <script src="js/dat.gui.js"></script>
 <script src="js/papaparse.js"></script>
 <script src="js/thenBy.js"></script>
-<script src="js/levenshtein.js"></script>
+<script src="js/levenshtein_obj.js"></script>
 
 <!--Trajectory viewer-->
 <script>
@@ -1864,12 +1864,17 @@
             }
         }
         getVisitedClusters() {
-            let IDs = "";
+            /*let IDs = "";
             this.clusters.customForEach(function(clus) {
                 IDs += clus.centroid.ID.toString();
                 IDs += "-";
             });
-            IDs = IDs.slice(0,-1);
+            IDs = IDs.slice(0,-1);*/
+
+            let IDs = [];
+            this.clusters.customForEach(function(clus) {
+                IDs.push(clus.centroid.ID);
+            });
             return IDs;
         }
 
@@ -2616,12 +2621,14 @@
             const ti = [];
             tempInfo.customForEach(function(line) {
                 let arr = [line[0]];
-                if(line[1] instanceof Object) {
+                if(line[1] instanceof Array) {
+                    arr.push(line[1].join("-"));
+                } else if(line[1] instanceof Object) {
                     let str = "";
-                    for(let o in line[1]) {
+                    for (let o in line[1]) {
                         str += (line[1][o] + " " + o + " / ");
                     }
-                    str = str.slice(0,-3);
+                    str = str.slice(0, -3);
                     arr.push(str);
                 } else {
                     arr.push(line[1]);
@@ -2685,7 +2692,9 @@
             tempInfo.customForEach(function(line) {
                 let arr = [line[0]];
                 for(let i = 1; i < line.length; i++) {
-                    if(line[i] instanceof Object) {
+                    if(line[i] instanceof Array) {
+                        arr.push(line[i].join("-"));
+                    } else if(line[i] instanceof Object) {
                         let str = "";
                         for(let o in line[i]) {
                             str += (line[i][o] + " " + o + " / ");
