@@ -2036,20 +2036,22 @@
             }
         }
         getOriginClusters() {
-            let IDs = [];
+            let IDs = new Set();
             this.prevClusters.forEach(function(clus) {
-                IDs.push(clus.centroid.ID);
+                IDs.add(clus.centroid.ID);
             });
-            IDs.sort((a,b) => (a - b));
-            return IDs.join(", ");
+            //IDs.sort((a,b) => (a - b));
+            //return IDs.join(", ");
+            return IDs;
         }
         getDestinationClusters() {
-            let IDs = [];
+            let IDs = new Set();
             this.nextClusters.forEach(function(clus) {
-                IDs.push(clus.centroid.ID);
+                IDs.add(clus.centroid.ID);
             });
-            IDs.sort((a,b) => (a - b));
-            return IDs.join(", ");
+            //IDs.sort((a,b) => (a - b));
+            //return IDs.join(", ");
+            return IDs;
         }
 
         getExtensiveInfo() {
@@ -2203,6 +2205,7 @@
         raycaster.linePrecision = threePar.rayc.linePrec;
         mouse = new THREE.Vector2();
         window.addEventListener('click', onMouseClick, false);
+        window.addEventListener('mousemove', hoverDetector, false);
     } //three.js
 
     function updateRenderer() {
@@ -2274,43 +2277,114 @@
 
     function hoverDetector() {
 
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
         raycaster.setFromCamera(mouse, camera);
 
         // create an array containing all objects in the scene with which the ray intersects
-        let intersects = raycaster.intersectObjects(scene.children) ;
+        let intersects = raycaster.intersectObjects(scene.children, true) ;
 
         // INTERSECTED = the object in the scene currently closest to the camera
-        //		and intersected by the Ray projected from the mouse position
+        // and intersected by the Ray projected from the mouse position
 
         // if there is one (or more) intersections
         if (intersects.length > 0) {
 
-            const obj = intersects[0].object;
-            // if the closest object intersected is not the currently stored intersection object
-            if ((obj !== INTERSECTED) && (obj.type === 'Line')) {
-                // restore previous intersection object (if it exists) to its original color
-                if (INTERSECTED) {
-                    INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-                    INTERSECTED.material.needsUpdate = true;
-                }
-                // store reference to closest object as current intersection object
-                INTERSECTED = intersects[0].object;
-                // store color of closest object (for later restoration)
-                INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
-                // set a new color for closest object
-                INTERSECTED.material.color.setHex( 0x00ff00 );
-                INTERSECTED.material.needsUpdate = true;
-            }
-        } else {// there are no intersections
-            // restore previous intersection object (if it exists) to its original color
-            if (INTERSECTED) {
-                INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-                INTERSECTED.material.needsUpdate = true;
+            let obj;
+            let tempGeom = null;
+
+            for(let o = 0; o < intersects.length; o++) {
+
+                const tempObj = intersects[o].object;
+
+                if((!(intersects[o].distance.isNaN)) && (tempObj.geometry !== tempGeom) &&
+                    ((Math.trunc(intersects[o].point.z * 100) / 100) >= (bd.floor * 10) - 1) &&
+                    ((Math.trunc(intersects[o].point.z * 100) / 100) <= (bd.floor * 10) + 1) &&
+                    (tempObj.geometry.vertices[0].z >= ((bd.floor * 10) - 1)) &&
+                    (tempObj.geometry.vertices[0].z <= ((bd.floor * 10) + 1)))
+                    outer_if:{
+
+                        tempGeom = tempObj.geometry;
+
+                        if(tempObj.userData instanceof Trajectory) {
+                            obj = {
+                                type: 'trajectory',
+                                userData: tempObj.userData,
+                            };
+                            break outer_if;
+                        } else if(tempObj.userData instanceof Centroid) {
+                            obj = {
+                                type: 'centroid',
+                                userData: tempObj.userData.cluster,
+                            };
+                            break outer_if;
+                        } else if(tempObj.userData instanceof Array) {
+                            if(tempObj.userData[0].cluster) {
+                                obj = {
+                                    type: 'member',
+                                    userData: tempObj.userData[0].cluster,
+                                };
+                            } else {
+                                obj = {
+                                    type: 'error',
+                                    userData: tempObj.userData,
+                                };
+                            }
+                            break outer_if;
+                        }
+                    }
             }
 
-            // remove previous intersection object reference
-            // by setting current intersection object to "nothing"
-            INTERSECTED = null;
+            if(obj) {
+                if(INTERSECTED.size === 0) {
+
+                    highlight(obj);
+                    showInfo(obj);
+                    INTERSECTED.add(obj);
+
+                } else {
+
+                    if(!flags.raycaster.shiftDown) { //shift not pressed -> remove all highlights
+
+                        INTERSECTED.forEach(unHighlight);
+                        unShowInfo(...INTERSECTED);
+                        INTERSECTED.clear();
+
+                        INTERSECTED.add(obj);
+                        highlight(obj);
+                        showInfo(obj);
+
+                    } else { //shift pressed
+
+                        let isHighlighted = false;
+                        INTERSECTED.forEach(function(o) {
+                            if(obj.userData === o.userData) {
+                                obj = o;
+                                isHighlighted = true;
+                            }
+                        });
+                        if(isHighlighted) { //if clicked object is already highlighted -> remove highlight
+
+                            unHighlight(obj);
+                            unShowInfo(...INTERSECTED);
+                            INTERSECTED.delete(obj);
+                            showInfo(...INTERSECTED);
+
+                        } else { //if clicked object is not yet highlighted -> add highlight
+
+                            unShowInfo(...INTERSECTED);
+                            INTERSECTED.add(obj);
+                            INTERSECTED.forEach(highlight);
+                            showInfo(...INTERSECTED);
+                        }
+                    }
+                }
+            } else if(!flags.raycaster.shiftDown) {
+                INTERSECTED.forEach(unHighlight);
+                unShowInfo(...INTERSECTED);
+                INTERSECTED.clear();
+            }
         }
     }
 
@@ -2339,8 +2413,8 @@
                 if((!(intersects[o].distance.isNaN)) && (tempObj.geometry !== tempGeom) &&
                     ((Math.trunc(intersects[o].point.z * 100) / 100) >= (bd.floor * 10) - 1) &&
                     ((Math.trunc(intersects[o].point.z * 100) / 100) <= (bd.floor * 10) + 1) &&
-                    (tempObj.geometry.vertices[0].z >= (bd.floor - 1)) &&
-                    (tempObj.geometry.vertices[0].z <= (bd.floor + 1)))
+                    (tempObj.geometry.vertices[0].z >= ((bd.floor * 10) - 1)) &&
+                    (tempObj.geometry.vertices[0].z <= ((bd.floor * 10) + 1)))
                     outer_if:{
 
                     tempGeom = tempObj.geometry;
@@ -2621,17 +2695,33 @@
             const ti = [];
             tempInfo.customForEach(function(line) {
                 let arr = [line[0]];
-                if(line[1] instanceof Array) {
-                    arr.push(line[1].join("-"));
-                } else if(line[1] instanceof Object) {
+                const i = 1;
+
+                if(line[i] instanceof Array) {
+
+                    arr.push(line[i].join(","));
+
+                } else if(line[i] instanceof Set) {
+
+                    let IDs = [];
+                    line[i].forEach(function(c) {
+                        IDs.push(c);
+                    });
+                    IDs.sort((a,b) => (a - b));
+                    arr.push(IDs.join(", "));
+
+                } else if(line[i] instanceof Object) {
+
                     let str = "";
-                    for (let o in line[1]) {
-                        str += (line[1][o] + " " + o + " / ");
+                    for(let o in line[i]) {
+                        str += (line[i][o] + " " + o + " / ");
                     }
-                    str = str.slice(0, -3);
+                    str = str.slice(0,-3);
                     arr.push(str);
+
                 } else {
-                    arr.push(line[1]);
+
+                    arr.push(line[i]);
                 }
                 ti.push(arr);
             });
@@ -2667,8 +2757,6 @@
                 }
             });
 
-
-
             for(let type in infos) {
                 for(let it in infos[type].info[0]) {
                     infos[type][it] = [];
@@ -2690,18 +2778,35 @@
 
             const ti = [];
             tempInfo.customForEach(function(line) {
+
                 let arr = [line[0]];
+
                 for(let i = 1; i < line.length; i++) {
+
                     if(line[i] instanceof Array) {
-                        arr.push(line[i].join("-"));
+
+                        arr.push(line[i].join(","));
+
+                    } else if(line[i] instanceof Set) {
+
+                        let IDs = [];
+                        line[i].forEach(function(c) {
+                            IDs.push(c);
+                        });
+                        IDs.sort((a,b) => (a - b));
+                        arr.push(IDs.join(", "));
+
                     } else if(line[i] instanceof Object) {
+
                         let str = "";
                         for(let o in line[i]) {
                             str += (line[i][o] + " " + o + " / ");
                         }
                         str = str.slice(0,-3);
                         arr.push(str);
+
                     } else {
+
                         arr.push(line[i]);
                     }
                 }
@@ -2777,24 +2882,35 @@
                         'km/h': Math.trunc((info[1]['km/h'] - info[0]['km/h']) * 100) / 100,
                     };
                     break;
-               /* case 'Edges':
-                case 'Ts Passing':
-                case '':
-                case '':
-                case '':
-                case '':
-                case '':
-                case '':
-                case '':
-                case '':*/
                 case 'Visited clusters':
                     r = Levenshtein.get(info[0], info[1]); //edit distance
                     break;
-                /*default:
-                    if((!isNaN(parseFloat(info[0]))) && (!isNaN(parseFloat(info[1])))) {
-                        //r = info[0] - info[1] : r = "-";
-                    }
-                    break;*/
+                case 'Members':
+                    r = info[1] - info[0];
+                    break;
+                case 'Edges':
+                    r = {
+                        'in': info[1]['in'] - info[0]['in'],
+                        'out': info[1]['out'] - info[0]['out'],
+                    };
+                    break;
+                case 'Ts Passing':
+                    r = info[1] - info[0];
+                    break;
+                case 'Origins':
+                case 'Destinations':
+                    r = new Set([...info[0]].filter(x => info[1].has(x)));
+                    if(r.size === 0) r = "-";
+                    break;
+                case 'Centroid':
+                    r = {
+                        'm': Math.trunc(getSpatialDistance(info[0], info[1]) * 100) / 100,
+                    };
+                    break;
+                case '':
+                case '':
+                case '':
+                case '':
             }
             return r;
         }
