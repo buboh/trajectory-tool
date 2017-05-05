@@ -2309,17 +2309,18 @@
                         tempGeom = tempObj.geometry;
 
                         if(tempObj.userData instanceof Trajectory) {
+
                             obj = {
                                 type: 'trajectory',
                                 userData: tempObj.userData,
-                                interaction: 'hover',
+                                state: '',
                             };
                             break outer_if;
                         } else if(tempObj.userData instanceof Centroid) {
                             obj = {
                                 type: 'centroid',
                                 userData: tempObj.userData.cluster,
-                                interaction: 'hover',
+                                state: '',
                             };
                             break outer_if;
                         } else if(tempObj.userData instanceof Array) {
@@ -2327,13 +2328,13 @@
                                 obj = {
                                     type: 'member',
                                     userData: tempObj.userData[0].cluster,
-                                    interaction: 'hover',
+                                    state: '',
                                 };
                             } else {
                                 obj = {
                                     type: 'error',
                                     userData: tempObj.userData,
-                                    interaction: 'hover',
+                                    state: '',
                                 };
                             }
                             break outer_if;
@@ -2350,9 +2351,9 @@
 
                 } else {
 
-                    if(!flags.raycaster.shiftDown) { //shift not pressed -> remove all highlights
+                    //if(!flags.raycaster.shiftDown) { //shift not pressed -> remove all highlights
 
-                        INTERSECTED.forEach(function(o) {
+                        /*INTERSECTED.forEach(function(o) {
                             unHighlight('hover', o);
                         });
                         unShowInfo('hover', ...INTERSECTED);
@@ -2360,9 +2361,9 @@
 
                         INTERSECTED.add(obj);
                         highlight(obj, threePar.rayc.hoverColor);
-                        showInfo(obj);
+                        showInfo(obj);*/
 
-                    } else { //shift pressed
+                    //} else { //shift pressed
 
                         let isHighlighted = false;
                         INTERSECTED.forEach(function(o) {
@@ -2373,28 +2374,57 @@
                         });
                         if(isHighlighted) { //if clicked object is already highlighted -> remove highlight
 
-                            unHighlight('hover', obj);
+                            if(obj.state === 'clicked') {
+
+                                //unHighlight('click', obj);
+                                unShowInfo('click', ...INTERSECTED);
+                                showInfo(...INTERSECTED);
+                                highlight(obj, threePar.rayc.hoverColor);
+
+                            } else {
+
+                                unShowInfo('click', ...INTERSECTED);
+                                INTERSECTED.add(obj);
+                                showInfo(...INTERSECTED);
+
+                                highlight(obj, threePar.rayc.hoverColor);
+
+                            }
+
+                            /*unHighlight('hover', obj);
                             unShowInfo('hover', ...INTERSECTED);
                             INTERSECTED.delete(obj);
-                            showInfo(...INTERSECTED);
+                            showInfo(...INTERSECTED);*/
 
                         } else { //if clicked object is not yet highlighted -> add highlight
 
                             unShowInfo('hover', ...INTERSECTED);
                             INTERSECTED.add(obj);
-                            INTERSECTED.forEach(function(o) {
-                                highlight(o, threePar.rayc.hoverColor)
-                            });
+                            //INTERSECTED.forEach(function(o) {
+                            highlight(obj, threePar.rayc.hoverColor);
+                            //});
                             showInfo(...INTERSECTED);
                         }
-                    }
+                   //}
                 }
             } else if(!flags.raycaster.shiftDown) {
-                INTERSECTED.forEach(function(o) {
-                    unHighlight('hover', o);
-                });
+
                 unShowInfo('hover', ...INTERSECTED);
-                INTERSECTED.clear();
+
+                INTERSECTED.forEach(function(o) {
+                    if(o.state === 'clicked') {
+                        highlight(o, threePar.rayc.clickColor);
+                    } else {
+
+                        unHighlight('hover', o);
+                        INTERSECTED.delete(o);
+
+                    }
+
+                });
+                if(INTERSECTED.size !== 0) {
+                    showInfo(...INTERSECTED);
+                }
             }
         }
     }
@@ -2434,14 +2464,14 @@
                         obj = {
                             type: 'trajectory',
                             userData: tempObj.userData,
-                            interaction: 'click',
+                            state: '',
                         };
                         break outer_if;
                     } else if(tempObj.userData instanceof Centroid) {
                         obj = {
                             type: 'centroid',
                             userData: tempObj.userData.cluster,
-                            interaction: 'click',
+                            state: '',
                         };
                         break outer_if;
                     } else if(tempObj.userData instanceof Array) {
@@ -2449,13 +2479,13 @@
                             obj = {
                                 type: 'member',
                                 userData: tempObj.userData[0].cluster,
-                                interaction: 'click',
+                                state: '',
                             };
                         } else {
                             obj = {
                                 type: 'error',
                                 userData: tempObj.userData,
-                                interaction: 'click',
+                                state: '',
                             };
                         }
                         break outer_if;
@@ -2468,55 +2498,83 @@
 
                     highlight(obj, threePar.rayc.clickColor);
                     showInfo(obj);
+                    obj.state = 'clicked';
                     INTERSECTED.add(obj);
 
                 } else {
 
                     if(!flags.raycaster.shiftDown) { //shift not pressed -> remove all highlights
 
-                        INTERSECTED.forEach(function(o) {
-                            unHighlight('click', o)
-                        });
                         unShowInfo('click', ...INTERSECTED);
-                        INTERSECTED.clear();
 
-                        INTERSECTED.add(obj);
-                        highlight(obj, threePar.rayc.clickColor);
-                        showInfo(obj);
-
-                    } else { //shift pressed
-
-                        let isHighlighted = false;
                         INTERSECTED.forEach(function(o) {
                             if(obj.userData === o.userData) {
                                 obj = o;
-                                isHighlighted = true;
                             }
                         });
-                        if(isHighlighted) { //if clicked object is already highlighted -> remove highlight
 
-                            unHighlight('click', obj);
-                            unShowInfo('click', ...INTERSECTED);
-                            INTERSECTED.delete(obj);
-                            showInfo(...INTERSECTED);
+                        if(obj.state === 'clicked') {
+                            let k = 0;
+                        } else {
+                            highlight(obj, threePar.rayc.clickColor);
+                            showInfo(obj);
+                            obj.state = 'clicked';
+                            INTERSECTED.add(obj);
+                        }
+
+                        /*INTERSECTED.forEach(function(o) {
+                            if(o.state === 'clicked') {
+                                unHighlight('click', o);
+                                INTERSECTED.delete(o);
+                            }
+                        });*/
+
+                    } else { //shift pressed
+
+                        let isIntersected = false;
+                        INTERSECTED.forEach(function(o) {
+                            if(obj.userData === o.userData) {
+                                obj = o;
+                                isIntersected = true;
+                            }
+                        });
+                        if(isIntersected) { //if clicked object is already highlighted -> remove highlight
+
+                            if(obj.state === 'clicked') {
+
+                                unHighlight('click', obj);
+                                unShowInfo('click', ...INTERSECTED);
+                                INTERSECTED.delete(obj);
+                                showInfo(...INTERSECTED);
+
+                            } else {
+
+                                unShowInfo('click', ...INTERSECTED);
+                                INTERSECTED.add(obj);
+                                highlight(obj, threePar.rayc.clickColor);
+                                obj.state = 'clicked';
+                                showInfo(...INTERSECTED);
+
+                            }
 
                         } else { //if clicked object is not yet highlighted -> add highlight
 
                             unShowInfo('click', ...INTERSECTED);
                             INTERSECTED.add(obj);
-                            INTERSECTED.forEach(function(o) {
-                                highlight(o, threePar.rayc.clickColor);
-                            });
+                            highlight(obj, threePar.rayc.clickColor);
+                            obj.state = 'clicked';
                             showInfo(...INTERSECTED);
                         }
                     }
                 }
-            } else if(!flags.raycaster.shiftDown) {
-                INTERSECTED.forEach(function(o) {
-                    unHighlight('click', o);
-                });
-                unShowInfo('click', ...INTERSECTED);
-                INTERSECTED.clear();
+            } else {
+                if(!flags.raycaster.shiftDown) {
+                    INTERSECTED.forEach(function(o) {
+                        unHighlight('click', o);
+                    });
+                    unShowInfo('click', ...INTERSECTED);
+                    INTERSECTED.clear();
+                }
             }
         }
     }
@@ -2551,34 +2609,33 @@
         }
     }
     function unHighlight(interaction, o) {
-        if(interaction === o.interaction) {
-            switch (o.type) {
-                case 'trajectory': {
-                    unClickTrajectory(o.userData, true, true, true, true);
-                    o.userData.clusters.customForEach(function (clus) {
-                        unClickCluster(clus);
-                    });
-                    break;
-                }
-                case 'centroid': {
-                    unClickCluster(o.userData, true, true, true);
-                    o.userData.trajectories.forEach(function (traj) {
-                        unClickTrajectory(traj);
-                    });
-                    break;
-                }
-                case 'member': {
-                    unClickCluster(o.userData, true, true, true);
-                    o.userData.trajectories.forEach(function (traj) {
-                        unClickTrajectory(traj);
-                    });
-                    break;
-                }
-                case 'error':
-                    unClickErrors();
-                    break;
+        switch (o.type) {
+            case 'trajectory': {
+                uncolorTrajectory(o.userData);
+                o.userData.clusters.customForEach(function (clus) {
+                    unClickCluster(clus);
+                });
+                break;
             }
+            case 'centroid': {
+                unClickCluster(o.userData);
+                o.userData.trajectories.forEach(function (traj) {
+                    uncolorTrajectory(traj);
+                });
+                break;
+            }
+            case 'member': {
+                unClickCluster(o.userData);
+                o.userData.trajectories.forEach(function (traj) {
+                    uncolorTrajectory(traj);
+                });
+                break;
+            }
+            case 'error':
+                unClickErrors();
+                break;
         }
+
     }
 
     function clickTrajectory(color, traj, dots, line, clusLine, anchLine) {
@@ -2611,7 +2668,7 @@
             });
         }*/
     }
-    function unClickTrajectory(traj) {
+    function uncolorTrajectory(traj) {
         if (traj.dots) {
             traj.dots.children.customForEach(function(dot) {
                 dot.material.color.set(traj.color);
@@ -2679,7 +2736,7 @@
         }
         /*if (clus.trajectories.size !== 0) {
             clus.trajectories.forEach(function (traj) {
-                unClickTrajectory(traj)
+                uncolorTrajectory(traj)
             });
         }*/
     }
