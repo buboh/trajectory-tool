@@ -1069,10 +1069,10 @@
     const guiPar = {
         folders: {
             load: {
-                name: "Load things",
+                name: "Load",
             },
             del: {
-                name: "Delete things",
+                name: "Delete",
             },
             bdSettings: {
                 name: "Building settings",
@@ -1087,7 +1087,7 @@
                 name: "Data settings",
             },
             infoSettings: {
-                name: "Infobox settings"
+                name: "Info-box settings"
             }
         },
         buttons: {
@@ -3073,6 +3073,9 @@
             if(file.type.match(fileType)) {
                 bd.filePath = fileName.slice(0, -5);
                 bd.fileExt = fileName.slice(-4, fileName.length);
+
+
+
                 deleteEverything();
                 changeFloors();
             } else {
@@ -3957,7 +3960,7 @@
         };
     }
     function getSpatialDistance(p1, p2) {
-        return Math.sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y));
+        return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
     }
 
 //--MAKE-(THREE.JS)-----------------------------------------------------------------------------------------------------
