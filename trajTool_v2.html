@@ -25,6 +25,7 @@
 <script src="js/papaparse.js"></script>
 <script src="js/thenBy.js"></script>
 <script src="js/levenshtein_obj.js"></script>
+<script src="js/reimg.js"></script>
 
 <!--Trajectory viewer-->
 <script>
@@ -1115,6 +1116,10 @@
             hideGrid: {
                 func: 'hideAllGrids',
                 name: 'Hide grid',
+            },
+            screenshot: {
+                func: 'takeScreenshot',
+                name: 'Take screenshot',
             }
 
         },
@@ -2209,6 +2214,8 @@
         window.addEventListener('mousemove', hoverDetector, false);
     } //three.js
 
+//--UPDATE--------------------------------------------------------------------------------------------------------------
+
     function updateRenderer() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     } //three.js
@@ -2237,6 +2244,13 @@
         requestAnimationFrame(update);
         renderer.render(scene, camera);
     } //three.js
+
+    function takeScreenshot() {
+        renderer.render(scene, camera);
+        //const screenshot = renderer.domElement.toDataURL();
+        //console.log(screenshot);
+        ReImg.fromCanvas(renderer.domElement).downloadPng();
+    }
 
 //--HELPERS-------------------------------------------------------------------------------------------------------------
 
@@ -3018,7 +3032,7 @@
 //        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
     }
 
-//--INITS---------------------------------------------------------------------------------------------------------------
+//--MORE-INITS----------------------------------------------------------------------------------------------------------
 
     function initWindowResizeListeners() {
         window.addEventListener(
@@ -3178,6 +3192,7 @@
         fViewSettings.add(this, guiPar.buttons.hideGrid.func).name(guiPar.buttons.hideGrid.name);
         fViewSettings.add(bd, guiPar.sliders.zoom.func, guiPar.sliders.zoom.min, guiPar.sliders.zoom.max)
                             .step(guiPar.sliders.zoom.step).name(guiPar.sliders.zoom.name);
+        fViewSettings.add(this, guiPar.buttons.screenshot.func).name(guiPar.buttons.screenshot.name);
 
         const fLineTypes = gui.addFolder(guiPar.folders.lineTypes.name);
         fLineTypes.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
@@ -3204,6 +3219,7 @@
             }
         }
         fInfoSettings.open();
+
 
         const guiDiv = document.getElementById('guiDiv');
         guiDiv.appendChild(gui.domElement);
