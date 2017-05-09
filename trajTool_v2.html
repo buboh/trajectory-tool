@@ -3412,6 +3412,13 @@
 
         return list;
     }
+
+    function doBefore(chunk) {
+        const rows = chunk.split(/\r\n|\r|\n/);
+        rows[0] = par.csv.header;
+        return rows.join("\r\n");
+    }
+
     function parseCSV(csvString) {
         const parseResult = Papa.parse(csvString, {
             header: true,
@@ -4292,7 +4299,7 @@
                 }
                 case 'grds': {
                     for(let floor in data.grds) {
-                        if(data.grds.hasOwnProperty(floor)) {
+                        if (data.grds.hasOwnProperty(floor)) {
                             scene.remove(data.grds[floor].drawing);
                         }
                     }

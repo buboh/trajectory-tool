@@ -32,3 +32,27 @@ scene.add(line);
 
 let renderer = new THREE.WebGLRenderer();
 renderer.render(scene, camera);
+
+function doBefore(chunk) {
+    const rows = chunk.split(/\r\n|\r|\n/);
+    rows[0] = par.csv.header;
+    return rows.join("\r\n");
+}
+
+function parseCSV(csvString) {
+    const parseResult = Papa.parse(csvString, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true,
+        comments: '#',
+        //step: true,
+        beforeFirstChunk: doBefore,
+    });
+    return parseResult.data;
+}
+
+result = {
+    name: 'John',
+    age: 24,
+    gender: 'male'
+};
