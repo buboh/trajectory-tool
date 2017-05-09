@@ -1259,6 +1259,9 @@
 //--CONSTANTS-----------------------------------------------------------------------------------------------------------
 
     const bd = {
+
+        img: null,
+
         w: window.innerWidth, //building width
         wListener: function() {
             updateCamera();
@@ -3074,7 +3077,7 @@
                 bd.filePath = fileName.slice(0, -5);
                 bd.fileExt = fileName.slice(-4, fileName.length);
 
-
+                //bd.img = file;
 
                 deleteEverything();
                 changeFloors();
@@ -3234,11 +3237,16 @@
     function loadNewBgMesh(buildingName, floor) {
         const buildingPath = par.bg.dir + buildingName;
         let backgroundMesh;
-        let bgMaterial = new THREE.MeshBasicMaterial();
+        let bgMaterial;// = new THREE.MeshBasicMaterial();
+
+        //let image = new Image();
+        //image.src = URL.createObjectURL(bd.img);
+        //const texture = new THREE.Texture(image);
 
         const bgLoader = new THREE.TextureLoader();
         bgLoader.load(
             buildingPath,
+            ///URL.createObjectURL(bd.img),
             function (texture) {
                 bgMaterial = new THREE.MeshBasicMaterial({
                     map: texture
