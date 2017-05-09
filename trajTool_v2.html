@@ -1113,9 +1113,9 @@
                 func: 'deleteTrajectoryData',
                 name: 'Delete trajectories',
             },
-            hideGrid: {
-                func: 'hideAllGrids',
-                name: 'Hide grid',
+            toggleGrid: {
+                func: 'toggleAllGrids',
+                name: 'Toggle grid',
             },
             screenshot: {
                 func: 'takeScreenshot',
@@ -1470,6 +1470,9 @@
         },
     };
     const flags = {
+        view: {
+            grid: false,
+        },
         dom: {
             infoDivCount: 0,
         },
@@ -3195,7 +3198,7 @@
                         .step(guiPar.sliders.scale.step).name(guiPar.sliders.scale.name);
 
         const fViewSettings = gui.addFolder(guiPar.folders.viewSettings.name);
-        fViewSettings.add(this, guiPar.buttons.hideGrid.func).name(guiPar.buttons.hideGrid.name);
+        fViewSettings.add(this, guiPar.buttons.toggleGrid.func).name(guiPar.buttons.toggleGrid.name);
         fViewSettings.add(bd, guiPar.sliders.zoom.func, guiPar.sliders.zoom.min, guiPar.sliders.zoom.max)
                             .step(guiPar.sliders.zoom.step).name(guiPar.sliders.zoom.name);
         fViewSettings.add(this, guiPar.buttons.screenshot.func).name(guiPar.buttons.screenshot.name);
@@ -3346,7 +3349,8 @@
         });
 
         data.grds[floor].drawing = new THREE.LineSegments(coordGeometry, coordMaterial);
-        scene.add(data.grds[floor].drawing); //ToDo: reenable grids
+        scene.add(data.grds[floor].drawing);
+        flags.view.grid = true;
     } //three.js -- disabled
 
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
@@ -4287,8 +4291,8 @@
                     break;
                 }
                 case 'grds': {
-                    for (let floor in data.grds) {
-                        if (data.grds.hasOwnProperty(floor)) {
+                    for(let floor in data.grds) {
+                        if(data.grds.hasOwnProperty(floor)) {
                             scene.remove(data.grds[floor].drawing);
                         }
                     }
@@ -4477,8 +4481,20 @@
     }
 
     //--Grids-----------------------------------------------------------------------------------------------------------
+    function toggleAllGrids() {
+        if(flags.view.grid) {
+            hideDrawing(['grds']);
+            flags.view.grid = false;
+        } else {
+            for(let f in data.grds) {
+                scene.add(data.grds[f].drawing);
+            }
+            flags.view.grid = true;
+        }
+    }
     function hideAllGrids() {
         hideDrawing(['grds']);
+        flags.view.grid = false;
     }
     function deleteAllGrids() {
         hideDrawing(['grds']);

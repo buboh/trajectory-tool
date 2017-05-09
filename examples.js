@@ -18,3 +18,17 @@ let data = {
 const gui = new dat.GUI();
 gui.add(data, 'floor', -10, 10).step(1).name('Floor:');
 
+let vector_a = new THREE.Vector3(0,0,0);
+let vector_b = new THREE.Vector3(0,0,0);
+
+let geom = new THREE.Geometry();
+geom.vertices.push(vector_a, vector_b);
+
+let mat = new THREE.LineBasicMaterial({color: 0x000000});
+let line = new THREE.Line(geom, material);
+
+let scene = new THREE.Scene();
+scene.add(line);
+
+let renderer = new THREE.WebGLRenderer();
+renderer.render(scene, camera);
