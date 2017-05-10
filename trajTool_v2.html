@@ -1498,29 +1498,29 @@
         grds: {},
         trjs: {
             valid: false,
-            val: [],
+            value: [],
         },
         grts: {
             valid: false,
-            val: [],
+            value: [],
         },
         clts: {
             valid: false,
-            val: [],
+            value: [],
         },
         edgs: {
             valid: false,
-            val: [],
+            value: [],
         },
-        errors: {
+        errs: {
             valid: false,
-            val: [],
+            value: [],
         }, //temp
     };
     const draw = {
         bgMs: [],
         grds: [],
-        errors: null,
+        errs: null,
     };
 
 //--CLASSES-------------------------------------------------------------------------------------------------------------
@@ -1609,15 +1609,15 @@
 
     class Point {
         constructor(p) {
-            this.col = par.tj.color;
+            this.ID = p.ID;
             this.did = p.did;
             this.x = p.x;
             this.y = p.y;
             this.f = p.f;
             this.t = p.t;
-            this.cl = null;
             this.traj = p.traj;
-            this.ID = p.ID;
+            this.cl = null;
+            this.col = null;
         }
         get color() {return this.col}
         set color(val) {this.col = val}
@@ -2761,16 +2761,16 @@
         }*/
     }
     function clickErrors(color) {
-        if (draw.errors) {
-            draw.errors.children.customForEach(function(dot) {
+        if (draw.errs) {
+            draw.errs.children.customForEach(function(dot) {
                 dot.material.color.set(color);
                 dot.material.needsUpdate = true;
             });
         }
     }
     function unClickErrors() {
-        if (draw.errors) {
-            draw.errors.children.customForEach(function(dot) {
+        if (draw.errs) {
+            draw.errs.children.customForEach(function(dot) {
                 dot.material.color.set(par.cl.errors.color);
                 dot.material.needsUpdate = true;
             });
@@ -2784,7 +2784,7 @@
         if(os.length === 1) {
 
             const o = os[0];
-            if(o.type !== 'errors') {
+            if(o.type !== 'error') {
                 if(bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
                 if(bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
                 if(bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
@@ -2848,7 +2848,7 @@
             };
 
             os.customForEach(function(o) {
-                if (o.type !== 'errors') {
+                if (o.type !== 'error') {
                     if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
                     if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
                     if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
@@ -2930,7 +2930,7 @@
 
             //placeholder
             os.customForEach(function (o) {
-                if (o.type !== 'errors') {
+                if (o.type !== 'error') {
                     if (bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
                     if (bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
                     if (bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
@@ -3332,13 +3332,13 @@
             });
         }
         data.grds[floor] = {};
-        data.grds[floor].val = coordLines;
+        data.grds[floor].value = coordLines;
         data.grds[floor].valid = true;
     }
     function drawGrid(floor) {
 
         const coordGeometry = new THREE.Geometry();
-        data.grds[floor].val.customForEach(function(line) {
+        data.grds[floor].value.customForEach(function(line) {
             coordGeometry.vertices.push(new THREE.Vector3(line.p0.x, -line.p0.y, line.p0.f * 10 + par.gd.corrZ));
             coordGeometry.vertices.push(new THREE.Vector3(line.p1.x, -line.p1.y, line.p1.f * 10 + par.gd.corrZ));
         });
@@ -3360,7 +3360,7 @@
 
         data.trjs.valid = false;
         data.clts.valid = false;
-        data.errors.valid = false;
+        data.errs.valid = false;
 
         const list = [];
 
@@ -3411,12 +3411,6 @@
         });
 
         return list;
-    }
-
-    function doBefore(chunk) {
-        const rows = chunk.split(/\r\n|\r|\n/);
-        rows[0] = par.csv.header;
-        return rows.join("\r\n");
     }
 
     function parseCSV(csvString) {
@@ -3578,11 +3572,11 @@
                                     p.trajectory = tempTrajectory;
                                 });
 
-                                data.trjs.val.push(tempTrajectory);
+                                data.trjs.value.push(tempTrajectory);
                             }
                         });
 
-                        data.trjs.val.customForEach(function(tempTrajectory) {
+                        data.trjs.value.customForEach(function(tempTrajectory) {
 
                             let tempPrevPoint = tempTrajectory.rawPoints[0];
                             if(tempPrevPoint.floorChangeFrom) {
@@ -3639,7 +3633,7 @@
                                     for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
                                         tempPrevPoint = tempTrajectory.rawPoints[p];
                                     }
-                                    data.grts.val.push(tempTrajectory);
+                                    data.grts.value.push(tempTrajectory);
                                 }
                             }
                         }
@@ -3686,7 +3680,7 @@
             //cluster.color = Math.random() * par.ct.color + par.ct.corrColor;
             const scale = chroma.scale(par.cl.colorScaleType).domain([0,ml]);
             cluster.color = scale(cluster.members.length).darken(par.cl.colorDarkenFactor).hex();
-            data.clts.val.push(cluster); //ToDo
+            data.clts.value.push(cluster); //ToDo
         });
         data.clts.valid = true;
 
@@ -3707,12 +3701,12 @@
         });
 
         data.edgs.valid = false;
-        data.clts.val.customForEach(function(clus) {
+        data.clts.value.customForEach(function(clus) {
             clus.nextClusters.forEach(function(nextClus) {
                 const edge = new Edge(clus, nextClus);
                 clus.addEdge(edge);
                 nextClus.addEdge(edge);
-                data.edgs.val.push(edge);
+                data.edgs.value.push(edge);
             });
         });
         data.edgs.valid = true;
@@ -3838,8 +3832,8 @@
             }
             r++;
         }
-        data.errors.val = [];
-        data.errors.valid = false;
+        data.errs.value = [];
+        data.errs.valid = false;
 
         let cnt = 0;
 
@@ -3854,7 +3848,7 @@
 
                 } else {
 
-                    data.errors.val.push(p); //ToDo
+                    data.errs.value.push(p); //ToDo
                     cnt++;
                 }
             });
@@ -3872,7 +3866,7 @@
             }
             r++;
         }
-        data.errors.valid = true;
+        data.errs.valid = true;
     }
     function recalculateCentroids(R, G) {
 
@@ -4014,12 +4008,12 @@
     }
     function makeErrors() {
         const errors = new THREE.Group();
-        data.errors.val.customForEach(function(point) {
+        data.errs.value.customForEach(function(point) {
             const errorGeom = makeCircleGeometry(par.tj.dot.size, point, 0);
-            errors.add(createCircle(errorGeom, par.cl.errors.color, par.tj.dot.opacity, par.tj.dot.size, data.errors.val)); //data.errors.val));
+            errors.add(createCircle(errorGeom, par.cl.errors.color, par.tj.dot.opacity, par.tj.dot.size, data.errs.value)); //data.errs.value));
             point.isError = true;
         });
-        draw.errors = errors;
+        draw.errs = errors;
     }
     function makeGraph(traj) {
         const trajGeom = makeTrajLineGeom(traj);
@@ -4213,7 +4207,7 @@
         switch(choice) {
             case 'points': {
                 if(!data.trjs.valid) break;
-                data.trjs.val.customForEach(function(traj) {
+                data.trjs.value.customForEach(function(traj) {
                     if(!traj.dots) makePoints(traj);
                     scene.add(traj.dots);
                 });
@@ -4221,43 +4215,43 @@
             }
             case 'lines': {
                 if(!data.trjs.valid) break;
-                data.trjs.val.customForEach(function(traj) {
+                data.trjs.value.customForEach(function(traj) {
                     if(!traj.line) makeLine(traj);
                     scene.add(traj.line);
                 });
                 break;
             }
             case 'centroids': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.customForEach(function(clus) {
+                if(!data.clts.valid) cluster(data.trjs.value);
+                data.clts.value.customForEach(function(clus) {
                     if(!clus.centDot) makeCentroid(clus);
                     scene.add(clus.centDot);
                 });
                 break;
             }
             case 'circles': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.customForEach(function(clus) {
+                if(!data.clts.valid) cluster(data.trjs.value);
+                data.clts.value.customForEach(function(clus) {
                     if(!clus.circMesh) makeCircle(clus);
                     scene.add(clus.circMesh);
                 });
                 break;
             }
             case 'clusters': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                data.clts.val.customForEach(function(clus) {
+                if(!data.clts.valid) cluster(data.trjs.value);
+                data.clts.value.customForEach(function(clus) {
                     if(!clus.membDots) makeCluster(clus);
                     scene.add(clus.membDots);
                 });
-                if(data.errors.val.length !== 0) {
-                    if(!draw.errors) makeErrors();
-                    scene.add(draw.errors);
+                if(data.errs.value.length !== 0) {
+                    if(!draw.errs) makeErrors();
+                    scene.add(draw.errs);
                 }
                 break;
             }
             case 'graph': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                data.trjs.val.customForEach(function(traj) {
+                if(!data.clts.valid) cluster(data.trjs.value);
+                data.trjs.value.customForEach(function(traj) {
                     if(!traj.clusLine) {
                         makeGraph(traj);
                     }
@@ -4266,8 +4260,8 @@
                 break;
             }
             case 'curves': {
-                if(!data.clts.valid) cluster(data.trjs.val);
-                data.trjs.val.customForEach(function(traj) {
+                if(!data.clts.valid) cluster(data.trjs.value);
+                data.trjs.value.customForEach(function(traj) {
                     if(!traj.anchLine) makeAnchorCurve(traj);
                     if(traj.anchLine instanceof THREE.Line) {
                         scene.add(traj.anchLine);
@@ -4277,7 +4271,7 @@
             }
             case 'groundtruth': {
                 if(!data.grts.valid) break;
-                data.grts.val.customForEach(function(traj) {
+                data.grts.value.customForEach(function(traj) {
                     if(!traj.line) makeLine(traj);
                     scene.add(traj.line);
                 });
@@ -4306,50 +4300,50 @@
                     break;
                 }
                 case 'points': {
-                    data.trjs.val.customForEach(function(traj) {
+                    data.trjs.value.customForEach(function(traj) {
                         scene.remove(traj.dots);
                     });
                     break;
                 }
                 case 'lines': {
-                    data.trjs.val.customForEach(function(traj) {
+                    data.trjs.value.customForEach(function(traj) {
                         scene.remove(traj.line);
                     });
                     break;
                 }
                 case 'centroids': {
-                    data.clts.val.customForEach(function(clus) {
+                    data.clts.value.customForEach(function(clus) {
                         scene.remove(clus.centDot);
                     });
                     break;
                 }
                 case 'circles': {
-                    data.clts.val.customForEach(function(clus) {
+                    data.clts.value.customForEach(function(clus) {
                         scene.remove(clus.circMesh);
                     });
                     break;
                 }
                 case 'clusters': {
-                    data.clts.val.customForEach(function(clus) {
+                    data.clts.value.customForEach(function(clus) {
                         scene.remove(clus.membDots);
                     });
-                    scene.remove(draw.errors);
+                    scene.remove(draw.errs);
                     break;
                 }
                 case 'graph': {
-                    data.trjs.val.customForEach(function(traj) {
+                    data.trjs.value.customForEach(function(traj) {
                         scene.remove(traj.clusLine);
                     });
                     break;
                 }
                 case 'curves': {
-                    data.trjs.val.customForEach(function(traj) {
+                    data.trjs.value.customForEach(function(traj) {
                         scene.remove(traj.anchLine);
                     });
                     break;
                 }
                 case 'groundtruth': {
-                    data.grts.val.customForEach(function(traj) {
+                    data.grts.value.customForEach(function(traj) {
                         scene.remove(traj.line);
                     });
                     break;
@@ -4373,23 +4367,23 @@
                     break;
                 }
                 case 'trjs': {
-                    data.trjs.val.customForEach(function(traj) {
+                    data.trjs.value.customForEach(function(traj) {
                         traj.emptyDrawing();
                     });
                     break;
                 }
                 case 'clts': {
-                    data.clts.val.customForEach(function(clus) {
+                    data.clts.value.customForEach(function(clus) {
                         clus.emptyClusterDrawing();
                     });
                     break;
                 }
-                case 'errors': {
-                    draw.errors = null;
+                case 'errs': {
+                    draw.errs = null;
                     break;
                 }
                 case 'grts': {
-                    data.grts.val.customForEach(function(traj) {
+                    data.grts.value.customForEach(function(traj) {
                         traj.emptyDrawing();
                     });
                     break;
@@ -4403,36 +4397,36 @@
                 case 'trjs': {
                     data.trjs = {
                         valid: false,
-                        val: [],
+                        value: [],
                     };
                     break;
                 }
                 case 'clts': {
                     data.clts = {
                         valid: false,
-                        val: [],
+                        value: [],
                     };
                     break;
                 }
                 case 'edgs': {
                     data.edgs = {
                         valid: false,
-                        val: [],
+                        value: [],
                     };
                     break;
                 }
-                case 'errors': {
-                    data.errors = {
+                case 'errs': {
+                    data.errs = {
                         valid: false,
-                        val: [],
+                        value: [],
                     };
-                    draw.errors = null;
+                    draw.errs = null;
                     break;
                 }
                 case 'grts': {
                     data.grts = {
                         valid: false,
-                        val: [],
+                        value: [],
                     };
                     break;
                 }
@@ -4446,7 +4440,7 @@
     } //three.js
     function deleteTrajectoryData() {
         hideTrajectoryDrawings();
-        deleteData(['trjs', 'clts', 'edgs', 'errors', 'grts']);
+        deleteData(['trjs', 'clts', 'edgs', 'errs', 'grts']);
     }
 
     function hideGroundtruthTrajectories() {
@@ -4463,11 +4457,11 @@
     }
     function deleteClusterTrajectories() {
         hideClusterTrajectories();
-        data.trjs.val.customForEach(function(traj) {
+        data.trjs.value.customForEach(function(traj) {
             traj.emptyClusterData();
         });
         data.clts.valid = false;
-        deleteData(['clts', 'edgs', 'errors']);
+        deleteData(['clts', 'edgs', 'errs']);
     }
 
     //--Everything------------------------------------------------------------------------------------------------------
