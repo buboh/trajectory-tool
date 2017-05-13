@@ -2217,7 +2217,7 @@
         raycaster.linePrecision = threePar.rayc.linePrec;
         mouse = new THREE.Vector2();
         window.addEventListener('click', onMouseClick, false);
-        window.addEventListener('mousemove', hoverDetector, false);
+        //window.addEventListener('mousemove', hoverDetector, false);
     } //three.js
 
 //--UPDATE--------------------------------------------------------------------------------------------------------------
@@ -2833,7 +2833,8 @@
             o.info.createDiv();
             infoDiv.appendChild(o.info.div);
 
-        } else if(os.length === 2) {
+        }
+        else if(os.length === 2) {
 
             let infos = {
                 basic: {
@@ -2871,7 +2872,8 @@
 
             for(let type in infos) {
                 for(let item in infos[type]) {
-                    tempInfo.push([item, infos[type][item][0], infos[type][item][1], combineInfos(item, infos[type][item][0], infos[type][item][1])]);
+                    tempInfo.push([item, infos[type][item][0], infos[type][item][1],
+                        combineInfos(item, infos[type][item][0], infos[type][item][1])]);
                 }
             }
             //  "-"]); //
@@ -2906,7 +2908,6 @@
                         arr.push(str);
 
                     } else {
-
                         arr.push(line[i]);
                     }
                 }
@@ -2925,23 +2926,89 @@
                 o.info = info;
             });
 
+        }
+        else {
 
-        } else {
+            let infos = {
+                basic: {
+                    info: [],
+                },
+                analysis: {
+                    info: [],
+                },
+                extensive: {
+                    info: [],
+                },
+            };
 
-            //placeholder
-            os.customForEach(function (o) {
+            os.customForEach(function(o) {
                 if (o.type !== 'errors') {
-                    if (bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
-                    if (bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
-                    if (bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
+                    if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
+                    if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
+                    if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
                 } else {
-                    tempInfo.push(["Number of Errors: ", o.userData.length]);
+                    //tempInfo.push(["Number of Errors: ", o.userData.length]);
                 }
             });
 
+            for(let type in infos) {
+                for(let it in infos[type].info[0]) {
+                    infos[type][it] = [];
+                }
+                for(let obj in infos[type].info) {
+                    for(let item in infos[type].info[obj]) {
+                        infos[type][item].push(infos[type].info[obj][item]);
+                    }
+                }
+                delete infos[type].info;
+            }
+
+            for(let type in infos) {
+                for(let item in infos[type]) {
+                    tempInfo.push([item, combineInfos(item, ...infos[type][item])]);
+                }
+            }
+            //ToDo: getDescription(item) function that replaces the desc for single objs with the one for multiple
+
+            const ti = [];
+            tempInfo.customForEach(function(line) {
+
+                let arr = [line[0]];
+
+                for(let i = 1; i < line.length; i++) {
+
+                    if(line[i] instanceof Array) {
+
+                        arr.push(line[i].join(","));
+
+                    } else if(line[i] instanceof Set) {
+
+                        let IDs = [];
+                        line[i].forEach(function(c) {
+                            IDs.push(c);
+                        });
+                        IDs.sort((a,b) => (a - b));
+                        arr.push(IDs.join(", "));
+
+                    } else if(line[i] instanceof Object) {
+
+                        let str = "";
+                        for(let o in line[i]) {
+                            str += (line[i][o] + " " + o + " / ");
+                        }
+                        str = str.slice(0,-3);
+                        arr.push(str);
+
+                    } else {
+                        arr.push(line[i]);
+                    }
+                }
+                ti.push(arr);
+            });
+
             const info = new infoCont(
-                ["Description", "Content"],
-                tempInfo
+                ["Description", "Comparison"],
+                ti
             );
 
             info.createDiv();
@@ -2956,62 +3023,164 @@
 
             let r;
 
-            switch(item) {
-                case 'Type':
-                    r = (info[0] === info[1]) ? "==" : "!=";
-                    break;
-                case 'ID':
-                    r = "";
-                    break;
-                case 'Floor':
-                    r = (info[0] === info[1]) ? "==" : "!=";
-                    break;
-                case 'Length':
-                    r = {
-                        'm': Math.trunc((info[1]['m']  - info[0]['m']) * 100) / 100,
-                        'pts': info[1]['pts'] - info[0]['pts'],
-                    };
-                    break;
-                case 'Duration':
-                    r = {
-                        's': Math.trunc(info[1]['s'] - info[0]['s']),
-                    };
-                    break;
-                case 'Avg. speed':
-                    r = {
-                        'km/h': Math.trunc((info[1]['km/h'] - info[0]['km/h']) * 100) / 100,
-                    };
-                    break;
-                case 'Visited clusters':
-                    r = Levenshtein.get(info[0], info[1]); //edit distance
-                    break;
-                case 'Members':
-                    r = info[1] - info[0];
-                    break;
-                case 'Edges':
-                    r = {
-                        'in': info[1]['in'] - info[0]['in'],
-                        'out': info[1]['out'] - info[0]['out'],
-                    };
-                    break;
-                case 'Ts Passing':
-                    r = info[1] - info[0];
-                    break;
-                case 'Origins':
-                case 'Destinations':
-                    r = new Set([...info[0]].filter(x => info[1].has(x)));
-                    if(r.size === 0) r = "-";
-                    break;
-                case 'Centroid':
-                    r = {
-                        'm': Math.trunc(getSpatialDistance(info[0], info[1]) * 100) / 100,
-                    };
-                    break;
-                case '':
-                case '':
-                case '':
-                case '':
+            if(info.length === 2) {
+                switch(item) {
+                    case 'Type':
+                        r = (info[0] === info[1]) ? "==" : "!=";
+                        break;
+                    case 'ID':
+                        r = "";
+                        break;
+                    case 'Floor':
+                        r = (info[0] === info[1]) ? "==" : "!=";
+                        break;
+                    case 'Length':
+                        r = {
+                            'm': Math.trunc((info[1]['m']  - info[0]['m']) * 100) / 100,
+                            'pts': info[1]['pts'] - info[0]['pts'],
+                        };
+                        break;
+                    case 'Duration':
+                        r = {
+                            's': Math.trunc(info[1]['s'] - info[0]['s']),
+                        };
+                        break;
+                    case 'Avg. speed':
+                        r = {
+                            'km/h': Math.trunc((info[1]['km/h'] - info[0]['km/h']) * 100) / 100,
+                        };
+                        break;
+                    case 'Visited clusters':
+                        r = Levenshtein.get(info[0], info[1]); //edit distance
+                        break;
+                    case 'Members':
+                        r = info[1] - info[0];
+                        break;
+                    case 'Edges':
+                        r = {
+                            'in': info[1]['in'] - info[0]['in'],
+                            'out': info[1]['out'] - info[0]['out'],
+                        };
+                        break;
+                    case 'Ts Passing':
+                        r = info[1] - info[0];
+                        break;
+                    case 'Origins':
+                    case 'Destinations':
+                        r = new Set([...info[0]].filter(x => info[1].has(x)));
+                        if(r.size === 0) r = "-";
+                        break;
+                    case 'Centroid':
+                        r = {
+                            'm': Math.trunc(getSpatialDistance(info[0], info[1]) * 100) / 100,
+                        };
+                        break;
+                    case '':
+                    case '':
+                    case '':
+                    case '':
+                }
             }
+            else if(info.length >= 3) {
+                switch(item) {
+                    case 'Type':
+                        let types = groupBy(info, function(item) {return [item]});
+                        r = "";
+                        for(let type in types) {
+                            r += type.slice(2,-2) + ": " + types[type].length;
+                        }
+                        break;
+                    case 'ID':
+                        r = info;
+                        break;
+                    case 'Floor':
+                        let floors = groupBy(info, function(item) {return [item]});
+                        r = "";
+                        for(let floor in floors) {
+                            r += "Floor " + floor.slice(1,-1) + ": " + floors[floor].length;
+                        }
+                        break;
+                    case 'Length':
+                        r = {
+                            'm': 0,
+                            'pts': 0,
+                        };
+                        info.customForEach(function(i) {
+                            r['m'] += i['m'];
+                            r['pts'] += i['pts'];
+                        });
+                        r['m'] = Math.trunc((r['m'] / info.length) * 100) / 100;
+                        r['pts'] = Math.trunc((r['pts'] / info.length) * 100) / 100;
+                        break;
+                    case 'Duration':
+                        r = {
+                            's': 0,
+                        };
+                        info.customForEach(function(i) {
+                            r['s'] += i['s'];
+                        });
+                        r['s'] = Math.trunc((r['s'] / info.length) * 100) / 100;
+                        break;
+                    case 'Avg. speed':
+                        r = {
+                            'km/h': 0,
+                        };
+                        info.customForEach(function(i) {
+                            r['km/h'] += i['km/h'];
+                        });
+                        r['km/h'] = Math.trunc((r['km/h'] / info.length) * 100) / 100;
+                        break;
+                    case 'Visited clusters':
+                        const visited = new Set();
+                        info.customForEach(function(v) {
+                            v.customForEach(function(c) {
+                                visited.add(c);
+                            });
+                        });
+                        r = visited;
+                        break;
+                    case 'Members':
+                        r = 0;
+                        info.customForEach(function(i) {
+                            r += i;
+                        });
+                        r = Math.trunc((r / info.length) * 100) / 100;
+                        break;
+                    case 'Edges':
+                        r = {
+                            'in': 0,
+                            'out': 0,
+                        };
+                        info.customForEach(function(i) {
+                            r['in'] += i['in'];
+                            r['out'] += i['out'];
+                        });
+                        r['in'] = Math.trunc((r['in'] / info.length) * 100) / 100;
+                        r['out'] = Math.trunc((r['out'] / info.length) * 100) / 100;
+                        break;
+                    case 'Ts Passing':
+                        r = 0;
+                        info.customForEach(function(i) {
+                            r += i;
+                        });
+                        r = Math.trunc((r / info.length) * 100) / 100;
+                        break;
+                    case 'Origins':
+                    case 'Destinations':
+                        //r = new Set([...info[0]].filter(x => info[1].has(x)));
+                        //if(r.size === 0) r = "-";
+                        r = "";
+                        break;
+                    case 'Centroid':
+                        r = "";
+                        break;
+                    case '':
+                    case '':
+                    case '':
+                    case '':
+                }
+            }
+
             return r;
         }
     }
