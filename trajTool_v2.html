@@ -1314,10 +1314,10 @@
             return this.f;
         },
         set floor(val) {
-            if (val !== this.f) {
+            //if (val !== this.f) {
                 this.f = val;
                 this.fListener();
-            }
+            //}
         },
 
         s: guiPar.sliders.scale.init, //building scale
@@ -3270,13 +3270,32 @@
             const fileType = /image.*/;
 
             if(file.type.match(fileType)) {
-                bd.filePath = fileName.slice(0, -5);
+
+                deleteEverything();
+
+                let f = '';
+                let first = -1;
+
+                for (let i = 0, len = fileName.length; i < len; i++) {
+
+                    const m = fileName[i].match(/\d+/g);
+
+                    if(m || (fileName[i] === '-')) {
+
+                        f += fileName[i];
+                        if(first === -1) first = i;
+
+                    }
+                }
+
+                bd.filePath = fileName.slice(0, first);
                 bd.fileExt = fileName.slice(-4, fileName.length);
+                bd.floor = parseInt(f);
 
                 //bd.img = file;
 
-                deleteEverything();
-                changeFloors();
+
+                //changeFloors();
             } else {
                 alert("File not supported");
             }
@@ -3398,7 +3417,7 @@
 
         const fLineTypes = gui.addFolder(guiPar.folders.lineTypes.name);
         fLineTypes.add(bd, guiPar.sliders.floor.func, guiPar.sliders.floor.min, guiPar.sliders.floor.max)
-                        .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name);
+                        .step(guiPar.sliders.floor.step).name(guiPar.sliders.floor.name).listen();
         for(let ch in guiPar.checkboxes.lineTypes.choices) {
             if(guiPar.checkboxes.lineTypes.choices.hasOwnProperty(ch)) {
                 fLineTypes.add(bd.lt, ch).name(guiPar.checkboxes.lineTypes.choices[ch].name);
