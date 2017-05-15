@@ -2718,7 +2718,7 @@
             });
         }*/
     }
-    function clickCluster(clus, centDot, circMesh, membDots) {
+    function clickCluster(color, clus, centDot, circMesh, membDots) {
         if (clus.centDot && centDot) {
             clus.centDot.material.color.set(color);
             clus.centDot.material.needsUpdate = true;
@@ -3186,8 +3186,10 @@
     }
     function unShowInfo(interaction, ...os) {
         for(let o in os) {
-            if(os.hasOwnProperty(o) && os[o].info.div) {
-                document.getElementById('infoDiv').removeChild(os[o].info.div);
+            if(os.hasOwnProperty(o) && os[o].info) {
+                if(document.getElementById('infoDiv')) {
+                    document.getElementById('infoDiv').removeChild(os[o].info.div);
+                }
                 break;
             }
         }
