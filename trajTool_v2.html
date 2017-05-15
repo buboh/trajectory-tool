@@ -3390,7 +3390,8 @@
                         groundtruthList = loadGroundtruthList(result);
                         const sortedGts = [];
                         groundtruthList.customForEach(function(gt) {
-                            sortedGts.push(sortAndGroupList(gt, true, par.gt.cutTime));
+                            //sortedGts.push(sortAndGroupList(gt, true, par.gt.cutTime));
+                            sortedGts.push(sortAndGroupList(gt, false, par.tj.cutTime));
                         });
                         sortedGts.customForEach(function(gt) {
                             newGroundtruth(gt);
@@ -3631,8 +3632,9 @@
 
             const tempList = parseCSV(file);
 
-            //tempList.splice(0, par.csv.removeCount);
-            //tempList.splice(-par.csv.removeCount);
+            //ToDo: temporarily reinstated, remove splices
+            tempList.splice(0, par.csv.removeCount);
+            tempList.splice(-par.csv.removeCount);
 
             tempList.customForEach(function (point) {
                 const p = new Point(point);
@@ -3842,7 +3844,7 @@
         }
     }
     function newGroundtruth(pL) {
-        const pointListByDIDByTimeByFloor = pL;
+        /*const pointListByDIDByTimeByFloor = pL;
 
         for(let did in pointListByDIDByTimeByFloor) {
             if(pointListByDIDByTimeByFloor.hasOwnProperty(did)) {
@@ -3869,6 +3871,81 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }*/
+
+        const pointListByDIDByTimeByFloor = pL;
+
+        for(let did in pointListByDIDByTimeByFloor) {
+            if(pointListByDIDByTimeByFloor.hasOwnProperty(did)) {
+                for(let t in pointListByDIDByTimeByFloor[did]) {
+                    if(pointListByDIDByTimeByFloor[did].hasOwnProperty(t)) {
+
+                        const points = pointListByDIDByTimeByFloor[did][t];
+                        let currentFloor = pointListByDIDByTimeByFloor[did][t][0].f;
+                        let pointsList = [];
+                        let tempList = [];
+
+                        for (let p = 0; p < points.length; p++) {
+
+                            if(currentFloor === points[p].f) {
+                                tempList.push(points[p]);
+                            } else {
+                                points[p].floorChangeFrom = points[p-1];
+                                currentFloor = points[p].f;
+                                points[p-1].floorChangeTo = points[p];
+                                pointsList.push(tempList);
+                                tempList = [];
+                                tempList.push(points[p]);
+                            }
+                        }
+                        pointsList.push(tempList);
+
+                        pointsList.customForEach(function(list) {
+
+                            if(list.length > 1) {
+
+                                const tempTrajectory = new Trajectory(list, list[0].f, null);
+
+
+                                list.customForEach(function(p) {
+                                    p.trajectory = tempTrajectory;
+                                });
+
+                                data.grts.value.push(tempTrajectory);
+                            }
+                        });
+
+                        /*data.grts.value.customForEach(function(tempTrajectory) {
+
+                            let tempPrevPoint = tempTrajectory.rawPoints[0];
+                            if(tempPrevPoint.floorChangeFrom) {
+                                tempTrajectory.floorChangeFrom =
+                                    tempPrevPoint.floorChangeFrom.trajectory; // || tempPrevPoint.floorChangeFrom;
+
+                                /!*if(tempTrajectory.floorChangeFrom.floorChangeTo instanceof Point) {
+                                 tempTrajectory.floorChangeFrom.floorChangeTo = tempTrajectory;
+                                 }*!/
+                            }
+
+                            for (let p = 0; p < tempTrajectory.rawPoints.length; p++) {
+
+                                tempTrajectory.rawPoints[p].trajectory = tempTrajectory;
+
+                                tempPrevPoint = tempTrajectory.rawPoints[p];
+                            }
+
+                            if(tempPrevPoint.floorChangeTo) {
+                                tempTrajectory.floorChangeTo =
+                                    tempPrevPoint.floorChangeTo.trajectory; // || tempPrevPoint.floorChangeTo;
+
+                                /!*if(tempTrajectory.floorChangeTo.floorChangeFrom instanceof Point) {
+                                 tempTrajectory.floorChangeTo.floorChangeFrom = tempTrajectory;
+                                 }*!/
+                            }
+                        });*/
                     }
                 }
             }
@@ -4228,7 +4305,9 @@
     }
     function makeCircle(clus) {
         const circleGeom = makeCircleGeometry(bd.maxRadius / 2, clus.centroid, par.ct.circles.corrZ);
-        clus.circMesh = createCircle(circleGeom, clus.color, par.ct.circles.opacity, true, null);//clus.centroid);
+        //squares
+        //const circleGeom = makeSquareGeometry(bd.maxRadius, clus.centroid, par.ct.circles.corrZ);
+        clus.circMesh = createCircle(circleGeom, clus.color, par.ct.circles.opacity, true, null);
     }
     function makeCluster(clus) {
         const members = new THREE.Group();
@@ -4276,6 +4355,11 @@
         circleGeom.translate(point.x, -point.y, point.f * 10 + corrZ);
         return circleGeom;
     } //three.js
+    function makeSquareGeometry(length, point, corrZ) {
+        const squareGeom = new THREE.PlaneGeometry(length, length);
+        squareGeom.translate(point.x, -point.y, point.f * 10 + corrZ);
+        return squareGeom;
+    }
     function makeLineSegGeom(lineSeg) {
         const lineSegGeom = new THREE.Geometry();
         lineSegGeom.vertices.push(new THREE.Vector3(lineSeg.start.x, -lineSeg.start.y, lineSeg.start.f));
