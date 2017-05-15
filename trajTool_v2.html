@@ -2217,7 +2217,7 @@
         raycaster.linePrecision = threePar.rayc.linePrec;
         mouse = new THREE.Vector2();
         window.addEventListener('click', onMouseClick, false);
-        //window.addEventListener('mousemove', hoverDetector, false);
+        window.addEventListener('mousemove', hoverDetector, false);
     } //three.js
 
 //--UPDATE--------------------------------------------------------------------------------------------------------------
@@ -2814,7 +2814,9 @@
 
                     let str = "";
                     for(let o in line[i]) {
-                        str += (line[i][o] + " " + o + " / ");
+                        if(line[i].hasOwnProperty(o)){
+                            str += (line[i][o] + " " + o + " / ");
+                        }
                     }
                     str = str.slice(0,-3);
                     arr.push(str);
@@ -2860,11 +2862,17 @@
 
             for(let type in infos) {
                 for(let it in infos[type].info[0]) {
-                    infos[type][it] = [];
+                    if(infos[type].info[0].hasOwnProperty(it)) {
+                        infos[type][it] = [];
+                    }
                 }
                 for(let obj in infos[type].info) {
-                    for(let item in infos[type].info[obj]) {
-                        infos[type][item].push(infos[type].info[obj][item]);
+                    if(infos[type].info.hasOwnProperty(obj)) {
+                        for(let item in infos[type].info[obj]) {
+                            if(infos[type].info[obj].hasOwnProperty(item)) {
+                                infos[type][item].push(infos[type].info[obj][item]);
+                            }
+                        }
                     }
                 }
                 delete infos[type].info;
@@ -2872,8 +2880,10 @@
 
             for(let type in infos) {
                 for(let item in infos[type]) {
-                    tempInfo.push([item, infos[type][item][0], infos[type][item][1],
-                        combineInfos(item, infos[type][item][0], infos[type][item][1])]);
+                    if(infos[type].hasOwnProperty(item)) {
+                        tempInfo.push([item, infos[type][item][0], infos[type][item][1],
+                            combineInfos(item, infos[type][item][0], infos[type][item][1])]);
+                    }
                 }
             }
             //  "-"]); //
@@ -2902,7 +2912,9 @@
 
                         let str = "";
                         for(let o in line[i]) {
-                            str += (line[i][o] + " " + o + " / ");
+                            if(line[i].hasOwnProperty(o)){
+                                str += (line[i][o] + " " + o + " / ");
+                            }
                         }
                         str = str.slice(0,-3);
                         arr.push(str);
@@ -2952,20 +2964,28 @@
             });
 
             for(let type in infos) {
-                for(let it in infos[type].info[0]) {
-                    infos[type][it] = [];
-                }
-                for(let obj in infos[type].info) {
-                    for(let item in infos[type].info[obj]) {
-                        infos[type][item].push(infos[type].info[obj][item]);
+                for (let it in infos[type].info[0]) {
+                    if (infos[type].info[0].hasOwnProperty(it)) {
+                        infos[type][it] = [];
                     }
                 }
-                delete infos[type].info;
+                for (let obj in infos[type].info) {
+                    if (infos[type].info.hasOwnProperty(obj)) {
+                        for (let item in infos[type].info[obj]) {
+                            if (infos[type].info[obj].hasOwnProperty(item)) {
+                                infos[type][item].push(infos[type].info[obj][item]);
+                            }
+                        }
+                    }
+                    delete infos[type].info;
+                }
             }
 
             for(let type in infos) {
                 for(let item in infos[type]) {
-                    tempInfo.push([item, combineInfos(item, ...infos[type][item])]);
+                    if (infos[type].hasOwnProperty(item)) {
+                        tempInfo.push([item, combineInfos(item, ...infos[type][item])]);
+                    }
                 }
             }
             //ToDo: getDescription(item) function that replaces the desc for single objs with the one for multiple
@@ -2994,7 +3014,9 @@
 
                         let str = "";
                         for(let o in line[i]) {
-                            str += (line[i][o] + " " + o + " / ");
+                            if(line[i].hasOwnProperty(o)){
+                                str += (line[i][o] + " " + o + " / ");
+                            }
                         }
                         str = str.slice(0,-3);
                         arr.push(str);
