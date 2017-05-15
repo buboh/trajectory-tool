@@ -1906,7 +1906,7 @@
         }
 
 
-        getExtensiveInfo() {return {'Hey': 'guy!'}}
+        getExtensiveInfo() {return {}}
     }
     class Cluster {
         constructor() {
@@ -2551,6 +2551,12 @@
                         if(obj.state === 'clicked') {
                             let k = 0;
                         } else {
+                            INTERSECTED.forEach(function(o) {
+                                unHighlight('click', o);
+                            });
+                            unShowInfo('click', ...INTERSECTED);
+                            INTERSECTED.clear();
+
                             highlight(obj, threePar.rayc.clickColor);
                             showInfo(obj);
                             obj.state = 'clicked';
@@ -4719,7 +4725,7 @@
     }
     function hideAllGrids() {
         hideDrawing(['grds']);
-        flags.view.grid = false;
+        bd.grid = false;
     }
     function deleteAllGrids() {
         hideDrawing(['grds']);
