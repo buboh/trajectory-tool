@@ -1094,7 +1094,7 @@
             bgLoader: {
                 func: 'loadBuildingFile',
                 name: 'Load building',
-                initPath: 'white-',
+                initPath: 'LUCI_neu_',
                 initExt: '.png',
             },
             dataLoader: {
@@ -1162,7 +1162,7 @@
                 min: 1,
                 max: 2,
                 step: 0.1,
-                init: 1.2,
+                init: 1, //1.2,
             },
             floor: {
                 func: 'floor',
@@ -1192,6 +1192,11 @@
                     analysis: {name: 'Analysis', init: true},
                     extensive: {name: 'Extensive', init: true},
                 }
+            },
+            toggleGrid: {
+                func: 'grid',
+                name: 'Show grid',
+                init: false,
             }
         }
 
@@ -1292,6 +1297,19 @@
             return this.w / this.h;
         },
 
+        g: guiPar.checkboxes.toggleGrid.init,
+        gListener: function() {
+            toggleAllGrids();
+        },
+        get grid() {
+            return this.g;
+        },
+        set grid(val) {
+            if (val !== this.g) {
+                this.g = val;
+                this.gListener();
+            }
+        },
         z: guiPar.sliders.zoom.init,
         zListener: function() {
             updateCamera();
@@ -1302,7 +1320,7 @@
         set zoom(val) {
             if (val !== this.z) {
                 this.z = val;
-                this.zListener(val);
+                this.zListener();
             }
         },
 
@@ -1470,9 +1488,6 @@
         },
     };
     const flags = {
-        view: {
-            grid: false,
-        },
         dom: {
             infoDivCount: 0,
         },
@@ -1787,7 +1802,7 @@
 
                 const alpha = 0.5;
 
-                const tempScale = chroma.scale([cA.color, cB.color]);
+                const tempScale = chroma.scale([cA.cluster.color, cB.cluster.color]);
 
                 const p = new Anchor({
                     x: alpha * cA.x + (1 - alpha) * cB.x,
@@ -2977,8 +2992,8 @@
                             }
                         }
                     }
-                    delete infos[type].info;
                 }
+                delete infos[type].info;
             }
 
             for(let type in infos) {
@@ -3410,7 +3425,7 @@
                         .step(guiPar.sliders.scale.step).name(guiPar.sliders.scale.name);
 
         const fViewSettings = gui.addFolder(guiPar.folders.viewSettings.name);
-        fViewSettings.add(this, guiPar.buttons.toggleGrid.func).name(guiPar.buttons.toggleGrid.name);
+        fViewSettings.add(bd, guiPar.checkboxes.toggleGrid.func).name(guiPar.checkboxes.toggleGrid.name);
         fViewSettings.add(bd, guiPar.sliders.zoom.func, guiPar.sliders.zoom.min, guiPar.sliders.zoom.max)
                             .step(guiPar.sliders.zoom.step).name(guiPar.sliders.zoom.name);
         fViewSettings.add(this, guiPar.buttons.screenshot.func).name(guiPar.buttons.screenshot.name);
@@ -3561,8 +3576,7 @@
         });
 
         data.grds[floor].drawing = new THREE.LineSegments(coordGeometry, coordMaterial);
-        scene.add(data.grds[floor].drawing);
-        flags.view.grid = true;
+        if(bd.grid) scene.add(data.grds[floor].drawing);
     } //three.js -- disabled
 
 //--LOAD-TRAJECTORIES---------------------------------------------------------------------------------------------------
@@ -4695,14 +4709,12 @@
 
     //--Grids-----------------------------------------------------------------------------------------------------------
     function toggleAllGrids() {
-        if(flags.view.grid) {
-            hideDrawing(['grds']);
-            flags.view.grid = false;
-        } else {
+        if(bd.grid) {
             for(let f in data.grds) {
                 scene.add(data.grds[f].drawing);
             }
-            flags.view.grid = true;
+        } else {
+            hideDrawing(['grds']);
         }
     }
     function hideAllGrids() {
