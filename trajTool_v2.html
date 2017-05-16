@@ -3242,7 +3242,7 @@
     }
 
     //temp code inside
-    function onDocumentMouseMove(event){
+    function onDocumentMouseMove(event) {
         // the following line would stop any other event handler from firing
         // (such as the mouse's TrackballControls)
         // event.preventDefault();
@@ -4011,12 +4011,7 @@
 
         data.edgs.valid = false;
         data.clts.value.customForEach(function(clus) {
-            clus.nextClusters.forEach(function(nextClus) {
-                const edge = new Edge(clus, nextClus);
-                clus.addEdge(edge);
-                nextClus.addEdge(edge);
-                data.edgs.value.push(edge);
-            });
+            createEdges(clus);
         });
         data.edgs.valid = true;
     }
@@ -4283,6 +4278,15 @@
     }
     function getSpatialDistance(p1, p2) {
         return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    }
+
+    function createEdges(clus) {
+        clus.nextClusters.forEach(function(nextClus) {
+            const edge = new Edge(clus, nextClus);
+            clus.addEdge(edge);
+            nextClus.addEdge(edge);
+            data.edgs.value.push(edge);
+        });
     }
 
 //--MAKE-(THREE.JS)-----------------------------------------------------------------------------------------------------
