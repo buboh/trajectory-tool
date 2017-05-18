@@ -1176,7 +1176,7 @@
         checkboxes: {
             lineTypes: {
                 choices: {
-                    points: {name: 'Dots', init: true},
+                    points: {name: 'Points', init: true},
                     lines: {name: 'Lines', init: false},
                     centroids: {name: 'Centroids', init: false},
                     circles: {name: 'Circles', init: false},
@@ -2271,7 +2271,7 @@
         //const screenshot = renderer.domElement.toDataURL();
         //console.log(screenshot);
         ReImg.fromCanvas(renderer.domElement).downloadPng();
-    }
+    } //three.js, ReImg
 
 //--HELPERS-------------------------------------------------------------------------------------------------------------
 
@@ -2820,7 +2820,7 @@
                 if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
                 if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
             } else {
-                //tempInfo.push(["Number of Errors: ", o.userData.length]);
+                tempInfo.push(["Number of Errors: ", o.userData.length]);
             }
         });
 

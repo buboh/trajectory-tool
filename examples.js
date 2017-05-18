@@ -56,3 +56,32 @@ result = {
     age: 24,
     gender: 'male'
 };
+
+
+
+function createLine(geom, color, opa, trans, vColors, shad, userData={}) {
+    const mat = new THREE.LineBasicMaterial(
+        {
+            color: color,
+            opacity: opa,
+            transparent: trans,
+            vertexColors: vColors,
+            shading: shad
+        }
+    );
+    const line = new THREE.Line(geom, mat);
+    line.userData = userData;
+    return line;
+} //three.js
+function createCircle(geom, color, opa, trans, userData={}) {
+    const mat = new THREE.MeshBasicMaterial(
+        {
+            color: color,
+            opacity: opa,
+            transparent: trans
+        }
+    );
+    const circle = new THREE.Mesh(geom, mat);
+    circle.userData = userData;
+    return circle;
+}
