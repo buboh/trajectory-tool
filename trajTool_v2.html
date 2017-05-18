@@ -2956,7 +2956,7 @@
                         break;
                     case 'Centroid':
                         r = {
-                            'm': Math.trunc(getSpatialDistance(info[0], info[1]) * 100) / 100,
+                            'm': Math.trunc(getEuclidianDistance(info[0], info[1]) * 100) / 100,
                         };
                         break;
                     case '':
@@ -3933,7 +3933,7 @@
                 const pA = points[i];
                 const pB = points[i + 1];
 
-                const D = getSpatialDistance(pA, pB);
+                const D = getEuclidianDistance(pA, pB);
                 let d = D;
                 while (d > r) {
                     const vh = ( r + ( D - d ) ) / D;// t not interpolated!! f not interpolated
@@ -4132,7 +4132,7 @@
 
                 for(let c in G.grid[k][m]) {
                     if(G.grid[k][m].hasOwnProperty(c)) {
-                        if(((getSpatialDistance(p, G.grid[k][m][c])) <= bd.maxRadius) && (p.f === G.grid[k][m][c].f)) {
+                        if(((getEuclidianDistance(p, G.grid[k][m][c])) <= bd.maxRadius) && (p.f === G.grid[k][m][c].f)) {
                             C.push(G.grid[k][m][c]);
                         }
                     }
@@ -4147,7 +4147,7 @@
         } else {
             let ck = C[0];
             C.customForEach(function(c) {
-                if (getSpatialDistance(c, p) <= getSpatialDistance(ck, p)) {
+                if (getEuclidianDistance(c, p) <= getEuclidianDistance(ck, p)) {
                     ck = c;
                 }
             });
@@ -4160,7 +4160,7 @@
             j: Math.floor(( p.y - G.yMin ) / bd.maxRadius)
         };
     }
-    function getSpatialDistance(p1, p2) {
+    function getEuclidianDistance(p1, p2) {
         return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
     }
 
