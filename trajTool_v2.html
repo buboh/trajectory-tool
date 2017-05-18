@@ -1852,7 +1852,7 @@
         }
 
         getBasicInfo() {
-            const lM = Math.round(this.getLengthInMeters() * 100) / 100;
+            const lM = this.getLengthInMeters();
             const lP = this.rawPoints.length;
             const dur = this.getDurationInS();
             const speed = Math.round((lM / dur) * 360) / 100;
@@ -1879,7 +1879,7 @@
                 l += Math.sqrt((rp[i].x - rp[i+1].x) * (rp[i].x - rp[i+1].x) +
                                 (rp[i].y - rp[i+1].y) * (rp[i].y - rp[i+1].y));
             }
-            return l;
+            return Math.round(l * 100) / 100;
         }
         getDurationInS() {
             return Math.trunc((this.rawPoints[this.rawPoints.length - 1].t - this.rawPoints[0].t) / 1000);
@@ -2801,103 +2801,47 @@
     function showInfo(...os) {
 
         const tempInfo = [];
+        let infos = {
+            basic: {
+                info: [],
+            },
+            analysis: {
+                info: [],
+            },
+            extensive: {
+                info: [],
+            },
+        };
+        let info;
+
+        os.customForEach(function(o) {
+            if (o.type !== 'error') {
+                if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
+                if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
+                if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
+            } else {
+                //tempInfo.push(["Number of Errors: ", o.userData.length]);
+            }
+        });
+
+        infos = reorderInfo(infos);
 
         if(os.length === 1) {
 
-            const o = os[0];
-            if(o.type !== 'error') {
-                if(bd.iT.basic) tempInfo.push(...o.userData.getBasicInfo().toArray());
-                if(bd.iT.analysis) tempInfo.push(...o.userData.getAnalysisInfo().toArray());
-                if(bd.iT.extensive) tempInfo.push(...o.userData.getExtensiveInfo().toArray());
-            } else {
-                tempInfo.push(["Number of Errors: ", o.userData.length]);
-            }
-
-            const ti = [];
-            tempInfo.customForEach(function(line) {
-                let arr = [line[0]];
-                const i = 1;
-
-                if(line[i] instanceof Array) {
-
-                    arr.push(line[i].join(","));
-
-                } else if(line[i] instanceof Set) {
-
-                    let IDs = [];
-                    line[i].forEach(function(c) {
-                        IDs.push(c);
-                    });
-                    IDs.sort((a,b) => (a - b));
-                    arr.push(IDs.join(", "));
-
-                } else if(line[i] instanceof Object) {
-
-                    let str = "";
-                    for(let o in line[i]) {
-                        if(line[i].hasOwnProperty(o)){
-                            str += (line[i][o] + " " + o + " / ");
-                        }
-                    }
-                    str = str.slice(0,-3);
-                    arr.push(str);
-
-                } else {
-
-                    arr.push(line[i]);
-                }
-                ti.push(arr);
-            });
-
-            o.info = new infoCont(
-                ["Description", "Content"],
-                ti
-            );
-            o.info.createDiv();
-            infoDiv.appendChild(o.info.div);
-
-        }
-        else if(os.length === 2) {
-
-            let infos = {
-                basic: {
-                    info: [],
-                },
-                analysis: {
-                    info: [],
-                },
-                extensive: {
-                    info: [],
-                },
-            };
-
-            os.customForEach(function(o) {
-                if (o.type !== 'error') {
-                    if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
-                    if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
-                    if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
-                } else {
-                    //tempInfo.push(["Number of Errors: ", o.userData.length]);
-                }
-            });
-
             for(let type in infos) {
-                for(let it in infos[type].info[0]) {
-                    if(infos[type].info[0].hasOwnProperty(it)) {
-                        infos[type][it] = [];
+                for(let item in infos[type]) {
+                    if(infos[type].hasOwnProperty(item)) {
+                        tempInfo.push([item, infos[type][item][0]]);
                     }
                 }
-                for(let obj in infos[type].info) {
-                    if(infos[type].info.hasOwnProperty(obj)) {
-                        for(let item in infos[type].info[obj]) {
-                            if(infos[type].info[obj].hasOwnProperty(item)) {
-                                infos[type][item].push(infos[type].info[obj][item]);
-                            }
-                        }
-                    }
-                }
-                delete infos[type].info;
             }
+
+            info = new infoCont(
+                ["Description", "Content"],
+                writeInfo(tempInfo)
+            );
+
+        } else if(os.length === 2) {
 
             for(let type in infos) {
                 for(let item in infos[type]) {
@@ -2907,100 +2851,13 @@
                     }
                 }
             }
-            //  "-"]); //
 
-            const ti = [];
-            tempInfo.customForEach(function(line) {
-
-                let arr = [line[0]];
-
-                for(let i = 1; i < line.length; i++) {
-
-                    if(line[i] instanceof Array) {
-
-                        arr.push(line[i].join(","));
-
-                    } else if(line[i] instanceof Set) {
-
-                        let IDs = [];
-                        line[i].forEach(function(c) {
-                            IDs.push(c);
-                        });
-                        IDs.sort((a,b) => (a - b));
-                        arr.push(IDs.join(", "));
-
-                    } else if(line[i] instanceof Object) {
-
-                        let str = "";
-                        for(let o in line[i]) {
-                            if(line[i].hasOwnProperty(o)){
-                                str += (line[i][o] + " " + o + " / ");
-                            }
-                        }
-                        str = str.slice(0,-3);
-                        arr.push(str);
-
-                    } else {
-                        arr.push(line[i]);
-                    }
-                }
-                ti.push(arr);
-            });
-
-            const info = new infoCont(
+            info = new infoCont(
                 ["Description", "Content 1", "Content 2", "Comparison 1:2"],
-                ti
+                writeInfo(tempInfo)
             );
 
-            info.createDiv();
-            infoDiv.appendChild(info.div);
-
-            os.customForEach(function (o) {
-                o.info = info;
-            });
-
-        }
-        else {
-
-            let infos = {
-                basic: {
-                    info: [],
-                },
-                analysis: {
-                    info: [],
-                },
-                extensive: {
-                    info: [],
-                },
-            };
-
-            os.customForEach(function(o) {
-                if (o.type !== 'error') {
-                    if(bd.iT.basic) infos.basic.info.push(o.userData.getBasicInfo());
-                    if(bd.iT.analysis) infos.analysis.info.push(o.userData.getAnalysisInfo());
-                    if(bd.iT.extensive) infos.extensive.info.push(o.userData.getExtensiveInfo());
-                } else {
-                    //tempInfo.push(["Number of Errors: ", o.userData.length]);
-                }
-            });
-
-            for(let type in infos) {
-                for (let it in infos[type].info[0]) {
-                    if (infos[type].info[0].hasOwnProperty(it)) {
-                        infos[type][it] = [];
-                    }
-                }
-                for (let obj in infos[type].info) {
-                    if (infos[type].info.hasOwnProperty(obj)) {
-                        for (let item in infos[type].info[obj]) {
-                            if (infos[type].info[obj].hasOwnProperty(item)) {
-                                infos[type][item].push(infos[type].info[obj][item]);
-                            }
-                        }
-                    }
-                }
-                delete infos[type].info;
-            }
+        } else {
 
             for(let type in infos) {
                 for(let item in infos[type]) {
@@ -3011,57 +2868,41 @@
             }
             //ToDo: getDescription(item) function that replaces the desc for single objs with the one for multiple
 
-            const ti = [];
-            tempInfo.customForEach(function(line) {
-
-                let arr = [line[0]];
-
-                for(let i = 1; i < line.length; i++) {
-
-                    if(line[i] instanceof Array) {
-
-                        arr.push(line[i].join(","));
-
-                    } else if(line[i] instanceof Set) {
-
-                        let IDs = [];
-                        line[i].forEach(function(c) {
-                            IDs.push(c);
-                        });
-                        IDs.sort((a,b) => (a - b));
-                        arr.push(IDs.join(", "));
-
-                    } else if(line[i] instanceof Object) {
-
-                        let str = "";
-                        for(let o in line[i]) {
-                            if(line[i].hasOwnProperty(o)){
-                                str += (line[i][o] + " " + o + " / ");
-                            }
-                        }
-                        str = str.slice(0,-3);
-                        arr.push(str);
-
-                    } else {
-                        arr.push(line[i]);
-                    }
-                }
-                ti.push(arr);
-            });
-
-            const info = new infoCont(
+            info = new infoCont(
                 ["Description", "Comparison"],
-                ti
+                writeInfo(tempInfo)
             );
-
-            info.createDiv();
-            infoDiv.appendChild(info.div);
-
-            os.customForEach(function (o) {
-                o.info = info;
-            });
         }
 
+        info.createDiv();
+        infoDiv.appendChild(info.div);
+
+        os.customForEach(function (o) {
+            o.info = info;
+        });
+
+        function reorderInfo(infos) {
+            for(let type in infos) {
+                if(infos.hasOwnProperty(type)) {
+                    for(let it in infos[type].info[0]) {
+                        if(infos[type].info[0].hasOwnProperty(it)) {
+                            infos[type][it] = [];
+                        }
+                    }
+                    for(let obj in infos[type].info) {
+                        if(infos[type].info.hasOwnProperty(obj)) {
+                            for(let item in infos[type].info[obj]) {
+                                if(infos[type].info[obj].hasOwnProperty(item)) {
+                                    infos[type][item].push(infos[type].info[obj][item]);
+                                }
+                            }
+                        }
+                    }
+                    delete infos[type].info;
+                }
+            }
+            return infos;
+        }
         function combineInfos(item, ...info) {
 
             let r;
@@ -3225,6 +3066,49 @@
             }
 
             return r;
+        }
+        function writeInfo(tempInfo) {
+
+            const ti = [];
+
+            tempInfo.customForEach(function(line) {
+
+                let arr = [line[0]];
+
+                for(let i = 1; i < line.length; i++) {
+
+                    if(line[i] instanceof Array) {
+
+                        arr.push(line[i].join(","));
+
+                    } else if(line[i] instanceof Set) {
+
+                        let IDs = [];
+                        line[i].forEach(function(c) {
+                            IDs.push(c);
+                        });
+                        IDs.sort((a,b) => (a - b));
+                        arr.push(IDs.join(", "));
+
+                    } else if(line[i] instanceof Object) {
+
+                        let str = "";
+                        for(let o in line[i]) {
+                            if(line[i].hasOwnProperty(o)){
+                                str += (line[i][o] + " " + o + " / ");
+                            }
+                        }
+                        str = str.slice(0,-3);
+                        arr.push(str);
+
+                    } else {
+                        arr.push(line[i]);
+                    }
+                }
+                ti.push(arr);
+            });
+
+            return ti;
         }
     }
     function unShowInfo(interaction, ...os) {
