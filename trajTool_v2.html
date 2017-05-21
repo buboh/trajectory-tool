@@ -1226,9 +1226,9 @@
             deviationFactor: 0.25, //should be changed depending on number of trajectories on connection
         },
         ln: {
-            color: 0x000000,
-            opacity: 0.4,
-            transparency: true,
+            color: 0x000000,//0xff0000,
+            opacity: 0.4,//1.0,
+            transparency: true, //false,
         },
         ct: {
             size: 1,
@@ -4357,7 +4357,7 @@
                     -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
                     a[i + 1].f * 10),
                 new THREE.Vector3(
-                    a[i + 1].x + traj.deviation * par.tj.deviationFactor,
+                    a[i + 1].x, + traj.deviation * par.tj.deviationFactor,
                     -a[i + 1].y + traj.deviation * par.tj.deviationFactor,
                     a[i + 1].f * 10)
             );
